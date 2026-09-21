@@ -324,6 +324,16 @@ export async function markRewatched(
       .upsert(batch, { onConflict: 'user_id,episode_id', ignoreDuplicates: true })
     if (error) throw error
   }
+  // Sans ça, une série en cours de revisionnage ne remonte jamais en tête de
+  // l'accueil : coche un épisode compte comme activité récente, comme pour
+  // l'historique normal.
+  await touchLastWatched(showId, now)
+}
+
+/** Marque une série comme vue à l'instant, pour le tri de l'accueil par activité. */
+export async function touchLastWatched(showId: number, at: string): Promise<void> {
+  const { error } = await supabase.from('tracked_shows').update({ last_watched_at: at }).eq('show_id', showId)
+  if (error) throw error
 }
 
 export async function unmarkRewatched(ids: number[]): Promise<void> {

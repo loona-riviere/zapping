@@ -9,7 +9,7 @@ import { StatusPicker } from './StatusPicker'
 import { WhereToWatch } from './WhereToWatch'
 
 export function ShowPage({ id }: { id: number }) {
-  const { isTracked, track, untrack, watchedFor, setWatched, isRewatching } = useApp()
+  const { isTracked, track, untrack, watchedFor, historyFor, setWatched, isRewatching } = useApp()
   const [data, setData] = useState<ShowWithEpisodes | null>(null)
   const [error, setError] = useState(false)
   const [catchUp, setCatchUp] = useState<TvEpisode[] | null>(null)
@@ -30,6 +30,11 @@ export function ShowPage({ id }: { id: number }) {
   }, [id])
 
   const watched = watchedFor(id)
+  // Pendant un revisionnage, `watched` ne montre que la passe en cours :
+  // l'historique complet reste consultable à part, pour ne pas perdre de vue
+  // ce qui a déjà été vu avant (ex. saisons pas encore recochées cette fois-ci).
+  const history = historyFor(id)
+  const rewatching = isRewatching(id)
   const seasons = useMemo(() => {
     const map = new Map<number, TvEpisode[]>()
     data?.episodes.forEach((e) => {
@@ -173,11 +178,28 @@ export function ShowPage({ id }: { id: number }) {
         const seen = aired.filter((e) => watched.has(e.id)).length
         const complete = aired.length > 0 && seen === aired.length
         const open = openSeasons.has(season)
+        // Pendant un revisionnage : ce que cette saison portait avant, pour ne
+        // pas perdre de vue une saison déjà vue mais pas encore recochée.
+        const historyCount = rewatching ? aired.filter((e) => history.has(e.id)).length : 0
+        const historyLast = rewatching
+          ? aired.reduce<string | null>((max, e) => {
+              const d = history.get(e.id)
+              return d && (!max || d > max) ? d : max
+            }, null)
+          : null
         return (
           <section key={season} className="season">
             <div className="season__head">
               <h2>Saison {season}</h2>
               <span className="muted">{seen}/{eps.length}</span>
+              {historyCount > 0 && seen < aired.length && (
+                <span
+                  className="muted season__history"
+                  title="Ta progression du visionnage précédent, indépendante de ce revisionnage"
+                >
+                  déjà vue ({historyCount}/{aired.length}){historyLast ? `, dernière fois le ${formatShortDate(historyLast)}` : ''}
+                </span>
+              )}
               {aired.length > 0 && (
                 <button className="link-btn" onClick={() => toggleSeason(eps)}>
                   {complete ? 'Tout décocher' : 'Tout cocher'}
@@ -270,6 +292,10 @@ export function ShowPage({ id }: { id: number }) {
                             {seenAt ? `Vu le ${formatShortDate(seenAt)}` : 'Vu'}
                           </span>
                         )
+                      ) : rewatching && history.has(ep.id) ? (
+                        <span className="eplist__date eplist__date--history" title="Vu lors d'un visionnage précédent">
+                          Déjà vu{history.get(ep.id) ? ` le ${formatShortDate(history.get(ep.id)!)}` : ''}
+                        </span>
                       ) : (
                         ep.airdate && <span className="eplist__date">{formatDate(ep.airstamp ?? ep.airdate)}</span>
                       )}

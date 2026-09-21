@@ -255,6 +255,12 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
             return next
           })
         applyRewatch(value)
+        // Cocher pendant un revisionnage est une vraie activité : sans ça,
+        // la série ne remonterait jamais en tête de l'accueil pendant qu'on
+        // la revoit, faute de last_watched_at mis à jour.
+        if (value) {
+          setTracked((prev) => prev.map((t) => (t.show_id === show.id ? { ...t, last_watched_at: now } : t)))
+        }
         try {
           if (value) await store.markRewatched(userId, show.id, eps)
           else await store.unmarkRewatched(ids)

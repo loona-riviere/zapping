@@ -315,6 +315,8 @@ button { font: inherit; color: inherit; }
 }
 .movies .row__link { cursor: default; }
 .eplist__date--seen { color: var(--accent); font-weight: 600; }
+.eplist__date--history { font-style: italic; }
+.season__history { font-style: italic; }
 .empty__alt { margin-top: 1.5rem; font-size: .9rem; }
 .show__refresh { margin-top: 2.5rem; font-size: .85rem; line-height: 1.6; }
 .row__actions { display: flex; flex-direction: column; align-items: flex-end; gap: .35rem; flex: none; }
