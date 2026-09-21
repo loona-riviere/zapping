@@ -36,23 +36,38 @@ export async function searchShowsWide(query: string): Promise<WideSearch> {
 
 type Candidate = { data: ShowWithEpisodes; enough: boolean }
 
+const normalizeTitle = (s: string) =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+
 /**
  * Le premier résultat TVmaze n'est pas toujours le bon : « Good Doctor » renvoie
  * la série coréenne (20 épisodes) alors que l'export en compte 65, donc c'est la
  * version américaine qui était regardée. Quand on sait combien d'épisodes ont été
  * vus, on descend dans les résultats jusqu'à en trouver un d'au moins cette
  * taille ; sinon on garde le premier.
+ *
+ * Si aucun ne l'atteint, le premier sondé n'est pas forcément le meilleur
+ * repli : « Arcane » a un jour cédé la place à « Earth Arcade » simplement
+ * parce que TVmaze le classait avant dans ses résultats. Parmi les candidats
+ * trop courts, on préfère donc celui dont le nom correspond exactement au
+ * titre cherché, plutôt que le premier sondé.
  */
-async function firstFitting(results: TvShow[], minEpisodes: number): Promise<Candidate | null> {
+async function firstFitting(results: TvShow[], minEpisodes: number, title: string): Promise<Candidate | null> {
   if (!results.length) return null
   // Chaque candidat coûte une requête : on n'en sonde plusieurs que si le
   // premier est manifestement trop court.
   const probe = minEpisodes > 0 ? results.slice(0, 3) : results.slice(0, 1)
+  const wanted = normalizeTitle(title)
   let fallback: ShowWithEpisodes | null = null
+  let fallbackIsExact = false
   for (const r of probe) {
     const data = await getShowWithEpisodes(r.id)
     if (data.episodes.length >= minEpisodes) return { data, enough: true }
-    if (!fallback) fallback = data
+    const exact = normalizeTitle(data.show.name) === wanted
+    if (!fallback || (exact && !fallbackIsExact)) {
+      fallback = data
+      fallbackIsExact = exact
+    }
   }
   return fallback ? { data: fallback, enough: false } : null
 }
@@ -63,13 +78,13 @@ export async function findShow(
 ): Promise<ShowLookup> {
   const min = opts.minEpisodes ?? 0
 
-  const direct = await firstFitting(await searchShows(title), min)
+  const direct = await firstFitting(await searchShows(title), min, title)
   if (direct?.enough) return { show: direct.data, tried: [] }
   if (!tmdbConfigured) return { show: direct?.data ?? null, tried: [] }
 
   const tried = await originalTitlesFor(title)
   for (const candidate of tried.slice(0, 3)) {
-    const hit = await firstFitting(await searchShows(candidate), min)
+    const hit = await firstFitting(await searchShows(candidate), min, candidate)
     // On n'accepte un candidat TMDB que s'il atteint le plancher d'épisodes.
     // TMDB traduit en flou : « Arcane » a un jour renvoyé « Earth Arcade »
     // dans ses résultats, sans aucun rapport. Sans ce plancher, un titre sans
