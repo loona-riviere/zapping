@@ -5,6 +5,7 @@ import { Import } from './components/Import'
 import { Library, isLibrary } from './components/Library'
 import { Search } from './components/Search'
 import { ShowPage } from './components/ShowPage'
+import { Stats } from './components/Stats'
 import { AppProvider, useApp } from './lib/appState'
 import { href, useRoute } from './lib/route'
 import { supabase, supabaseConfigured } from './lib/supabase'
@@ -58,6 +59,7 @@ function Shell() {
           <a href={href.home} aria-current={isLibrary(route) ? 'page' : undefined}>Bibliothèque</a>
           <a href={href.search} aria-current={route.name === 'search' ? 'page' : undefined}>Chercher</a>
           <a href={href.import} aria-current={route.name === 'import' ? 'page' : undefined}>Import</a>
+          <a href={href.stats} aria-current={route.name === 'stats' ? 'page' : undefined}>Statistiques</a>
           <button className="link-btn" onClick={() => supabase.auth.signOut()}>Déconnexion</button>
         </nav>
       </header>
@@ -66,6 +68,7 @@ function Shell() {
         {isLibrary(route) && <Library route={route} />}
         {route.name === 'search' && <Search />}
         {route.name === 'import' && <Import />}
+        {route.name === 'stats' && <Stats />}
         {route.name === 'show' && <ShowPage id={route.id} />}
       </main>
 
