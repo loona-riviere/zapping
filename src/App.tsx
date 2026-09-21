@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { Auth } from './components/Auth'
 import { BottomNav } from './components/BottomNav'
+import { EasterEggOverlay, useLogoEasterEgg } from './components/EasterEgg'
 import { Footer } from './components/Footer'
 import { Import } from './components/Import'
 import { Library, isLibrary } from './components/Library'
@@ -53,11 +54,12 @@ export default function App() {
 function Shell() {
   const route = useRoute()
   const { notice, dismissNotice } = useApp()
+  const { onTap, message } = useLogoEasterEgg()
 
   return (
     <>
       <header className="topbar">
-        <a href={href.home} className="wordmark">Zapping</a>
+        <a href={href.home} className="wordmark" onClick={onTap}>Zapping</a>
         <nav className="topbar__nav">
           <a href={href.home} aria-current={isLibrary(route) ? 'page' : undefined}>Bibliothèque</a>
           <a href={href.search} aria-current={route.name === 'search' ? 'page' : undefined}>Chercher</a>
@@ -85,6 +87,7 @@ function Shell() {
 
       <Footer tmdbConfigured={tmdbConfigured} />
       <BottomNav route={route} />
+      <EasterEggOverlay message={message} />
     </>
   )
 }
