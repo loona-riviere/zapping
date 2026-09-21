@@ -201,8 +201,16 @@ button { font: inherit; color: inherit; }
 .auth__form .btn { margin-top: .4rem; padding: .8rem; }
 .auth__sent { font-size: 1.05rem; }
 
-@media (max-width: 420px) {
-  .topbar__nav { gap: .75rem; font-size: .9rem; }
+@media (max-width: 620px) {
+  /* Six liens ne tiennent plus sur une ligne : la barre passe sur deux, et la
+     navigation défile si la largeur ne suffit toujours pas. */
+  .topbar { flex-wrap: wrap; gap: .5rem; }
+  .topbar__nav {
+    flex: 1 1 100%; gap: .9rem; font-size: .9rem;
+    overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .topbar__nav::-webkit-scrollbar { display: none; }
+  .topbar__nav > * { flex: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -292,3 +300,44 @@ button { font: inherit; color: inherit; }
 .row__via { display: block; font-size: .78rem; color: var(--accent); }
 .import__toggle { display: flex; gap: .6rem; align-items: flex-start; margin: .25rem 0 1rem; font-size: .9rem; cursor: pointer; }
 .import__toggle input { width: 1.15rem; height: 1.15rem; accent-color: var(--accent); margin: .1rem 0 0; flex: none; }
+
+/* Statistiques : une seule teinte, l'accent. L'ambre échoue le contraste en
+   clair (1,9:1) et n'a rien à porter ici — les deux graphiques sont mono-série. */
+.stats { padding-bottom: 1rem; }
+.hero { margin: 1.5rem 0 2rem; }
+.hero__value { font-family: var(--body); font-weight: 800; font-size: clamp(3rem, 16vw, 4.5rem); line-height: 1; margin: 0; letter-spacing: -.03em; }
+.hero__unit { font-size: 1.1rem; margin: .25rem 0 0; }
+.hero__note { font-size: .9rem; margin: .6rem 0 0; }
+
+.tiles-stat { list-style: none; margin: 0 0 2.5rem; padding: 0; display: grid; gap: .6rem; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); }
+.tile-stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: .8rem .9rem; }
+.tile-stat__label { margin: 0; font-size: .8rem; color: var(--muted); }
+.tile-stat__value { margin: .2rem 0 0; font-weight: 700; font-size: 1.6rem; line-height: 1.1; }
+
+.chart { margin: 0 0 2.5rem; }
+.chart__head { display: flex; align-items: baseline; gap: 1rem; margin-bottom: .4rem; }
+.chart__title { font-size: 1.05rem; }
+.chart__head .link-btn { margin-left: auto; font-size: .85rem; color: var(--muted); }
+.chart__readout { margin: 0 0 .6rem; font-size: .9rem; }
+.chart__note { font-size: .8rem; margin: .6rem 0 0; }
+
+/* Colonnes : 2px de surface entre voisines, extrémité arrondie côté données. */
+.bars { display: flex; align-items: flex-end; gap: 2px; height: 170px; padding-bottom: 1.2rem; position: relative; border-bottom: 1px solid var(--line); }
+.bars__slot { flex: 1 1 0; min-width: 0; max-width: 24px; height: 100%; display: flex; align-items: flex-end; background: none; border: 0; padding: 0; cursor: pointer; position: relative; }
+.bars__bar { width: 100%; height: max(2px, var(--h)); background: var(--accent); border-radius: 4px 4px 0 0; transition: opacity .15s ease; }
+.bars__slot:hover .bars__bar, .bars__slot.is-on .bars__bar { opacity: .7; }
+.bars__tick { position: absolute; bottom: -1.15rem; left: 0; font-size: .7rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.hbars { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+.hbars__row { display: grid; grid-template-columns: minmax(6rem, 10rem) 1fr auto; gap: .7rem; align-items: center; }
+.hbars__name { font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
+.hbars__name:hover { text-decoration: underline; }
+.hbars__track { height: 14px; background: color-mix(in srgb, var(--line) 55%, transparent); border-radius: 4px; }
+.hbars__bar { display: block; height: 100%; background: var(--accent); border-radius: 4px; min-width: 3px; }
+.hbars__value { font-size: .82rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.data-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.data-table th, .data-table td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--line); }
+.data-table th { color: var(--muted); font-weight: 600; }
+.data-table td:nth-child(n+2) { text-align: right; font-variant-numeric: tabular-nums; }
+.stats__caveat { font-size: .8rem; line-height: 1.7; border-top: 1px solid var(--line); padding-top: 1rem; }

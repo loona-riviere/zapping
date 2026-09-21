@@ -17,7 +17,12 @@ Un suivi de séries façon TVTime : cherche une série, coche les épisodes vus,
 - Accueil trié par activité récente : À voir (avec bouton « Vu » sur le prochain épisode), À jour (avec la date du prochain épisode), Terminées
 - **Statuts** : En cours, En pause, À regarder plus tard, Abandonnée. Seules les séries « en cours »
   alimentent À voir / À jour ; les autres ont leur propre section sur l'accueil
-- **Dates de visionnage** : chaque épisode coché retient son jour, affiché dans la liste des titres
+- **Dates de visionnage** : chaque épisode coché retient son jour, affiché dans la liste des titres.
+  La date peut rester inconnue — mieux vaut « vu, sans savoir quand » qu'une date inventée, qui
+  ferait un faux pic dans les statistiques
+- **Statistiques** : temps total, activité mois par mois, séries les plus regardées. Les durées
+  viennent de TVmaze ; un épisode sans durée prend la durée médiane de sa série. Chaque graphique
+  a son équivalent en tableau
 - **Films** : recherche TMDB, marquage « vu le … » et liste « Mes films »
 - **Import Netflix** : dépose le `NetflixViewingHistory.csv` de ton profil, l'app regroupe par
   œuvre, retrouve chaque série et coche les épisodes avec leurs dates réelles
