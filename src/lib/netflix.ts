@@ -186,11 +186,16 @@ export function parseNetflixCsv(text: string): { groups: NetflixGroup[]; skipped
 
   const groups: NetflixGroup[] = []
   for (const [key, entries] of buckets) {
-    const solo = entries.length === 1 && entries[0].season === null
+    // Un film revu (deux profils, un revisionnage…) donne plusieurs lignes
+    // sans saison : compter les lignes ne suffit pas à distinguer film et
+    // série, seule l'absence de saison sur TOUTES les lignes le permet — une
+    // série, même en une seule ligne, porte presque toujours une saison
+    // (splitTitle en assigne une jusqu'aux mini-séries).
+    const movie = entries.every((e) => e.season === null)
     groups.push({
       key,
-      kind: solo ? 'movie' : 'show',
-      title: solo ? entries[0].raw : showTitleFor(entries),
+      kind: movie ? 'movie' : 'show',
+      title: movie ? entries[0].raw : showTitleFor(entries),
       entries,
     })
   }

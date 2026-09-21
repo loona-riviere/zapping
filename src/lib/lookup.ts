@@ -115,7 +115,8 @@ export function explainMiss(tried: string[], kind: 'show' | 'movie'): string {
     return `Introuvable ${where} — essaie le titre original.`
   }
   if (!tried.length) {
-    return `Introuvable ${where}, et TMDB ne connaît aucune série sous ce titre. Vérifie l'orthographe, ou cherche l'œuvre sur themoviedb.org pour trouver son titre d'origine.`
+    const nothing = kind === 'movie' ? 'aucun film' : 'aucune série'
+    return `Introuvable ${where}, et TMDB ne connaît ${nothing} sous ce titre. Vérifie l'orthographe, ou cherche l'œuvre sur themoviedb.org pour trouver son titre d'origine.`
   }
   const list = tried.slice(0, 3).map((t) => `« ${t} »`).join(', ')
   return `Introuvable ${where}. TMDB propose ${list}, que TVmaze ne connaît pas non plus.`
