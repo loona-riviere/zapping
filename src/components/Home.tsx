@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
 import { computeProgress, epCode, formatDate, type Progress } from '../lib/progress'
 import { href } from '../lib/route'
 import { STATUS_LABEL, type ShowStatus } from '../lib/store'
-import { getShowWithEpisodes, type ShowWithEpisodes } from '../lib/tvmaze'
+import type { ShowWithEpisodes } from '../lib/tvmaze'
+import { useShowEpisodes } from '../lib/useShows'
 import { Poster } from './Poster'
 import { StatusPicker } from './StatusPicker'
 
@@ -19,31 +20,11 @@ type Row = {
 
 export function Home() {
   const { tracked, loading, watchedFor, setWatched, setStatus } = useApp()
-  const [cache, setCache] = useState<Record<number, ShowWithEpisodes>>({})
-  const [failed, setFailed] = useState<Set<number>>(new Set())
   // Dernière série abandonnée, pour proposer d'annuler : un abandon se fait
   // d'un geste depuis la liste, autant qu'il se défasse pareil.
   const [undo, setUndo] = useState<{ id: number; name: string } | null>(null)
-
-  // Charge les épisodes de chaque série suivie, 4 à la fois pour ménager TVmaze.
-  useEffect(() => {
-    let alive = true
-    const queue = tracked.map((t) => t.show_id).filter((id) => !cache[id])
-    const worker = async () => {
-      for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
-        try {
-          const d = await getShowWithEpisodes(id)
-          if (alive) setCache((c) => ({ ...c, [id]: d }))
-        } catch {
-          if (alive) setFailed((f) => new Set(f).add(id))
-        }
-      }
-    }
-    Promise.all([worker(), worker(), worker(), worker()])
-    return () => {
-      alive = false
-    }
-  }, [tracked])
+  const ids = useMemo(() => tracked.map((t) => t.show_id), [tracked])
+  const { data: cache, failed } = useShowEpisodes(ids)
 
   if (loading) return <p className="muted pad">Chargement de tes séries…</p>
 
@@ -76,7 +57,18 @@ export function Home() {
 
   const active = rows.filter((r) => r.status === 'watching')
   const toWatch = active.filter((r) => !r.progress || r.progress.next)
-  const upToDate = active.filter((r) => r.progress && !r.progress.next && r.data!.show.status !== 'Ended')
+  const upToDate = active
+    .filter((r) => r.progress && !r.progress.next && r.data!.show.status !== 'Ended')
+    // Ce qui arrive bientôt d'abord, du plus proche au plus lointain ; les
+    // séries sans date annoncée ferment la marche, par activité récente.
+    .sort((a, b) => {
+      const da = airOf(a)
+      const db = airOf(b)
+      if (da && db) return da.localeCompare(db)
+      if (da) return -1
+      if (db) return 1
+      return b.sortKey.localeCompare(a.sortKey)
+    })
   const finished = active.filter((r) => r.progress && !r.progress.next && r.data!.show.status === 'Ended')
   const paused = rows.filter((r) => r.status === 'paused')
   const later = rows.filter((r) => r.status === 'later')
@@ -192,6 +184,12 @@ export function Home() {
       )}
     </div>
   )
+}
+
+/** Date de diffusion du prochain épisode annoncé, s'il y en a un. */
+function airOf(r: Row): string | null {
+  const up = r.progress?.upcoming
+  return up ? up.airstamp ?? up.airdate : null
 }
 
 /** Séries mises de côté : on garde le compteur et le bouton de statut à portée. */
