@@ -201,14 +201,23 @@ export function ShowPage({ id }: { id: number }) {
               )}
               {seen > 0 && !isRewatching(show.id) && (
                 bulkDateSeason === season ? (
-                  <input
-                    type="date"
-                    className="season__bulk-date-input"
-                    max={new Date().toISOString().slice(0, 10)}
-                    autoFocus
-                    onChange={(e) => e.target.value && dateAllTo(eps, e.target.value)}
-                    onBlur={() => setBulkDateSeason(null)}
-                  />
+                  <span className="season__bulk-date-edit">
+                    <input
+                      type="date"
+                      className="season__bulk-date-input"
+                      max={new Date().toISOString().slice(0, 10)}
+                      autoFocus
+                      onChange={(e) => e.target.value && dateAllTo(eps, e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="link-btn"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => setBulkDateSeason(null)}
+                    >
+                      Annuler
+                    </button>
+                  </span>
                 ) : (
                   <button
                     className="link-btn season__dates"
@@ -275,8 +284,15 @@ export function ShowPage({ id }: { id: number }) {
                               max={new Date().toISOString().slice(0, 10)}
                               autoFocus
                               onChange={(e) => e.target.value && editDate(ep, e.target.value)}
-                              onBlur={() => setEditingDate(null)}
                             />
+                            <button
+                              type="button"
+                              className="link-btn"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => setEditingDate(null)}
+                            >
+                              Annuler
+                            </button>
                             {seenAt && (
                               <button
                                 type="button"
