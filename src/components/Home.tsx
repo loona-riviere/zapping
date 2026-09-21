@@ -78,18 +78,13 @@ export function Home() {
 
   const active = rows.filter((r) => r.status === 'watching')
   const toWatch = active.filter((r) => !r.progress || r.progress.next)
-  const upToDate = active
-    .filter((r) => r.progress && !r.progress.next && r.data!.show.status !== 'Ended')
-    // Ce qui arrive bientôt d'abord, du plus proche au plus lointain ; les
-    // séries sans date annoncée ferment la marche, par activité récente.
-    .sort((a, b) => {
-      const da = airOf(a)
-      const db = airOf(b)
-      if (da && db) return da.localeCompare(db)
-      if (da) return -1
-      if (db) return 1
-      return byActivity(a, b)
-    })
+  const upToDateAll = active.filter((r) => r.progress && !r.progress.next && r.data!.show.status !== 'Ended')
+  // Une date de retour connue n'a rien à voir avec un renouvellement sans
+  // date : la première se planifie, la seconde ne fait qu'attendre.
+  const upcoming = upToDateAll
+    .filter((r) => r.progress!.upcoming)
+    .sort((a, b) => airOf(a)!.localeCompare(airOf(b)!))
+  const noDateYet = upToDateAll.filter((r) => !r.progress!.upcoming).sort(byActivity)
   const finished = active.filter((r) => r.progress && !r.progress.next && r.data!.show.status === 'Ended')
   const paused = rows.filter((r) => r.status === 'paused')
   const later = rows.filter((r) => r.status === 'later')
@@ -174,21 +169,38 @@ export function Home() {
         </section>
       )}
 
-      {upToDate.length > 0 && (
+      {upcoming.length > 0 && (
         <section>
-          <h2 className="section-title">À jour</h2>
+          <h2 className="section-title">Bientôt de retour</h2>
           <ul className="rows">
-            {upToDate.map((r) => (
+            {upcoming.map((r) => (
               <li key={r.id} className="row">
                 <a href={href.show(r.id)} className="row__link">
                   <Poster src={r.image} alt={r.name} />
                   <div className="row__body">
                     <h3>{r.name}</h3>
                     <p className="muted">
-                      {r.progress!.upcoming
-                        ? `${epCode(r.progress!.upcoming)} le ${formatDate(r.progress!.upcoming.airstamp ?? r.progress!.upcoming.airdate)}`
-                        : 'Pas de nouvel épisode annoncé'}
+                      {epCode(r.progress!.upcoming!)} le {formatDate(r.progress!.upcoming!.airstamp ?? r.progress!.upcoming!.airdate)}
                     </p>
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {noDateYet.length > 0 && (
+        <section>
+          <h2 className="section-title">À jour</h2>
+          <ul className="rows">
+            {noDateYet.map((r) => (
+              <li key={r.id} className="row">
+                <a href={href.show(r.id)} className="row__link">
+                  <Poster src={r.image} alt={r.name} />
+                  <div className="row__body">
+                    <h3>{r.name}</h3>
+                    <p className="muted">Pas de nouvel épisode annoncé</p>
                   </div>
                 </a>
               </li>
