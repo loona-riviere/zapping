@@ -114,7 +114,7 @@ export function ImportNetflix() {
         if (picks.length) {
           const eps: TvEpisode[] = picks.map((p) => p.episode)
           const dates = new Map(picks.map((p) => [p.episode.id, isoAt(p.date)]))
-          await setWatched(item.show!, eps, true, dates, fixDates)
+          await setWatched(item.show!, eps, true, dates, fixDates, true)
           episodes += eps.length
         }
         shows++

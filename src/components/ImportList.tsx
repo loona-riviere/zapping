@@ -124,7 +124,7 @@ export function ImportList() {
           // d'horodater à aujourd'hui une série rattrapée il y a des années.
           const at = m.parsed.date ? isoAt(m.parsed.date) : null
           const dates = new Map(m.episodes.map((e) => [e.id, at]))
-          await setWatched(m.show!, m.episodes, true, dates)
+          await setWatched(m.show!, m.episodes, true, dates, false, true)
           episodes += m.episodes.length
         } else {
           await track(m.show!)

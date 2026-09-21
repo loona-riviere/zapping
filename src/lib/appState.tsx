@@ -45,6 +45,8 @@ type AppState = {
     dates?: Map<number, string | null>,
     /** Réécrit la date des épisodes déjà cochés au lieu de les laisser tels quels. */
     overwrite?: boolean,
+    /** Force l'écriture dans l'historique même si un revisionnage est en cours. */
+    toHistory?: boolean,
   ) => Promise<void>
   addMovies: (items: { movie: Movie; watchedAt: string | null }[]) => Promise<void>
   removeMovie: (movieId: number) => Promise<void>
@@ -231,6 +233,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       value: boolean,
       dates?: Map<number, string | null>,
       overwrite = false,
+      toHistory = false,
     ) => {
       if (!eps.length) return
       const ids = eps.map((e) => e.id)
@@ -238,7 +241,11 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
 
       // Pendant un revisionnage, on coche dans la passe en cours : l'historique
       // reste intact, et décocher ne perd rien du premier visionnage.
-      if (isRewatching(show.id)) {
+      //
+      // Un import est l'exception : il apporte du passé, pas la passe du soir.
+      // Sans ce garde-fou, importer pendant un revisionnage y déverserait la
+      // série entière et la clorait d'un coup.
+      if (isRewatching(show.id) && !toHistory) {
         const applyRewatch = (on: boolean) =>
           setRewatch((prev) => {
             const next = new Map(prev)
