@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useApp } from '../lib/appState'
-import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { movieDetails, type MovieDetails } from '../lib/tmdb'
 import { Poster } from './Poster'
@@ -46,11 +45,19 @@ export function MoviePage({ id }: { id: number }) {
               .filter(Boolean)
               .join(' · ')}
           </p>
-          <p className="show__count">
-            {movie.status === 'watched'
-              ? `Vu${movie.watched_at ? ` le ${formatShortDate(movie.watched_at)}` : ''}`
-              : 'À voir'}
-          </p>
+          {movie.status === 'watched' ? (
+            <p className="show__count eplist__date--edit">
+              Vu le{' '}
+              <input
+                type="date"
+                value={movie.watched_at ? movie.watched_at.slice(0, 10) : ''}
+                max={today()}
+                onChange={(e) => e.target.value && markMovieWatched(movie.movie_id, `${e.target.value}T12:00:00.000Z`)}
+              />
+            </p>
+          ) : (
+            <p className="show__count muted">À voir</p>
+          )}
           {movie.status === 'watched' ? (
             <button className="btn btn--ghost" onClick={() => markMovieUnwatched(movie.movie_id)}>
               Pas vu
