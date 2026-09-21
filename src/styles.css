@@ -385,3 +385,21 @@ button { font: inherit; color: inherit; }
 .rewatch--live { flex-direction: column; align-items: flex-start; gap: .4rem; padding: .6rem .8rem; border-radius: var(--radius); border: 1.5px solid var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent); }
 .rewatch__state { margin: 0; color: var(--ink); font-size: .9rem; }
 .rewatch__actions { display: flex; gap: .6rem; align-items: center; }
+
+/* Correction manuelle d'une ligne d'import restée sans correspondance. */
+.fixmatch { margin-top: .6rem; padding: .7rem; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); }
+.fixmatch__row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+.fixmatch__input { flex: 1 1 12rem; font: inherit; padding: .45rem .6rem; border-radius: var(--radius); border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); }
+.fixmatch__input:focus { outline: none; border-color: var(--accent); }
+.fixmatch__note { margin: .5rem 0 0; font-size: .85rem; }
+.fixmatch__results { list-style: none; margin: .6rem 0 0; padding: 0; display: grid; gap: 2px; max-height: 16rem; overflow-y: auto; }
+.fixmatch__pick { display: flex; align-items: center; gap: .6rem; width: 100%; text-align: left; padding: .4rem; border: 0; border-radius: 6px; background: none; cursor: pointer; font: inherit; color: inherit; }
+.fixmatch__pick:hover:not(:disabled) { background: var(--bg); }
+.fixmatch__pick:disabled { opacity: .6; cursor: default; }
+
+/* Ligne d'import restée sans correspondance : titre + erreur au-dessus,
+   correction éventuelle en dessous, plutôt qu'alignés comme une ligne trouvée. */
+.row--stack { flex-direction: column; align-items: stretch; gap: .4rem; }
+.row__head { display: flex; align-items: flex-start; gap: .75rem; }
+.row__fixactions { display: flex; flex-direction: column; align-items: flex-end; gap: .3rem; flex: none; font-size: .85rem; }
+.row__stack { display: flex; flex-direction: column; gap: .4rem; flex: 1; }

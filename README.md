@@ -35,6 +35,9 @@ Un suivi de séries façon TVTime : cherche une série, coche les épisodes vus,
 - **Liste à coller** : une ligne par titre (« Breaking Bad S05E08 »), avec une date facultative
   (« The Boys S01E08 @ 12/03/2024 »). Un titre inconnu au catalogue séries est cherché parmi les
   films — c'est la voie pour Prime Video, Disney+ ou Apple TV, qui n'exportent pas d'historique
+- **Corriger une ligne introuvable** : sur les deux écrans d'import, une ligne « Introuvable » a un
+  bouton « Corriger » qui ouvre une recherche manuelle (le bon titre, choisi dans les résultats)
+  sans quitter l'écran ni recoller la liste
 - Thème clair et sombre automatique, pensé d'abord pour le mobile
 
 ## Mise en place

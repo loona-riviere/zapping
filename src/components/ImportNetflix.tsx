@@ -9,6 +9,7 @@ import {
 import { explainMiss, findMovie, findShow } from '../lib/lookup'
 import { tmdbConfigured, type Movie } from '../lib/tmdb'
 import type { TvEpisode, TvShow } from '../lib/tvmaze'
+import { FixMatch, type FixPick } from './FixMatch'
 import { Poster } from './Poster'
 
 // TVmaze tolère ~20 requêtes / 10 s et chaque série en consomme deux
@@ -46,6 +47,8 @@ export function ImportNetflix() {
   // Les reprises antérieures ont pu horodater à la date du jour ; ce CSV porte
   // les vraies dates, encore faut-il autoriser l'écrasement.
   const [fixDates, setFixDates] = useState(false)
+  // Ligne pour laquelle la recherche manuelle est ouverte.
+  const [fixing, setFixing] = useState<number | null>(null)
 
   async function onFile(file: File) {
     setError(null)
@@ -89,6 +92,28 @@ export function ImportNetflix() {
     setItems((prev) => prev && prev.map((it, i) => (i === index ? { ...it, state: 'error', message: 'Recherche…' } : it)))
     const next = await resolveOne(item.group, kind)
     setItems((prev) => prev && prev.map((it, i) => (i === index ? next : it)))
+  }
+
+  function applyFix(index: number, pick: FixPick) {
+    setItems((prev) =>
+      prev &&
+      prev.map((it, i) => {
+        if (i !== index) return it
+        if (pick.kind === 'show') {
+          return {
+            ...it,
+            kind: 'show',
+            state: 'ok',
+            include: true,
+            show: pick.data.show,
+            picks: resolveGroup(it.group, pick.data.episodes),
+            via: undefined,
+          }
+        }
+        return { ...it, kind: 'movie', state: 'ok', include: true, movie: pick.movie, via: undefined }
+      }),
+    )
+    setFixing(null)
   }
 
   function toggle(index: number) {
@@ -218,7 +243,18 @@ export function ImportNetflix() {
       {items && phase !== 'pick' && (
         <ul className="rows">
           {items.map((item, i) => (
-            <ImportRow key={item.group.key} item={item} index={i} phase={phase} onToggle={toggle} onSwap={swapKind} />
+            <ImportRow
+              key={item.group.key}
+              item={item}
+              index={i}
+              phase={phase}
+              onToggle={toggle}
+              onSwap={swapKind}
+              fixing={fixing === i}
+              onFixOpen={() => setFixing(i)}
+              onFixCancel={() => setFixing(null)}
+              onFixPick={(pick) => applyFix(i, pick)}
+            />
           ))}
         </ul>
       )}
@@ -249,13 +285,17 @@ export function ImportNetflix() {
 }
 
 function ImportRow({
-  item, index, phase, onToggle, onSwap,
+  item, index, phase, onToggle, onSwap, fixing, onFixOpen, onFixCancel, onFixPick,
 }: {
   item: Item
   index: number
   phase: Phase
   onToggle: (i: number) => void
   onSwap: (i: number) => void
+  fixing: boolean
+  onFixOpen: () => void
+  onFixCancel: () => void
+  onFixPick: (pick: FixPick) => void
 }) {
   const { group } = item
   const lines = group.entries.length
@@ -263,21 +303,29 @@ function ImportRow({
 
   if (item.state !== 'ok') {
     return (
-      <li className="row">
-        <div className="row__body">
-          <h3>{group.title}</h3>
-          <p className="error">
-            {item.state === 'notfound'
-              ? explainMiss(item.tried ?? [], item.kind)
-              : item.state === 'nokey'
-                ? "Film ignoré : pas de clé TMDB configurée."
-                : item.message}
-          </p>
+      <li className="row row--stack">
+        <div className="row__head">
+          <div className="row__body">
+            <h3>{group.title}</h3>
+            <p className="error">
+              {item.state === 'notfound'
+                ? explainMiss(item.tried ?? [], item.kind)
+                : item.state === 'nokey'
+                  ? "Film ignoré : pas de clé TMDB configurée."
+                  : item.message}
+            </p>
+          </div>
+          {editable && item.state !== 'nokey' && !fixing && (
+            <div className="row__fixactions">
+              <button className="link-btn" onClick={() => onSwap(index)}>
+                Chercher comme {item.kind === 'movie' ? 'série' : 'film'}
+              </button>
+              <button className="link-btn" onClick={onFixOpen}>Corriger</button>
+            </div>
+          )}
         </div>
-        {editable && item.state !== 'nokey' && (
-          <button className="link-btn" onClick={() => onSwap(index)}>
-            Chercher comme {item.kind === 'movie' ? 'série' : 'film'}
-          </button>
+        {editable && fixing && (
+          <FixMatch kind={item.kind} initialQuery={group.title} onPick={onFixPick} onCancel={onFixCancel} />
         )}
       </li>
     )

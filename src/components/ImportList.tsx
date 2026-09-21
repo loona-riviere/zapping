@@ -6,6 +6,7 @@ import { href } from '../lib/route'
 import { tmdbConfigured, type Movie } from '../lib/tmdb'
 import { explainMiss, findMovie, findShow } from '../lib/lookup'
 import type { TvEpisode, TvShow } from '../lib/tvmaze'
+import { FixMatch, type FixPick } from './FixMatch'
 import { Poster } from './Poster'
 
 // TVmaze tolère ~20 requêtes / 10 s et chaque ligne en consomme deux
@@ -88,6 +89,8 @@ export function ImportList() {
   // « Loki », « Thor » ou « Hulk » existent aussi comme séries : sans cet
   // interrupteur, une liste de films tomberait sur les mauvaises fiches.
   const [asMovies, setAsMovies] = useState(false)
+  // Ligne pour laquelle la recherche manuelle est ouverte.
+  const [fixing, setFixing] = useState<number | null>(null)
 
   const lines = parseList(text)
 
@@ -139,6 +142,28 @@ export function ImportList() {
     if (films.length) await addMovies(films)
     setSaved({ shows, episodes, movies: films.length })
     setPhase('done')
+  }
+
+  function applyFix(i: number, pick: FixPick) {
+    setMatches((prev) =>
+      prev &&
+      prev.map((m, j) => {
+        if (j !== i) return m
+        if (pick.kind === 'show') {
+          return {
+            ...m,
+            kind: 'show',
+            state: 'ok',
+            include: true,
+            show: pick.data.show,
+            episodes: episodesUpTo(pick.data.episodes, m.parsed.season, m.parsed.number),
+            via: undefined,
+          }
+        }
+        return { ...m, kind: 'movie', state: 'ok', include: true, movie: pick.movie, via: undefined }
+      }),
+    )
+    setFixing(null)
   }
 
   function toggle(i: number) {
@@ -255,7 +280,7 @@ export function ImportList() {
       {matches && phase !== 'edit' && (
         <ul className="rows">
           {matches.map((m, i) => (
-            <li key={`${m.parsed.raw}-${i}`} className="row">
+            <li key={`${m.parsed.raw}-${i}`} className={m.state === 'ok' ? 'row' : 'row row--stack'}>
               {m.state === 'ok' && (m.show || m.movie) ? (
                 <>
                   <input
@@ -283,18 +308,38 @@ export function ImportList() {
                   </div>
                 </>
               ) : (
-                <div className="row__body">
-                  <h3>{m.parsed.title}</h3>
-                  <p className="error">
-                    {m.state === 'notfound'
-                      ? explainMiss(m.tried ?? [], m.kind)
-                      : m.state === 'nokey'
-                        ? "Recherche de films indisponible : pas de clé TMDB configurée."
-                        : `Erreur : ${m.message}`}
-                  </p>
+                <div className="row__stack">
+                  <div className="row__head">
+                    <div className="row__body">
+                      <h3>{m.parsed.title}</h3>
+                      <p className="error">
+                        {m.state === 'notfound'
+                          ? explainMiss(m.tried ?? [], m.kind)
+                          : m.state === 'nokey'
+                            ? "Recherche de films indisponible : pas de clé TMDB configurée."
+                            : `Erreur : ${m.message}`}
+                      </p>
+                    </div>
+                    {phase === 'review' && m.state !== 'nokey' && fixing !== i && (
+                      <div className="row__fixactions">
+                        <button className="link-btn" disabled={swapping.has(i)} onClick={() => swapKind(i)}>
+                          {swapping.has(i) ? '…' : `Chercher comme ${m.kind === 'movie' ? 'série' : 'film'}`}
+                        </button>
+                        <button className="link-btn" onClick={() => setFixing(i)}>Corriger</button>
+                      </div>
+                    )}
+                  </div>
+                  {phase === 'review' && fixing === i && (
+                    <FixMatch
+                      kind={m.kind}
+                      initialQuery={m.parsed.title}
+                      onPick={(pick) => applyFix(i, pick)}
+                      onCancel={() => setFixing(null)}
+                    />
+                  )}
                 </div>
               )}
-              {phase === 'review' && m.state !== 'nokey' && (
+              {m.state === 'ok' && phase === 'review' && (
                 <button
                   className="link-btn muted"
                   disabled={swapping.has(i)}
