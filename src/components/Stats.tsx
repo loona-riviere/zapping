@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
+import { buildBackup, downloadBackup } from '../lib/backup'
 import { findActivityIssues, findSeasonIssues, type ActivityIssue, type SeasonIssue } from '../lib/diagnostics'
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
@@ -11,7 +12,7 @@ import { STATUS_LABEL } from '../lib/store'
 import { useShowEpisodes } from '../lib/useShows'
 
 export function Stats() {
-  const { tracked, movies, loading, historyFor, watchedFor, fillMovieRuntimes, fixActivity } = useApp()
+  const { tracked, movies, loading, historyFor, watchedFor, isRewatching, fillMovieRuntimes, fixActivity } = useApp()
   const [filling, setFilling] = useState<{ done: number; total: number } | null>(null)
   const ids = useMemo(() => tracked.map((t) => t.show_id), [tracked])
   const { data } = useShowEpisodes(ids)
@@ -186,6 +187,24 @@ export function Stats() {
             )}
           </>
         )}
+      </section>
+
+      <section className="diag">
+        <div className="diag__head">
+          <h3 className="chart__title">Sauvegarde</h3>
+          <button
+            className="link-btn"
+            onClick={() =>
+              downloadBackup(buildBackup(tracked, historyFor, watchedFor, isRewatching, data, movies))
+            }
+          >
+            Exporter mes données (JSON)
+          </button>
+        </div>
+        <p className="muted">
+          Une copie de toutes tes séries suivies, épisodes vus et films, dans un fichier que tu peux
+          garder de ton côté.
+        </p>
       </section>
 
       <p className="muted stats__caveat">
