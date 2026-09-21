@@ -179,13 +179,6 @@ button { font: inherit; color: inherit; }
   font: inherit; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;
 }
 .eplist__date--edit { display: flex; align-items: center; gap: .5rem; }
-.eplist__date--edit input[type='date'] {
-  font: inherit; font-size: .8rem; color: var(--ink); background: var(--surface);
-  border: 1.5px solid var(--line); border-radius: 6px; padding: .15rem .4rem;
-  /* Sans largeur explicite, les navigateurs mobiles (Safari/Chrome iOS)
-     réduisent le champ à la seule icône du calendrier, sans texte visible. */
-  min-width: 9rem; flex: none;
-}
 
 /* Barres flottantes */
 .catchup, .notice {
@@ -434,9 +427,3 @@ button { font: inherit; color: inherit; }
 .row__fixactions { display: flex; flex-direction: column; align-items: flex-end; gap: .3rem; flex: none; font-size: .85rem; }
 .row__stack { display: flex; flex-direction: column; gap: .4rem; flex: 1; }
 .season__dates { font-size: .8rem; color: var(--muted); }
-.season__bulk-date-edit { display: flex; align-items: center; gap: .4rem; font-size: .8rem; }
-.season__bulk-date-input {
-  font: inherit; font-size: .8rem; color: var(--ink); background: var(--surface);
-  border: 1.5px solid var(--line); border-radius: 6px; padding: .15rem .4rem;
-  min-width: 9rem; flex: none;
-}
