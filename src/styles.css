@@ -361,6 +361,20 @@ button { font: inherit; color: inherit; }
   33% { opacity: .3; filter: contrast(2) brightness(1.4); }
   66% { opacity: .8; filter: contrast(1.4); }
 }
+.easter-egg {
+  position: fixed; inset: 0; z-index: 50; display: flex; align-items: center;
+  justify-content: center; padding: 2rem; text-align: center; pointer-events: none;
+  background: rgba(0, 0, 0, .88); color: #fff; font-weight: 700; font-size: 1.05rem;
+  animation: egg-flicker 1.8s steps(2) both;
+}
+@keyframes egg-flicker {
+  0% { opacity: 0; }
+  8% { opacity: 1; }
+  13% { opacity: .25; }
+  18% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { opacity: 0; }
+}
 .diag { font-size: .85rem; border: 1px solid var(--line); border-radius: var(--radius); padding: .75rem 1rem; }
 .diag code { word-break: break-all; }
 .row__via { display: block; font-size: .78rem; color: var(--accent); }
