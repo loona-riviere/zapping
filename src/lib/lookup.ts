@@ -70,9 +70,18 @@ export async function findShow(
   const tried = await originalTitlesFor(title)
   for (const candidate of tried.slice(0, 3)) {
     const hit = await firstFitting(await searchShows(candidate), min)
+    // On n'accepte un candidat TMDB que s'il atteint le plancher d'épisodes.
+    // TMDB traduit en flou : « Arcane » a un jour renvoyé « Earth Arcade »
+    // dans ses résultats, sans aucun rapport. Sans ce plancher, un titre sans
+    // correspondance directe sur TVmaze pouvait atterrir sur n'importe quelle
+    // série que TMDB associait vaguement à la requête — en silence, ce qui
+    // est pire que de ne rien trouver.
     if (hit?.enough) return { show: { ...hit.data, via: candidate }, tried }
-    if (hit && !direct) return { show: { ...hit.data, via: candidate }, tried }
   }
+  // Rien n'atteint le plancher : on garde le meilleur résultat direct s'il y
+  // en a un (série réellement trouvée, juste avec moins d'épisodes que de
+  // lignes Netflix — reprises, previews...), plutôt qu'une estimation TMDB
+  // non vérifiée.
   return { show: direct?.data ?? null, tried }
 }
 
