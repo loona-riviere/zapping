@@ -12,6 +12,8 @@ type AppState = {
   tracked: TrackedShow[]
   watched: WatchedMap
   movies: WatchedMovie[]
+  /** Faux tant que `supabase/schema.sql` n'a pas été relancé : pas de table films. */
+  moviesReady: boolean
   loading: boolean
   notice: string | null
   dismissNotice: () => void
@@ -34,20 +36,31 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
   const [tracked, setTracked] = useState<TrackedShow[]>([])
   const [watched, setWatchedMap] = useState<WatchedMap>(new Map())
   const [movies, setMovies] = useState<WatchedMovie[]>([])
+  const [moviesReady, setMoviesReady] = useState(true)
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
-    Promise.all([store.fetchTracked(), store.fetchWatched(), store.fetchMovies()])
-      .then(([t, w, m]) => {
+    // Les séries sont le cœur de l'app : leur chargement ne doit pas dépendre
+    // des films, dont la table peut manquer si le schéma n'a pas été migré.
+    Promise.all([store.fetchTracked(), store.fetchWatched()])
+      .then(([t, w]) => {
         if (!alive) return
         setTracked(t)
         setWatchedMap(w)
-        setMovies(m)
       })
       .catch((e) => alive && setNotice(`Chargement impossible : ${e.message}`))
       .finally(() => alive && setLoading(false))
+
+    store
+      .fetchMovies()
+      .then((m) => alive && setMovies(m))
+      .catch((e) => {
+        if (!alive) return
+        if (store.isMissingSchema(e)) setMoviesReady(false)
+        else setNotice(`Chargement des films impossible : ${e.message}`)
+      })
     return () => {
       alive = false
     }
@@ -147,6 +160,10 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
   const addMovies = useCallback(
     async (items: { movie: Movie; watchedAt: string }[]) => {
       if (!items.length) return
+      if (!moviesReady) {
+        setNotice("Films indisponibles : relance supabase/schema.sql dans ton projet Supabase.")
+        return
+      }
       try {
         await store.addMovies(userId, items)
         setMovies((prev) => {
@@ -167,7 +184,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
         setNotice(`Enregistrement du film impossible : ${(e as Error).message}`)
       }
     },
-    [userId],
+    [moviesReady, userId],
   )
 
   const removeMovie = useCallback(async (movieId: number) => {
@@ -183,11 +200,11 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
 
   const value = useMemo<AppState>(
     () => ({
-      userId, tracked, watched, movies, loading, notice,
+      userId, tracked, watched, movies, moviesReady, loading, notice,
       dismissNotice: () => setNotice(null),
       isTracked, statusOf, watchedFor, track, untrack, setStatus, setWatched, addMovies, removeMovie,
     }),
-    [userId, tracked, watched, movies, loading, notice, isTracked, statusOf, watchedFor,
+    [userId, tracked, watched, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
      track, untrack, setStatus, setWatched, addMovies, removeMovie],
   )
 

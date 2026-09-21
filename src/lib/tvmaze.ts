@@ -45,20 +45,28 @@ export async function searchShows(query: string): Promise<TvShow[]> {
   return data.map((d) => d.show)
 }
 
-export function getShowWithEpisodes(id: number): Promise<ShowWithEpisodes> {
+/**
+ * Fiche et épisodes d'une série, mis en cache 12 h. `force` ignore le cache :
+ * c'est la sortie de secours quand TVmaze a été complété entre-temps (une
+ * saison ajoutée, par exemple) et que le navigateur sert encore l'ancienne
+ * version.
+ */
+export function getShowWithEpisodes(id: number, force = false): Promise<ShowWithEpisodes> {
   const key = `tvmaze:show:${id}`
-  try {
-    const raw = localStorage.getItem(key)
-    if (raw) {
-      const cached = JSON.parse(raw) as { at: number; data: ShowWithEpisodes }
-      if (Date.now() - cached.at < CACHE_TTL) return Promise.resolve(cached.data)
+  if (!force) {
+    try {
+      const raw = localStorage.getItem(key)
+      if (raw) {
+        const cached = JSON.parse(raw) as { at: number; data: ShowWithEpisodes }
+        if (Date.now() - cached.at < CACHE_TTL) return Promise.resolve(cached.data)
+      }
+    } catch {
+      /* cache illisible : on refetch */
     }
-  } catch {
-    /* cache illisible : on refetch */
   }
 
   const pending = inflight.get(id)
-  if (pending) return pending
+  if (pending && !force) return pending
 
   const p = get<TvShow & { _embedded: { episodes: (TvEpisode & { number: number | null })[] } }>(
     `/shows/${id}?embed=episodes`,

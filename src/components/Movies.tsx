@@ -8,7 +8,7 @@ import { Poster } from './Poster'
 const today = () => new Date().toISOString().slice(0, 10)
 
 export function Movies() {
-  const { movies, loading, addMovies, removeMovie } = useApp()
+  const { movies, moviesReady, loading, addMovies, removeMovie } = useApp()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Movie[]>([])
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
@@ -34,6 +34,19 @@ export function Movies() {
       clearTimeout(t)
     }
   }, [query])
+
+  if (!moviesReady) {
+    return (
+      <section className="empty">
+        <h2>Table des films absente</h2>
+        <p>
+          Relance <code>supabase/schema.sql</code> dans l'éditeur SQL de ton projet Supabase :
+          il crée la table <code>watched_movies</code>. Le script est ré-exécutable, il ne touche
+          pas à tes séries.
+        </p>
+      </section>
+    )
+  }
 
   if (!tmdbConfigured) {
     return (

@@ -18,9 +18,12 @@ type Row = {
 }
 
 export function Home() {
-  const { tracked, loading, watchedFor, setWatched } = useApp()
+  const { tracked, loading, watchedFor, setWatched, setStatus } = useApp()
   const [cache, setCache] = useState<Record<number, ShowWithEpisodes>>({})
   const [failed, setFailed] = useState<Set<number>>(new Set())
+  // Dernière série abandonnée, pour proposer d'annuler : un abandon se fait
+  // d'un geste depuis la liste, autant qu'il se défasse pareil.
+  const [undo, setUndo] = useState<{ id: number; name: string } | null>(null)
 
   // Charge les épisodes de chaque série suivie, 4 à la fois pour ménager TVmaze.
   useEffect(() => {
@@ -103,15 +106,27 @@ export function Home() {
                     )}
                   </div>
                 </a>
-                {r.progress?.next && r.data && (
+                <div className="row__actions">
+                  {r.progress?.next && r.data && (
+                    <button
+                      className="btn btn--seen"
+                      onClick={() => setWatched(r.data!.show, [r.progress!.next!], true)}
+                      aria-label={`Marquer ${epCode(r.progress.next)} de ${r.name} comme vu`}
+                    >
+                      Vu
+                    </button>
+                  )}
                   <button
-                    className="btn btn--seen"
-                    onClick={() => setWatched(r.data!.show, [r.progress!.next!], true)}
-                    aria-label={`Marquer ${epCode(r.progress.next)} de ${r.name} comme vu`}
+                    className="link-btn row__drop"
+                    onClick={() => {
+                      setStatus(r.id, 'dropped')
+                      setUndo({ id: r.id, name: r.name })
+                    }}
+                    aria-label={`Abandonner ${r.name}`}
                   >
-                    Vu
+                    Abandonner
                   </button>
-                )}
+                </div>
               </li>
             ))}
           </ul>
@@ -149,6 +164,24 @@ export function Home() {
           <h2 className="section-title">Terminées</h2>
           <Shelf rows={finished} />
         </section>
+      )}
+
+      {undo && (
+        <div className="catchup" role="status">
+          <p>{undo.name} — abandonnée.</p>
+          <div className="catchup__actions">
+            <button className="btn btn--ghost" onClick={() => setUndo(null)}>Fermer</button>
+            <button
+              className="btn btn--primary"
+              onClick={() => {
+                setStatus(undo.id, 'watching')
+                setUndo(null)
+              }}
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
       )}
 
       {dropped.length > 0 && (

@@ -36,12 +36,31 @@ export type WatchedMap = Map<number, Map<number, string>>
 
 const PAGE = 1000
 
+/**
+ * La table ou la colonne n'existe pas encore : `supabase/schema.sql` n'a pas été
+ * relancé depuis la mise à jour. On veut le détecter pour continuer à servir ce
+ * qui marche plutôt que de tout faire échouer.
+ */
+export function isMissingSchema(error: unknown): boolean {
+  const e = error as { code?: string; message?: string } | null
+  if (!e) return false
+  if (['42P01', '42703', 'PGRST204', 'PGRST205'].includes(e.code ?? '')) return true
+  return /schema cache|does not exist|column .* does not exist/i.test(e.message ?? '')
+}
+
+const LEGACY_COLUMNS = 'show_id, name, image_url, added_at, last_watched_at'
+
 export async function fetchTracked(): Promise<TrackedShow[]> {
-  const { data, error } = await supabase
-    .from('tracked_shows')
-    .select('show_id, name, image_url, added_at, last_watched_at, status')
-  if (error) throw error
-  return (data ?? []).map((r) => ({ ...r, status: (r.status ?? 'watching') as ShowStatus }))
+  const full = await supabase.from('tracked_shows').select(`${LEGACY_COLUMNS}, status`)
+  if (!full.error) {
+    return (full.data ?? []).map((r) => ({ ...r, status: (r.status ?? 'watching') as ShowStatus }))
+  }
+  if (!isMissingSchema(full.error)) throw full.error
+
+  // Schéma pas encore migré : on lit les colonnes d'origine, tout est « en cours ».
+  const legacy = await supabase.from('tracked_shows').select(LEGACY_COLUMNS)
+  if (legacy.error) throw legacy.error
+  return (legacy.data ?? []).map((r) => ({ ...r, status: 'watching' as ShowStatus }))
 }
 
 export async function fetchWatched(): Promise<WatchedMap> {

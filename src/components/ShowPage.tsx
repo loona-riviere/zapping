@@ -11,12 +11,14 @@ export function ShowPage({ id }: { id: number }) {
   const [data, setData] = useState<ShowWithEpisodes | null>(null)
   const [error, setError] = useState(false)
   const [catchUp, setCatchUp] = useState<TvEpisode[] | null>(null)
+  const [refresh, setRefresh] = useState<'idle' | 'busy' | 'done' | 'nochange' | 'failed'>('idle')
   const [openSeasons, setOpenSeasons] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     let alive = true
     setData(null)
     setError(false)
+    setRefresh('idle')
     getShowWithEpisodes(id)
       .then((d) => alive && setData(d))
       .catch(() => alive && setError(true))
@@ -63,6 +65,23 @@ export function ShowPage({ id }: { id: number }) {
     const allSeen = aired.every((e) => watched.has(e.id))
     setCatchUp(null)
     setWatched(show, allSeen ? aired : aired.filter((e) => !watched.has(e.id)), !allSeen)
+  }
+
+  /**
+   * TVmaze est alimenté par sa communauté : une saison récente peut y arriver
+   * après coup, alors que le navigateur garde la fiche 12 h. Ce bouton refait
+   * l'appel en ignorant le cache.
+   */
+  async function reload() {
+    setRefresh('busy')
+    try {
+      const fresh = await getShowWithEpisodes(id, true)
+      const before = episodes.length
+      setData(fresh)
+      setRefresh(fresh.episodes.length > before ? 'done' : 'nochange')
+    } catch {
+      setRefresh('failed')
+    }
   }
 
   function toggleList(season: number) {
@@ -173,6 +192,23 @@ export function ShowPage({ id }: { id: number }) {
           </section>
         )
       })}
+
+      <p className="show__refresh muted">
+        Il manque une saison ou des épisodes ?{' '}
+        <button className="link-btn" disabled={refresh === 'busy'} onClick={reload}>
+          {refresh === 'busy' ? 'Mise à jour…' : 'Recharger depuis TVmaze'}
+        </button>
+        {refresh === 'done' && ' — fiche mise à jour.'}
+        {refresh === 'failed' && ' — échec, réessaie plus tard.'}
+        {refresh === 'nochange' && (
+          <>
+            {' '}— rien de neuf chez eux. TVmaze est alimenté par sa communauté :{' '}
+            <a href={`https://www.tvmaze.com/shows/${show.id}`} target="_blank" rel="noreferrer">
+              la saison manquante s'ajoute sur leur fiche
+            </a>, et elle apparaîtra ici ensuite.
+          </>
+        )}
+      </p>
 
       {catchUp && (
         <div className="catchup" role="status">
