@@ -204,6 +204,16 @@ button { font: inherit; color: inherit; }
   font-family: var(--display); font-size: 1.8rem; font-weight: 800;
   letter-spacing: .5rem; text-align: center;
 }
+.auth__actions { display: flex; gap: .6rem; margin-top: .4rem; }
+.auth__actions .btn { flex: 1; margin-top: 0; }
+.auth__switch { display: block; margin-top: 1.1rem; font-size: .9rem; color: var(--muted); }
+.btn--google {
+  width: 100%; margin-top: .9rem; padding: .75rem;
+  display: flex; align-items: center; justify-content: center; gap: .6rem;
+  background: #fff; color: #1f1f1f; border: 1px solid var(--line);
+  border-radius: 999px; font-weight: 700; cursor: pointer;
+}
+.btn--google:hover { background: #f7f7f7; }
 
 @media (max-width: 620px) {
   /* Six liens ne tiennent plus sur une ligne : la barre passe sur deux, et la

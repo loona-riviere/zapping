@@ -1,23 +1,60 @@
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 
-type Step = 'email' | 'sending' | 'code' | 'verifying'
+type Mode = 'password' | 'code'
+type Step = 'form' | 'sending' | 'sent' | 'verifying'
 
-/**
- * Connexion par code à 6 chiffres plutôt que par lien.
- *
- * Ajoutée à l'écran d'accueil, l'app tourne en fenêtre autonome (standalone) :
- * le lien magique, lui, s'ouvre dans Safari, un contexte de stockage séparé,
- * donc le vérificateur PKCE posé au moment de l'envoi n'est plus là pour
- * conclure l'échange une fois de retour dans l'app. Le code se saisit sans
- * jamais quitter l'app, donc ce problème ne se pose pas — c'est pour ça qu'il
- * est proposé en premier, pas seulement en repli.
- */
 export function Auth() {
+  const [mode, setMode] = useState<Mode>('password')
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
-  const [step, setStep] = useState<Step>('email')
+  const [step, setStep] = useState<Step>('form')
   const [error, setError] = useState('')
+
+  async function signIn(e: FormEvent) {
+    e.preventDefault()
+    setStep('sending')
+    setError('')
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      setError(error.message)
+      setStep('form')
+    }
+    // Succès : onAuthStateChange (dans App.tsx) prend le relais.
+  }
+
+  async function signUp() {
+    if (!email || !password) {
+      setError('Renseigne une adresse et un mot de passe avant de créer le compte.')
+      return
+    }
+    setStep('sending')
+    setError('')
+    const { data, error } = await supabase.auth.signUp({ email, password })
+    if (error) {
+      setError(error.message)
+      setStep('form')
+      return
+    }
+    // Selon la config Supabase (« Confirm email »), la session arrive tout de
+    // suite ou seulement après avoir cliqué le lien de confirmation reçu.
+    if (!data.session) {
+      setError('')
+      setStep('form')
+      alert('Compte créé. Si un e-mail de confirmation est requis, ouvre-le puis reconnecte-toi.')
+    }
+    setStep('form')
+  }
+
+  async function signInWithGoogle() {
+    setError('')
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin + import.meta.env.BASE_URL },
+    })
+    if (error) setError(error.message)
+  }
 
   async function sendCode(e: FormEvent) {
     e.preventDefault()
@@ -26,9 +63,9 @@ export function Auth() {
     const { error } = await supabase.auth.signInWithOtp({ email })
     if (error) {
       setError(error.message)
-      setStep('email')
+      setStep('form')
     } else {
-      setStep('code')
+      setStep('sent')
     }
   }
 
@@ -39,9 +76,15 @@ export function Auth() {
     const { error } = await supabase.auth.verifyOtp({ email, token: code.trim(), type: 'email' })
     if (error) {
       setError(error.message)
-      setStep('code')
+      setStep('sent')
     }
-    // Succès : onAuthStateChange (dans App.tsx) prend le relais.
+  }
+
+  function switchMode(next: Mode) {
+    setMode(next)
+    setStep('form')
+    setCode('')
+    setError('')
   }
 
   return (
@@ -49,57 +92,106 @@ export function Auth() {
       <h1 className="wordmark wordmark--big">Zapping</h1>
       <p className="auth__lede">Coche les épisodes que tu regardes et retrouve toujours où tu en es.</p>
 
-      {step === 'email' || step === 'sending' ? (
-        <form onSubmit={sendCode} className="auth__form">
-          <label htmlFor="email">Adresse e-mail</label>
-          <input
-            id="email"
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <button className="btn btn--primary" disabled={step === 'sending'}>
-            {step === 'sending' ? 'Envoi…' : 'Recevoir un code'}
+      {mode === 'password' && (
+        <>
+          <form onSubmit={signIn} className="auth__form">
+            <label htmlFor="email">Adresse e-mail</label>
+            <input
+              id="email"
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <label htmlFor="password">Mot de passe</label>
+            <input
+              id="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <div className="auth__actions">
+              <button className="btn btn--primary" disabled={step === 'sending'}>
+                {step === 'sending' ? 'Connexion…' : 'Se connecter'}
+              </button>
+              <button type="button" className="btn btn--ghost" disabled={step === 'sending'} onClick={signUp}>
+                Créer un compte
+              </button>
+            </div>
+            {error && <p className="error">{error}</p>}
+          </form>
+
+          <button className="btn btn--google" onClick={signInWithGoogle}>
+            <GoogleG /> Continuer avec Google
           </button>
-          {error && <p className="error">Envoi impossible : {error}</p>}
-        </form>
-      ) : (
-        <form onSubmit={verify} className="auth__form">
-          <p className="auth__sent">
-            Un code à 6 chiffres a été envoyé à <strong>{email}</strong>.
-          </p>
-          <label htmlFor="code">Code reçu par e-mail</label>
-          <input
-            id="code"
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            required
-            autoFocus
-            maxLength={6}
-            className="auth__code"
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-          />
-          <button className="btn btn--primary" disabled={step === 'verifying' || code.length < 6}>
-            {step === 'verifying' ? 'Vérification…' : 'Se connecter'}
+
+          <button className="link-btn auth__switch" onClick={() => switchMode('code')}>
+            Se connecter avec un code reçu par e-mail à la place
           </button>
-          {error && <p className="error">{error}</p>}
-          <button
-            type="button"
-            className="link-btn"
-            onClick={() => {
-              setStep('email')
-              setCode('')
-              setError('')
-            }}
-          >
-            Utiliser une autre adresse
+        </>
+      )}
+
+      {mode === 'code' && (
+        <>
+          {step !== 'sent' && step !== 'verifying' ? (
+            <form onSubmit={sendCode} className="auth__form">
+              <label htmlFor="email-code">Adresse e-mail</label>
+              <input
+                id="email-code"
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <button className="btn btn--primary" disabled={step === 'sending'}>
+                {step === 'sending' ? 'Envoi…' : 'Recevoir un code'}
+              </button>
+              {error && <p className="error">Envoi impossible : {error}</p>}
+            </form>
+          ) : (
+            <form onSubmit={verify} className="auth__form">
+              <p className="auth__sent">
+                Un code à 6 chiffres a été envoyé à <strong>{email}</strong>.
+              </p>
+              <label htmlFor="code">Code reçu par e-mail</label>
+              <input
+                id="code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                required
+                autoFocus
+                maxLength={6}
+                className="auth__code"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+              />
+              <button className="btn btn--primary" disabled={step === 'verifying' || code.length < 6}>
+                {step === 'verifying' ? 'Vérification…' : 'Se connecter'}
+              </button>
+              {error && <p className="error">{error}</p>}
+            </form>
+          )}
+          <button className="link-btn auth__switch" onClick={() => switchMode('password')}>
+            Se connecter avec un mot de passe à la place
           </button>
-        </form>
+        </>
       )}
     </main>
+  )
+}
+
+function GoogleG() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.68-3.87 2.68-6.62Z" />
+      <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.95v2.33A9 9 0 0 0 9 18Z" />
+      <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.96H.95A9 9 0 0 0 0 9c0 1.45.35 2.83.95 4.04l3-2.33Z" />
+      <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .95 4.96l3 2.33C4.66 5.17 6.65 3.58 9 3.58Z" />
+    </svg>
   )
 }

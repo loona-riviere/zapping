@@ -67,6 +67,20 @@ create table if not exists public.rewatch_progress (
 create index if not exists rewatch_progress_user_show_idx
   on public.rewatch_progress (user_id, show_id);
 
+-- Avance last_watched_at sans jamais le faire reculer : corriger la date
+-- d'un vieil épisode ne doit pas faire passer la série pour « pas revue
+-- depuis » alors qu'un épisode plus récent est déjà enregistré ailleurs.
+-- security invoker : s'exécute avec les droits de l'appelant, RLS comprise.
+create or replace function public.bump_last_watched(p_show_id integer, p_at timestamptz)
+returns void
+language sql
+security invoker
+as $$
+  update public.tracked_shows
+  set last_watched_at = greatest(coalesce(last_watched_at, p_at), p_at)
+  where show_id = p_show_id and user_id = auth.uid();
+$$;
+
 -- Films vus (catalogue TMDB).
 create table if not exists public.watched_movies (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,

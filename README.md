@@ -47,8 +47,14 @@ Un suivi de séries façon TVTime : cherche une série, coche les épisodes vus,
 1. Crée un projet sur [supabase.com](https://supabase.com) (le plan gratuit suffit).
 2. Dans **SQL Editor**, exécute le contenu de `supabase/schema.sql`.
 3. Dans **Authentication → Email Templates → Magic Link**, ajoute `{{ .Token }}` quelque part dans le
-   corps du message (par exemple : `Ton code : {{ .Token }}`). L'app se connecte par un code à 6
-   chiffres, pas par le lien — sans cette ligne, l'e-mail ne contient aucun code à saisir.
+   corps du message (par exemple : `Ton code : {{ .Token }}`) — nécessaire seulement pour la
+   connexion par code, l'e-mail + mot de passe s'en passe.
+3bis. Pour activer **Google** : dans **Authentication → Sign In / Providers → Google**, colle un
+   Client ID et un Client Secret OAuth créés sur
+   [console.cloud.google.com](https://console.cloud.google.com/apis/credentials) (type « Web
+   application »), avec la *Callback URL* affichée sur cette page de Supabase ajoutée dans Google
+   Cloud comme URI de redirection autorisée. Facultatif : sans ça, le bouton Google reste affiché
+   mais échoue.
 4. Dans **Authentication → URL Configuration** :
    - *Site URL* : l'URL Netlify du site (`https://<nom-du-site>.netlify.app/`)
    - *Redirect URLs* : ajoute la même URL, plus `http://localhost:5173/` pour le dev.
@@ -94,11 +100,12 @@ Astuce : sur iPhone ou Android, ajoute la page à l'écran d'accueil pour l'util
 
 ## Notes
 
-- **Connexion par code** (pas par lien) : un code à 6 chiffres envoyé par e-mail, saisi dans l'app.
-  Choisi pour l'app ajoutée à l'écran d'accueil (mode standalone) : un lien magique s'ouvrirait dans
+- **Connexion** : e-mail + mot de passe par défaut (aucun envoi d'e-mail, donc aucune limite de
+  débit possible), Google en option, et un code à 6 chiffres reçu par e-mail en repli. Le code
+  existe pour l'app ajoutée à l'écran d'accueil (mode standalone) : un lien magique s'ouvrirait dans
   le navigateur plutôt que dans l'app, et le vérificateur PKCE posé au moment de l'envoi ne s'y
-  retrouve pas pour conclure la connexion. Le code se saisit sans changer de contexte.
-  Nécessite `{{ .Token }}` dans le modèle d'e-mail « Magic Link » de Supabase (voir mise en place).
+  retrouve pas pour conclure la connexion. Nécessite `{{ .Token }}` dans le modèle d'e-mail
+  « Magic Link » de Supabase (voir mise en place) pour que le code apparaisse dans l'e-mail.
 - **Icône d'écran d'accueil** : un manifeste PWA (`public/manifest.webmanifest`) et les icônes
   associées permettent d'ajouter Zapping à l'écran d'accueil avec sa propre icône, en plein écran.
 - Les fiches TVmaze sont mises en cache 12 h dans le navigateur ; les résumés sont en anglais.

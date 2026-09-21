@@ -194,10 +194,9 @@ export async function markWatched(
     null,
   )
   if (!last) return
-  const { error } = await supabase
-    .from('tracked_shows')
-    .update({ last_watched_at: last })
-    .eq('show_id', showId)
+  // bump_last_watched ne fait jamais reculer la date : corriger un vieil
+  // épisode ne doit pas dater la série plus tôt qu'un épisode déjà connu.
+  const { error } = await supabase.rpc('bump_last_watched', { p_show_id: showId, p_at: last })
   if (error) throw error
 }
 
