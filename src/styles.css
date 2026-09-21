@@ -49,6 +49,9 @@ button { font: inherit; color: inherit; }
 .error { color: var(--danger); }
 .pad { padding: 1.5rem 1rem; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* Contrairement à .visually-hidden, pas de clip à zéro pixel peint : certains
+   moteurs (Safari) refusent showPicker() sur un champ qu'ils jugent non rendu. */
+.date-picker-host { position: fixed; top: 0; left: 0; opacity: 0; pointer-events: none; width: 1px; height: 1px; border: 0; }
 
 /* Barre du haut */
 .topbar {

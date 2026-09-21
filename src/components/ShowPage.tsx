@@ -110,8 +110,14 @@ export function ShowPage({ id }: { id: number }) {
     else setEditingDate(target.id)
     const input = dateInputRef.current
     if (!input) return
-    if (typeof input.showPicker === 'function') input.showPicker()
-    else input.focus()
+    try {
+      // showPicker() exige un champ « visible » selon certains moteurs (Safari
+      // notamment) : un champ masqué par clip (0 pixel peint) peut s'y refuser
+      // sans erreur exploitable ailleurs que par cet essai/repli.
+      input.showPicker()
+    } catch {
+      input.focus()
+    }
   }
 
   function toggle(ep: TvEpisode) {
@@ -167,7 +173,7 @@ export function ShowPage({ id }: { id: number }) {
       <input
         ref={dateInputRef}
         type="date"
-        className="visually-hidden"
+        className="date-picker-host"
         max={new Date().toISOString().slice(0, 10)}
         aria-hidden="true"
         tabIndex={-1}
