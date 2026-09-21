@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { Auth } from './components/Auth'
+import { Footer } from './components/Footer'
 import { Import } from './components/Import'
 import { Library, isLibrary } from './components/Library'
 import { Search } from './components/Search'
@@ -79,13 +80,7 @@ function Shell() {
         </div>
       )}
 
-      <footer className="footer muted">
-        <p>Données séries : TVmaze.com (CC BY-SA)</p>
-        {/* Mention exigée par les conditions d'utilisation de l'API TMDB. */}
-        {tmdbConfigured && (
-          <p>Ce produit utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB.</p>
-        )}
-      </footer>
+      <Footer tmdbConfigured={tmdbConfigured} />
     </>
   )
 }

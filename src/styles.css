@@ -330,6 +330,18 @@ button { font: inherit; color: inherit; }
 .row__drop { font-size: .78rem; color: var(--muted); text-decoration-color: var(--line); }
 .row__drop:hover { color: var(--danger); }
 .footer p { margin: .15rem 0; }
+.footer__tv {
+  display: inline-flex; align-items: center; gap: .4rem; margin-top: .6rem;
+  background: none; border: 0; padding: 0; font: inherit; font-size: .78rem;
+  color: var(--muted); cursor: pointer; max-width: 100%;
+}
+.footer__tv-text { text-align: left; }
+.footer__tv--flicker { animation: footer-flicker .2s steps(3); }
+@keyframes footer-flicker {
+  0%, 100% { opacity: 1; filter: none; }
+  33% { opacity: .3; filter: contrast(2) brightness(1.4); }
+  66% { opacity: .8; filter: contrast(1.4); }
+}
 .diag { font-size: .85rem; border: 1px solid var(--line); border-radius: var(--radius); padding: .75rem 1rem; }
 .diag code { word-break: break-all; }
 .row__via { display: block; font-size: .78rem; color: var(--accent); }
