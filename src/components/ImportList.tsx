@@ -15,7 +15,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 type Match = {
   parsed: ParsedLine
   kind: 'show' | 'movie'
-  state: 'ok' | 'notfound' | 'error'
+  state: 'ok' | 'notfound' | 'error' | 'nokey'
   show?: TvShow
   episodes?: TvEpisode[]
   movie?: Movie
@@ -34,13 +34,27 @@ const today = () => new Date().toISOString().slice(0, 10)
 /** Un jour seul : on horodate à midi pour éviter les sauts de fuseau. */
 const isoAt = (day: string) => `${day}T12:00:00.000Z`
 
+async function asMovie(parsed: ParsedLine): Promise<Match> {
+  const base = { parsed, kind: 'movie' as const, include: false }
+  if (!tmdbConfigured) return { ...base, state: 'nokey' }
+  const films = await searchMovies(parsed.title)
+  if (!films.length) return { ...base, state: 'notfound' }
+  return { ...base, state: 'ok', movie: films[0], include: true }
+}
+
 /**
- * Une ligne sans saison et introuvable sur TVmaze est probablement un film :
- * on retente sur TMDB avant d'abandonner.
+ * On cherche d'abord une série. Un titre sans saison et inconnu de TVmaze est
+ * probablement un film : on retente sur TMDB.
+ *
+ * Ça ne suffit pas toujours — « Flashback » est à la fois un film français et
+ * une série au catalogue TVmaze, qui répond donc la série. D'où le bouton
+ * « Film ? » de l'écran de relecture, qui force la recherche dans l'autre sens
+ * (`force`).
  */
-async function resolveLine(parsed: ParsedLine): Promise<Match> {
+async function resolveLine(parsed: ParsedLine, force?: 'show' | 'movie'): Promise<Match> {
   const base = { parsed, kind: 'show' as const, include: false }
   try {
+    if (force === 'movie') return await asMovie(parsed)
     const results = await searchShows(parsed.title)
     if (results.length) {
       const { show, episodes } = await getShowWithEpisodes(results[0].id)
@@ -52,10 +66,8 @@ async function resolveLine(parsed: ParsedLine): Promise<Match> {
         include: true,
       }
     }
-    if (parsed.season === null && tmdbConfigured) {
-      const films = await searchMovies(parsed.title)
-      if (films.length) return { ...base, kind: 'movie', state: 'ok', movie: films[0], include: true }
-    }
+    if (force === 'show') return { ...base, state: 'notfound' }
+    if (parsed.season === null) return await asMovie(parsed)
     return { ...base, state: 'notfound' }
   } catch (e) {
     return { ...base, state: 'error', message: (e as Error).message }
@@ -69,6 +81,7 @@ export function ImportList() {
   const [phase, setPhase] = useState<'edit' | 'resolving' | 'review' | 'saving' | 'done'>('edit')
   const [progress, setProgress] = useState(0)
   const [saved, setSaved] = useState({ shows: 0, episodes: 0, movies: 0 })
+  const [swapping, setSwapping] = useState<Set<number>>(new Set())
 
   const lines = parseList(text)
 
@@ -122,6 +135,21 @@ export function ImportList() {
 
   function toggle(i: number) {
     setMatches((prev) => prev && prev.map((m, j) => (j === i ? { ...m, include: !m.include } : m)))
+  }
+
+  /** Rebascule une ligne entre série et film, puis la recherche à nouveau. */
+  async function swapKind(i: number) {
+    const m = matches?.[i]
+    if (!m) return
+    const kind = m.kind === 'show' ? 'movie' : 'show'
+    setSwapping((prev) => new Set(prev).add(i))
+    const next = await resolveLine(m.parsed, kind)
+    setMatches((prev) => prev && prev.map((x, j) => (j === i ? next : x)))
+    setSwapping((prev) => {
+      const s = new Set(prev)
+      s.delete(i)
+      return s
+    })
   }
 
   function restart() {
@@ -193,6 +221,13 @@ export function ImportList() {
         <p className="muted">Enregistrement… {progress} / {total}</p>
       )}
 
+      {phase === 'review' && (
+        <p className="import__legend muted">
+          Un titre peut exister à la fois comme film et comme série : « Film ? » relance la
+          recherche dans l'autre catalogue.
+        </p>
+      )}
+
       {matches && phase !== 'edit' && (
         <ul className="rows">
           {matches.map((m, i) => (
@@ -227,10 +262,21 @@ export function ImportList() {
                   <h3>{m.parsed.title}</h3>
                   <p className="error">
                     {m.state === 'notfound'
-                      ? 'Introuvable au catalogue — essaie le titre original.'
-                      : `Erreur : ${m.message}`}
+                      ? `Introuvable ${m.kind === 'movie' ? 'parmi les films' : 'au catalogue'} — essaie le titre original.`
+                      : m.state === 'nokey'
+                        ? "Recherche de films indisponible : pas de clé TMDB configurée."
+                        : `Erreur : ${m.message}`}
                   </p>
                 </div>
+              )}
+              {phase === 'review' && m.state !== 'nokey' && (
+                <button
+                  className="link-btn muted"
+                  disabled={swapping.has(i)}
+                  onClick={() => swapKind(i)}
+                >
+                  {swapping.has(i) ? '…' : m.kind === 'movie' ? 'Série ?' : 'Film ?'}
+                </button>
               )}
             </li>
           ))}
