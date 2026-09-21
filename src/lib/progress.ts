@@ -19,15 +19,20 @@ export function computeProgress(episodes: TvEpisode[], watched: WatchedEpisodes)
   let seen = 0
   let next: TvEpisode | null = null
   let upcoming: TvEpisode | null = null
-  for (const ep of episodes) {
+  // Un épisode avant le tout premier vu n'est pas un « retard » à rattraper :
+  // c'est qu'on a commencé la série plus loin (ex. une saison plus tard) sans
+  // vouloir revenir en arrière. Sans ce garde-fou, ces saisons jamais vues
+  // réapparaîtraient sans fin dans « À voir ».
+  const firstWatchedIndex = episodes.findIndex((ep) => watched.has(ep.id))
+  episodes.forEach((ep, i) => {
     if (isAired(ep)) {
       aired++
       if (watched.has(ep.id)) seen++
-      else if (!next) next = ep
+      else if (!next && (firstWatchedIndex === -1 || i > firstWatchedIndex)) next = ep
     } else if (!upcoming) {
       upcoming = ep
     }
-  }
+  })
   return { aired, watched: seen, next, upcoming }
 }
 
