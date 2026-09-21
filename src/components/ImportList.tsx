@@ -87,6 +87,9 @@ export function ImportList() {
   const [progress, setProgress] = useState(0)
   const [saved, setSaved] = useState({ shows: 0, episodes: 0, movies: 0 })
   const [swapping, setSwapping] = useState<Set<number>>(new Set())
+  // « Loki », « Thor » ou « Hulk » existent aussi comme séries : sans cet
+  // interrupteur, une liste de films tomberait sur les mauvaises fiches.
+  const [asMovies, setAsMovies] = useState(false)
 
   const lines = parseList(text)
 
@@ -95,7 +98,7 @@ export function ImportList() {
     setProgress(0)
     const out: Match[] = []
     for (const parsed of lines) {
-      out.push(await resolveLine(parsed))
+      out.push(await resolveLine(parsed, asMovies ? 'movie' : undefined))
       setProgress(out.length)
       setMatches([...out])
       await sleep(DELAY)
@@ -205,6 +208,22 @@ export function ImportList() {
             placeholder={EXAMPLE}
             spellCheck={false}
           />
+          <label className="import__toggle">
+            <input
+              type="checkbox"
+              checked={asMovies}
+              disabled={!tmdbConfigured}
+              onChange={(e) => setAsMovies(e.target.checked)}
+            />
+            <span>
+              Ces lignes sont des films
+              <span className="muted">
+                {tmdbConfigured
+                  ? " — à cocher pour une liste de films, sinon « Loki » ou « Thor » tomberont sur la série."
+                  : ' — indisponible sans clé TMDB.'}
+              </span>
+            </span>
+          </label>
           <div className="import__actions">
             <button className="btn btn--primary" disabled={!lines.length} onClick={resolve}>
               Analyser {lines.length ? `(${lines.length} ligne${lines.length > 1 ? 's' : ''})` : ''}

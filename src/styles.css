@@ -290,3 +290,5 @@ button { font: inherit; color: inherit; }
 .diag { font-size: .85rem; border: 1px solid var(--line); border-radius: var(--radius); padding: .75rem 1rem; }
 .diag code { word-break: break-all; }
 .row__via { display: block; font-size: .78rem; color: var(--accent); }
+.import__toggle { display: flex; gap: .6rem; align-items: flex-start; margin: .25rem 0 1rem; font-size: .9rem; cursor: pointer; }
+.import__toggle input { width: 1.15rem; height: 1.15rem; accent-color: var(--accent); margin: .1rem 0 0; flex: none; }
