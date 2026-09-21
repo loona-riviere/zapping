@@ -53,6 +53,7 @@ type AppState = {
   addToWatchlist: (movie: Movie) => Promise<void>
   /** Bascule un film « à voir » sur « vu », à la date donnée (ou inconnue). */
   markMovieWatched: (movieId: number, watchedAt: string | null) => Promise<void>
+  markMovieUnwatched: (movieId: number) => Promise<void>
   removeMovie: (movieId: number) => Promise<void>
   /** Relève chez TMDB la durée des films qui n'en ont pas encore. */
   fillMovieRuntimes: (onProgress?: (done: number, total: number) => void) => Promise<void>
@@ -486,6 +487,22 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     [movies],
   )
 
+  const markMovieUnwatched = useCallback(
+    async (movieId: number) => {
+      const before = movies.find((m) => m.movie_id === movieId)
+      setMovies((prev) =>
+        prev.map((m) => (m.movie_id === movieId ? { ...m, status: 'later', watched_at: null } : m)),
+      )
+      try {
+        await store.markMovieUnwatched(movieId)
+      } catch (e) {
+        if (before) setMovies((prev) => prev.map((m) => (m.movie_id === movieId ? before : m)))
+        setNotice(`Enregistrement impossible : ${(e as Error).message}`)
+      }
+    },
+    [movies],
+  )
+
   const removeMovie = useCallback(async (movieId: number) => {
     const snapshot = movies
     setMovies((prev) => prev.filter((m) => m.movie_id !== movieId))
@@ -504,11 +521,11 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       isTracked, statusOf, watchedFor, historyFor, rewatchesOf, setRewatches,
       isRewatching, startRewatch, endRewatch,
       track, untrack, setStatus, setWatched,
-      addMovies, addToWatchlist, markMovieWatched, removeMovie, fillMovieRuntimes, fixActivity,
+      addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieRuntimes, fixActivity,
     }),
     [userId, tracked, watched, rewatch, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
      historyFor, rewatchesOf, setRewatches, isRewatching, startRewatch, endRewatch,
-     track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, removeMovie, fillMovieRuntimes, fixActivity],
+     track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieRuntimes, fixActivity],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

@@ -304,6 +304,15 @@ export async function markMovieWatched(movieId: number, watchedAt: string | null
   if (error) throw error
 }
 
+/** Annule un « vu » par erreur : retour à « à voir », sans perdre la fiche. */
+export async function markMovieUnwatched(movieId: number): Promise<void> {
+  const { error } = await supabase
+    .from('watched_movies')
+    .update({ status: 'later', watched_at: null })
+    .eq('movie_id', movieId)
+  if (error) throw error
+}
+
 export async function removeMovie(movieId: number): Promise<void> {
   const { error } = await supabase.from('watched_movies').delete().eq('movie_id', movieId)
   if (error) throw error

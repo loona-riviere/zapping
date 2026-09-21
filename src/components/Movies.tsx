@@ -9,7 +9,7 @@ import { MovieRecommendations } from './Recommendations'
 const today = () => new Date().toISOString().slice(0, 10)
 
 export function Movies() {
-  const { movies, moviesReady, loading, addMovies, addToWatchlist, markMovieWatched, removeMovie } = useApp()
+  const { movies, moviesReady, loading, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie } = useApp()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Movie[]>([])
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
@@ -213,12 +213,21 @@ export function Movies() {
                 </p>
               </div>
             </div>
-            <button
-              className="link-btn muted"
-              onClick={() => confirm(`Retirer ${m.title} de tes films ?`) && removeMovie(m.movie_id)}
-            >
-              Retirer
-            </button>
+            <div className="row__actions">
+              <button
+                className="link-btn muted"
+                onClick={() => markMovieUnwatched(m.movie_id)}
+                title="Remettre dans « à voir »"
+              >
+                Pas vu
+              </button>
+              <button
+                className="link-btn muted"
+                onClick={() => confirm(`Retirer ${m.title} de tes films ?`) && removeMovie(m.movie_id)}
+              >
+                Retirer
+              </button>
+            </div>
           </li>
         ))}
       </ul>
