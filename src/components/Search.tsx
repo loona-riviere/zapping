@@ -1,13 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../lib/appState'
+import { searchShowsWide } from '../lib/lookup'
 import { href } from '../lib/route'
-import { searchShows, type TvShow } from '../lib/tvmaze'
+import { tmdbConfigured } from '../lib/tmdb'
+import type { TvShow } from '../lib/tvmaze'
 import { Poster } from './Poster'
 
 export function Search() {
   const { isTracked, track } = useApp()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<TvShow[]>([])
+  // Titre original ayant permis de trouver, quand le titre français a échoué.
+  const [via, setVia] = useState<string | null>(null)
+  const [tried, setTried] = useState<string[]>([])
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const input = useRef<HTMLInputElement>(null)
 
@@ -17,14 +22,22 @@ export function Search() {
     const q = query.trim()
     if (q.length < 2) {
       setResults([])
+      setVia(null)
+      setTried([])
       setStatus('idle')
       return
     }
     setStatus('loading')
     let alive = true
     const t = setTimeout(() => {
-      searchShows(q)
-        .then((r) => alive && (setResults(r), setStatus('idle')))
+      searchShowsWide(q)
+        .then((r) => {
+          if (!alive) return
+          setResults(r.results)
+          setVia(r.via ?? null)
+          setTried(r.tried)
+          setStatus('idle')
+        })
         .catch(() => alive && setStatus('error'))
     }, 350)
     return () => {
@@ -48,7 +61,17 @@ export function Search() {
       />
       {status === 'error' && <p className="error">La recherche TVmaze a échoué. Vérifie ta connexion et réessaie.</p>}
       {status === 'idle' && query.trim().length >= 2 && !results.length && (
-        <p className="muted">Aucune série trouvée pour « {query.trim()} ». Essaie le titre original.</p>
+        <p className="muted">
+          Aucune série trouvée pour « {query.trim()} ».{' '}
+          {tried.length
+            ? `TMDB propose ${tried.slice(0, 3).map((t) => `« ${t} »`).join(', ')}, que TVmaze ne connaît pas non plus.`
+            : tmdbConfigured
+              ? "TMDB ne connaît aucune série sous ce titre non plus : vérifie l'orthographe, ou cherche l'œuvre sur themoviedb.org pour relever son titre d'origine."
+              : 'Essaie le titre original.'}
+        </p>
+      )}
+      {via && (
+        <p className="muted">Rien sous « {query.trim()} » — voici les résultats pour « {via} ».</p>
       )}
       <ul className="rows">
         {results.map((s) => {

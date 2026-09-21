@@ -1,5 +1,9 @@
-// Trouver une série au catalogue à partir d'un titre d'export (Netflix, liste
-// collée). Isolé ici parce que les deux écrans d'import en ont besoin.
+// Retrouver une œuvre au catalogue à partir d'un titre d'export ou d'une
+// recherche. Isolé ici parce que les imports et l'écran Chercher en ont besoin.
+//
+// Le problème commun : Netflix et l'utilisatrice nomment les séries en
+// français, TVmaze n'indexe que le titre d'origine et ne connaît qu'une partie
+// des alias. TMDB, lui, est localisé : il sert de dictionnaire.
 
 import { originalTitlesFor, searchMovies, tmdbConfigured, type Movie } from './tmdb'
 import { getShowWithEpisodes, searchShows, type ShowWithEpisodes, type TvShow } from './tvmaze'
@@ -7,6 +11,27 @@ import { getShowWithEpisodes, searchShows, type ShowWithEpisodes, type TvShow } 
 export type FoundShow = ShowWithEpisodes & {
   /** Titre par lequel la série a été retrouvée, s'il diffère du titre demandé. */
   via?: string
+}
+
+/** `tried` liste les titres originaux proposés par TMDB, pour expliquer un échec. */
+export type ShowLookup = { show: FoundShow | null; tried: string[] }
+
+export type WideSearch = { results: TvShow[]; via?: string; tried: string[] }
+
+/**
+ * Recherche de séries élargie : TVmaze sur le titre tel quel, puis, s'il ne
+ * connaît pas, sur les titres originaux que TMDB associe à ce titre français.
+ */
+export async function searchShowsWide(query: string): Promise<WideSearch> {
+  const direct = await searchShows(query)
+  if (direct.length || !tmdbConfigured) return { results: direct, tried: [] }
+
+  const tried = await originalTitlesFor(query)
+  for (const candidate of tried.slice(0, 3)) {
+    const hits = await searchShows(candidate)
+    if (hits.length) return { results: hits, via: candidate, tried }
+  }
+  return { results: [], tried }
 }
 
 type Candidate = { data: ShowWithEpisodes; enough: boolean }
@@ -32,28 +57,23 @@ async function firstFitting(results: TvShow[], minEpisodes: number): Promise<Can
   return fallback ? { data: fallback, enough: false } : null
 }
 
-/**
- * TVmaze d'abord, sur le titre tel quel. S'il ne connaît pas — ou ne propose
- * qu'une série trop courte — on demande à TMDB les titres originaux
- * correspondants et on réessaie avec. C'est ce qui rattrape les séries que
- * Netflix a renommées en français (« Mercredi » pour « Wednesday »).
- */
 export async function findShow(
   title: string,
   opts: { minEpisodes?: number } = {},
-): Promise<FoundShow | null> {
+): Promise<ShowLookup> {
   const min = opts.minEpisodes ?? 0
 
   const direct = await firstFitting(await searchShows(title), min)
-  if (direct?.enough) return direct.data
-  if (!tmdbConfigured) return direct?.data ?? null
+  if (direct?.enough) return { show: direct.data, tried: [] }
+  if (!tmdbConfigured) return { show: direct?.data ?? null, tried: [] }
 
-  for (const candidate of (await originalTitlesFor(title)).slice(0, 3)) {
+  const tried = await originalTitlesFor(title)
+  for (const candidate of tried.slice(0, 3)) {
     const hit = await firstFitting(await searchShows(candidate), min)
-    if (hit?.enough) return { ...hit.data, via: candidate }
-    if (hit && !direct) return { ...hit.data, via: candidate }
+    if (hit?.enough) return { show: { ...hit.data, via: candidate }, tried }
+    if (hit && !direct) return { show: { ...hit.data, via: candidate }, tried }
   }
-  return direct?.data ?? null
+  return { show: direct?.data ?? null, tried }
 }
 
 export type FoundMovie = { movie: Movie; via?: string }
@@ -77,4 +97,17 @@ export async function findMovie(title: string): Promise<FoundMovie | null> {
   if (!head || head === title) return null
   const hits = await searchMovies(head)
   return hits.length ? { movie: hits[0], via: head } : null
+}
+
+/** Phrase d'échec qui dit ce qui a été tenté, pour que l'utilisatrice puisse juger. */
+export function explainMiss(tried: string[], kind: 'show' | 'movie'): string {
+  const where = kind === 'movie' ? 'parmi les films' : 'au catalogue des séries'
+  if (!tmdbConfigured) {
+    return `Introuvable ${where} — essaie le titre original.`
+  }
+  if (!tried.length) {
+    return `Introuvable ${where}, et TMDB ne connaît aucune série sous ce titre. Vérifie l'orthographe, ou cherche l'œuvre sur themoviedb.org pour trouver son titre d'origine.`
+  }
+  const list = tried.slice(0, 3).map((t) => `« ${t} »`).join(', ')
+  return `Introuvable ${where}. TMDB propose ${list}, que TVmaze ne connaît pas non plus.`
 }

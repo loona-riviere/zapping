@@ -4,7 +4,7 @@ import { describeTarget, episodesUpTo, parseList, type ParsedLine } from '../lib
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { tmdbConfigured, type Movie } from '../lib/tmdb'
-import { findMovie, findShow } from '../lib/lookup'
+import { explainMiss, findMovie, findShow } from '../lib/lookup'
 import type { TvEpisode, TvShow } from '../lib/tvmaze'
 import { Poster } from './Poster'
 
@@ -24,6 +24,8 @@ type Match = {
   include: boolean
   /** Titre original par lequel la série a été retrouvée, si différent. */
   via?: string
+  /** Titres essayés en vain, pour expliquer un échec. */
+  tried?: string[]
 }
 
 const EXAMPLE = `Breaking Bad S05E08
@@ -58,20 +60,20 @@ async function resolveLine(parsed: ParsedLine, force?: 'show' | 'movie'): Promis
   const base = { parsed, kind: 'show' as const, include: false }
   try {
     if (force === 'movie') return await asMovie(parsed)
-    const found = await findShow(parsed.title)
-    if (found) {
+    const { show, tried } = await findShow(parsed.title)
+    if (show) {
       return {
         ...base,
         state: 'ok',
-        show: found.show,
-        via: found.via,
-        episodes: episodesUpTo(found.episodes, parsed.season, parsed.number),
+        show: show.show,
+        via: show.via,
+        episodes: episodesUpTo(show.episodes, parsed.season, parsed.number),
         include: true,
       }
     }
-    if (force === 'show') return { ...base, state: 'notfound' }
+    if (force === 'show') return { ...base, state: 'notfound', tried }
     if (parsed.season === null) return await asMovie(parsed)
-    return { ...base, state: 'notfound' }
+    return { ...base, state: 'notfound', tried }
   } catch (e) {
     return { ...base, state: 'error', message: (e as Error).message }
   }
@@ -266,7 +268,7 @@ export function ImportList() {
                   <h3>{m.parsed.title}</h3>
                   <p className="error">
                     {m.state === 'notfound'
-                      ? `Introuvable ${m.kind === 'movie' ? 'parmi les films' : 'au catalogue'} — essaie le titre original.`
+                      ? explainMiss(m.tried ?? [], m.kind)
                       : m.state === 'nokey'
                         ? "Recherche de films indisponible : pas de clé TMDB configurée."
                         : `Erreur : ${m.message}`}

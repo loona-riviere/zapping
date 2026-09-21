@@ -6,7 +6,7 @@ import {
   lastDate, parseNetflixCsv, resolveGroup,
   type NetflixGroup, type Resolution,
 } from '../lib/netflix'
-import { findMovie, findShow } from '../lib/lookup'
+import { explainMiss, findMovie, findShow } from '../lib/lookup'
 import { tmdbConfigured, type Movie } from '../lib/tmdb'
 import type { TvEpisode, TvShow } from '../lib/tvmaze'
 import { Poster } from './Poster'
@@ -28,6 +28,8 @@ type Item = {
   movie?: Movie
   /** Titre original par lequel la série a été retrouvée, si différent. */
   via?: string
+  /** Titres essayés en vain, pour expliquer un échec. */
+  tried?: string[]
 }
 
 type Phase = 'pick' | 'resolving' | 'review' | 'saving' | 'done'
@@ -250,7 +252,7 @@ function ImportRow({
           <h3>{group.title}</h3>
           <p className="error">
             {item.state === 'notfound'
-              ? `Introuvable dans le catalogue ${item.kind === 'movie' ? 'TMDB' : 'TVmaze'} — essaie le titre original.`
+              ? explainMiss(item.tried ?? [], item.kind)
               : item.state === 'nokey'
                 ? "Film ignoré : pas de clé TMDB configurée."
                 : item.message}
@@ -322,20 +324,20 @@ async function resolveOne(group: NetflixGroup, kind: 'show' | 'movie'): Promise<
     if (kind === 'movie') {
       if (!tmdbConfigured) return { ...base, state: 'nokey' }
       const found = await findMovie(group.title)
-      if (!found) return { ...base, state: 'notfound' }
+      if (!found) return { ...base, state: 'notfound', tried: [] }
       return { ...base, state: 'ok', include: true, movie: found.movie, via: found.via }
     }
     // Le nombre de lignes distinctes borne par le bas la taille attendue de la
     // série : de quoi écarter un homonyme trop court.
-    const found = await findShow(group.title, { minEpisodes: group.entries.length })
-    if (!found) return { ...base, state: 'notfound' }
+    const { show, tried } = await findShow(group.title, { minEpisodes: group.entries.length })
+    if (!show) return { ...base, state: 'notfound', tried }
     return {
       ...base,
       state: 'ok',
       include: true,
-      show: found.show,
-      via: found.via,
-      picks: resolveGroup(group, found.episodes),
+      show: show.show,
+      via: show.via,
+      picks: resolveGroup(group, show.episodes),
     }
   } catch (e) {
     return { ...base, state: 'error', message: `Erreur : ${(e as Error).message}` }
