@@ -286,3 +286,4 @@ button { font: inherit; color: inherit; }
 .row__actions { display: flex; flex-direction: column; align-items: flex-end; gap: .35rem; flex: none; }
 .row__drop { font-size: .78rem; color: var(--muted); text-decoration-color: var(--line); }
 .row__drop:hover { color: var(--danger); }
+.footer p { margin: .15rem 0; }

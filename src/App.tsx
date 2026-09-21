@@ -80,7 +80,11 @@ function Shell() {
       )}
 
       <footer className="footer muted">
-        Données séries : TVmaze.com (CC BY-SA){tmdbConfigured && ' — films : TMDB'}
+        <p>Données séries : TVmaze.com (CC BY-SA)</p>
+        {/* Mention exigée par les conditions d'utilisation de l'API TMDB. */}
+        {tmdbConfigured && (
+          <p>Ce produit utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB.</p>
+        )}
       </footer>
     </>
   )
