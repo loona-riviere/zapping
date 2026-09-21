@@ -7,6 +7,7 @@ export type Route =
   | { name: 'movies' }
   | { name: 'stats' }
   | { name: 'show'; id: number }
+  | { name: 'movie'; id: number }
 
 function parse(hash: string): Route {
   if (hash.startsWith('#/search')) {
@@ -18,8 +19,10 @@ function parse(hash: string): Route {
   if (hash.startsWith('#/import')) return { name: 'import' }
   if (hash.startsWith('#/films')) return { name: 'movies' }
   if (hash.startsWith('#/stats')) return { name: 'stats' }
-  const m = hash.match(/^#\/show\/(\d+)/)
-  if (m) return { name: 'show', id: Number(m[1]) }
+  const show = hash.match(/^#\/show\/(\d+)/)
+  if (show) return { name: 'show', id: Number(show[1]) }
+  const movie = hash.match(/^#\/movie\/(\d+)/)
+  if (movie) return { name: 'movie', id: Number(movie[1]) }
   return { name: 'home' }
 }
 
@@ -45,4 +48,5 @@ export const href = {
   movies: '#/films',
   stats: '#/stats',
   show: (id: number) => `#/show/${id}`,
+  movie: (id: number) => `#/movie/${id}`,
 }

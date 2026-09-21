@@ -177,6 +177,36 @@ export async function movieRuntime(id: number): Promise<number | null> {
 const normalizeTitle = (s: string) =>
   s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 
+export type MovieDetails = { overview: string | null; genres: string[] }
+
+const DETAILS_TTL = 30 * 24 * 60 * 60 * 1000 // 30 j : une fiche TMDB ne change presque jamais
+
+/**
+ * R\u00e9sum\u00e9 et genres d'un film \u2014 absents de la recherche, une requ\u00eate par
+ * film. La dur\u00e9e est d\u00e9j\u00e0 connue via `movieRuntime` / la fiche enregistr\u00e9e,
+ * pas la peine de la redemander ici.
+ */
+export async function movieDetails(id: number): Promise<MovieDetails | null> {
+  const key = `tmdb:details:${id}`
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw) {
+      const cached = JSON.parse(raw) as { at: number; data: MovieDetails }
+      if (Date.now() - cached.at < DETAILS_TTL) return cached.data
+    }
+  } catch {
+    /* cache illisible : on refetch */
+  }
+  const data = await get<{ overview: string | null; genres: { name: string }[] }>(`/movie/${id}`, {})
+  const details: MovieDetails = { overview: data.overview || null, genres: data.genres?.map((g) => g.name) ?? [] }
+  try {
+    localStorage.setItem(key, JSON.stringify({ at: Date.now(), data: details }))
+  } catch {
+    /* stockage plein : pas grave */
+  }
+  return details
+}
+
 export type Provider = { id: number; name: string; logo: string | null }
 export type Availability = { providers: Provider[]; link: string | null }
 
