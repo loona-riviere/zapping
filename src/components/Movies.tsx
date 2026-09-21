@@ -89,13 +89,13 @@ export function Movies() {
       <ul className="rows">
         {toWatch.map((m) => (
           <li key={m.movie_id} className="row">
-            <div className="row__link">
+            <a href={href.movie(m.movie_id)} className="row__link">
               <Poster src={m.poster_url} alt={m.title} />
               <div className="row__body">
                 <h3>{m.title}</h3>
                 <p className="muted">{m.release_year ?? 'Année inconnue'}</p>
               </div>
-            </div>
+            </a>
             <div className="row__actions">
               <button className="btn btn--seen" onClick={() => markMovieWatched(m.movie_id, today())}>
                 Vu
@@ -130,7 +130,7 @@ export function Movies() {
       <ul className="rows">
         {watched.map((m) => (
           <li key={m.movie_id} className="row">
-            <div className="row__link">
+            <a href={href.movie(m.movie_id)} className="row__link">
               <Poster src={m.poster_url} alt={m.title} />
               <div className="row__body">
                 <h3>{m.title}</h3>
@@ -143,7 +143,7 @@ export function Movies() {
                     .join(' — ')}
                 </p>
               </div>
-            </div>
+            </a>
             <div className="row__actions">
               <button
                 className="link-btn muted"

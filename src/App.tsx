@@ -6,6 +6,7 @@ import { EasterEggOverlay, useLogoEasterEgg } from './components/EasterEgg'
 import { Footer } from './components/Footer'
 import { Import } from './components/Import'
 import { Library, isLibrary } from './components/Library'
+import { MoviePage } from './components/MoviePage'
 import { Search } from './components/Search'
 import { ShowPage } from './components/ShowPage'
 import { Stats } from './components/Stats'
@@ -74,6 +75,7 @@ function Shell() {
         {route.name === 'import' && <Import />}
         {route.name === 'stats' && <Stats />}
         {route.name === 'show' && <ShowPage id={route.id} />}
+        {route.name === 'movie' && <MoviePage id={route.id} />}
       </main>
 
       {notice && (
