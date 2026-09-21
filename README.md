@@ -14,6 +14,9 @@ Un suivi de séries façon TVTime : cherche une série, coche les épisodes vus,
 - Proposition de cocher les épisodes précédents quand tu coches un épisode plus loin
 - Cocher ou décocher une saison entière, liste détaillée des titres et dates de diffusion
 - Accueil trié par activité récente : À voir (avec bouton « Vu » sur le prochain épisode), À jour (avec la date du prochain épisode), Terminées
+- **Reprise** : colle une liste « Breaking Bad S05E08 » (une série par ligne), l'app retrouve
+  chaque série sur TVmaze et coche tout ce qui précède le point indiqué — utile pour repartir
+  d'un ancien suivi sans tout recocher à la main
 - Thème clair et sombre automatique, pensé d'abord pour le mobile
 
 ## Mise en place

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { Auth } from './components/Auth'
 import { Home } from './components/Home'
+import { Import } from './components/Import'
 import { Search } from './components/Search'
 import { ShowPage } from './components/ShowPage'
 import { AppProvider, useApp } from './lib/appState'
@@ -55,6 +56,7 @@ function Shell() {
         <nav className="topbar__nav">
           <a href={href.home} aria-current={route.name === 'home' ? 'page' : undefined}>Mes séries</a>
           <a href={href.search} aria-current={route.name === 'search' ? 'page' : undefined}>Chercher</a>
+          <a href={href.import} aria-current={route.name === 'import' ? 'page' : undefined}>Reprise</a>
           <button className="link-btn" onClick={() => supabase.auth.signOut()}>Déconnexion</button>
         </nav>
       </header>
@@ -62,6 +64,7 @@ function Shell() {
       <main className="main">
         {route.name === 'home' && <Home />}
         {route.name === 'search' && <Search />}
+        {route.name === 'import' && <Import />}
         {route.name === 'show' && <ShowPage id={route.id} />}
       </main>
 
