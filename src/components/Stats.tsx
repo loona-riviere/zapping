@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
+import { findActivityIssues, findSeasonIssues, type ActivityIssue, type SeasonIssue } from '../lib/diagnostics'
+import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import {
   computeStats, countByStatus, formatNumber, humanBreakdown, humanDuration, monthLabel, shortUnit,
@@ -9,7 +11,7 @@ import { STATUS_LABEL } from '../lib/store'
 import { useShowEpisodes } from '../lib/useShows'
 
 export function Stats() {
-  const { tracked, movies, loading, historyFor, fillMovieRuntimes } = useApp()
+  const { tracked, movies, loading, historyFor, watchedFor, fillMovieRuntimes, fixActivity } = useApp()
   const [filling, setFilling] = useState<{ done: number; total: number } | null>(null)
   const ids = useMemo(() => tracked.map((t) => t.show_id), [tracked])
   const { data } = useShowEpisodes(ids)
@@ -18,6 +20,8 @@ export function Stats() {
     [tracked, historyFor, data, movies],
   )
   const byStatus = useMemo(() => countByStatus(tracked), [tracked])
+  const [report, setReport] = useState<{ activity: ActivityIssue[]; season: SeasonIssue[] } | null>(null)
+  const [fixingAll, setFixingAll] = useState(false)
 
   if (loading) return <p className="muted pad">Chargement…</p>
   if (!tracked.length && !movies.length) {
@@ -97,6 +101,92 @@ export function Stats() {
       </ul>
 
       <TopShows shows={stats.topShows} />
+
+      <section className="diag">
+        <div className="diag__head">
+          <h3 className="chart__title">Vérifier les incohérences</h3>
+          <button
+            className="link-btn"
+            onClick={() => {
+              const activity = findActivityIssues(tracked, watchedFor, historyFor)
+              const season = findSeasonIssues(tracked, data, historyFor)
+              setReport({ activity, season })
+            }}
+          >
+            Lancer la vérification
+          </button>
+        </div>
+
+        {report && (
+          <>
+            {report.activity.length === 0 && report.season.length === 0 ? (
+              <p className="muted">Rien à signaler : les données sont cohérentes.</p>
+            ) : (
+              <>
+                {report.activity.length > 0 && (
+                  <div className="diag__group">
+                    <p>
+                      {report.activity.length} série{report.activity.length > 1 ? 's' : ''} avec un
+                      tri de l'accueil décalé de la vraie dernière activité.{' '}
+                      <button
+                        className="link-btn"
+                        disabled={fixingAll}
+                        onClick={async () => {
+                          setFixingAll(true)
+                          for (const issue of report.activity) await fixActivity(issue.showId, issue.actual)
+                          setFixingAll(false)
+                          setReport((r) => (r ? { ...r, activity: [] } : r))
+                        }}
+                      >
+                        {fixingAll ? 'Correction…' : 'Tout corriger'}
+                      </button>
+                    </p>
+                    <ul className="diag__list">
+                      {report.activity.map((issue) => (
+                        <li key={issue.showId}>
+                          <a href={href.show(issue.showId)}>{issue.showName}</a> — enregistré{' '}
+                          {issue.recorded ? formatShortDate(issue.recorded) : 'jamais'}, en vrai{' '}
+                          {issue.actual ? formatShortDate(issue.actual) : 'jamais'}.{' '}
+                          <button
+                            className="link-btn"
+                            onClick={async () => {
+                              await fixActivity(issue.showId, issue.actual)
+                              setReport((r) =>
+                                r ? { ...r, activity: r.activity.filter((i) => i.showId !== issue.showId) } : r,
+                              )
+                            }}
+                          >
+                            Corriger
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {report.season.length > 0 && (
+                  <div className="diag__group">
+                    <p>
+                      {report.season.length} saison{report.season.length > 1 ? 's' : ''} où les dates
+                      ne progressent pas dans l'ordre de diffusion — signe possible d'un import mal
+                      associé. À revoir au cas par cas, rien n'est corrigé automatiquement.
+                    </p>
+                    <ul className="diag__list">
+                      {report.season.map((issue, i) => (
+                        <li key={i}>
+                          <a href={href.show(issue.showId)}>{issue.showName}</a>, saison {issue.season} —{' '}
+                          {issue.before.code} vu le {formatShortDate(issue.before.date)}, après{' '}
+                          {issue.after.code} vu le {formatShortDate(issue.after.date)}.
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </section>
 
       <p className="muted stats__caveat">
         Les durées viennent de TVmaze ; un épisode sans durée renseignée prend la durée médiane

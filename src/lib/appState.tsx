@@ -52,6 +52,8 @@ type AppState = {
   removeMovie: (movieId: number) => Promise<void>
   /** Relève chez TMDB la durée des films qui n'en ont pas encore. */
   fillMovieRuntimes: (onProgress?: (done: number, total: number) => void) => Promise<void>
+  /** Recale `last_watched_at` sur la vraie date, quand le diagnostic en trouve un décalage. */
+  fixActivity: (showId: number, actual: string | null) => Promise<void>
 }
 
 const Ctx = createContext<AppState | null>(null)
@@ -409,6 +411,17 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     [movies],
   )
 
+  const fixActivity = useCallback(async (showId: number, actual: string | null) => {
+    const before = tracked.find((t) => t.show_id === showId)?.last_watched_at ?? null
+    patchShow(showId, { last_watched_at: actual })
+    try {
+      await store.touchLastWatched(showId, actual)
+    } catch (e) {
+      patchShow(showId, { last_watched_at: before })
+      setNotice(`Correction impossible : ${(e as Error).message}`)
+    }
+  }, [tracked, patchShow])
+
   const removeMovie = useCallback(async (movieId: number) => {
     const snapshot = movies
     setMovies((prev) => prev.filter((m) => m.movie_id !== movieId))
@@ -427,11 +440,11 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       isTracked, statusOf, watchedFor, historyFor, rewatchesOf, setRewatches,
       isRewatching, startRewatch, endRewatch,
       track, untrack, setStatus, setWatched,
-      addMovies, removeMovie, fillMovieRuntimes,
+      addMovies, removeMovie, fillMovieRuntimes, fixActivity,
     }),
     [userId, tracked, watched, rewatch, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
      historyFor, rewatchesOf, setRewatches, isRewatching, startRewatch, endRewatch,
-     track, untrack, setStatus, setWatched, addMovies, removeMovie, fillMovieRuntimes],
+     track, untrack, setStatus, setWatched, addMovies, removeMovie, fillMovieRuntimes, fixActivity],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
