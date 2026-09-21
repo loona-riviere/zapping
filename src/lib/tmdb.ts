@@ -197,10 +197,11 @@ const DETAILS_TTL = 30 * 24 * 60 * 60 * 1000 // 30 j : une fiche TMDB ne change 
  * (ajout par script, import\u2026), \u00e0 les compl\u00e9ter au passage.
  */
 export async function movieDetails(id: number): Promise<MovieDetails | null> {
-  // v2 : la cl\u00e9 change avec la forme des donn\u00e9es mises en cache, pour ne
-  // pas resservir ind\u00e9finiment une fiche mise en cache avant l'ajout d'un
-  // champ (l'affiche est rest\u00e9e manquante pendant 30 jours \u00e0 cause de \u00e7a).
-  const key = `tmdb:details:v2:${id}`
+  // Le num\u00e9ro de version change avec la forme des donn\u00e9es mises en cache,
+  // pour ne pas resservir ind\u00e9finiment une fiche mise en cache avant l'ajout
+  // d'un champ (l'affiche puis la date de sortie sont rest\u00e9es manquantes
+  // jusqu'\u00e0 30 jours \u00e0 cause de \u00e7a \u2014 \u00e0 rebumper si le type change encore).
+  const key = `tmdb:details:v3:${id}`
   try {
     const raw = localStorage.getItem(key)
     if (raw) {

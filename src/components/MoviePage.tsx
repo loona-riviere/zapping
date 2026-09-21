@@ -67,25 +67,27 @@ export function MoviePage({ id }: { id: number }) {
           </p>
 
           {movie?.status === 'watched' ? (
-            <p className="show__count eplist__date--edit">
-              Vu le{' '}
-              <input
-                type="date"
-                value={movie.watched_at ? movie.watched_at.slice(0, 10) : ''}
-                max={today()}
-                onChange={(e) => e.target.value && markMovieWatched(movie.movie_id, `${e.target.value}T12:00:00.000Z`)}
-              />
+            <>
+              <p className="show__count eplist__date--edit">
+                Vu le
+                <input
+                  type="date"
+                  value={movie.watched_at ? movie.watched_at.slice(0, 10) : ''}
+                  max={today()}
+                  onChange={(e) => e.target.value && markMovieWatched(movie.movie_id, `${e.target.value}T12:00:00.000Z`)}
+                />
+              </p>
               {details?.releaseDate && (
                 <button
                   type="button"
-                  className="link-btn"
+                  className="link-btn season__dates"
                   onClick={() => markMovieWatched(movie.movie_id, `${details.releaseDate}T12:00:00.000Z`)}
                   title="Reprend la date de sortie du film"
                 >
-                  à sa sortie
+                  Dater à sa sortie
                 </button>
               )}
-            </p>
+            </>
           ) : (
             <p className="show__count muted">À voir</p>
           )}
