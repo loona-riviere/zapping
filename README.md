@@ -41,8 +41,17 @@ Un suivi de séries façon TVTime : cherche une série, coche les épisodes vus,
 
 Sans clé TMDB, l'app fonctionne normalement mais l'onglet Films affiche un message et l'import
 Netflix ignore les films. Pour les activer : crée un compte sur
-[themoviedb.org](https://www.themoviedb.org/settings/api), demande une clé API (v3, gratuite et
-immédiate) et renseigne `VITE_TMDB_KEY`.
+[themoviedb.org](https://www.themoviedb.org/settings/api) et demande un accès à l'API (gratuit,
+choisis *Website* comme type d'utilisation).
+
+Leur page donne deux identifiants ; `VITE_TMDB_KEY` accepte l'un ou l'autre :
+
+- **Clé de l'API** (v3) : 32 caractères, envoyée en paramètre d'URL ;
+- **Jeton d'accès en lecture à l'API** (v4) : un JWT commençant par `eyJ`, envoyé en en-tête
+  `Authorization: Bearer`.
+
+Les variables `VITE_*` sont compilées dans le bundle : après en avoir ajouté une sur Netlify,
+il faut relancer un déploiement pour qu'elle soit prise en compte.
 
 ### 3. En local
 

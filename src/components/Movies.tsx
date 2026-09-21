@@ -85,7 +85,12 @@ export function Movies() {
         </label>
       </div>
 
-      {status === 'error' && <p className="error">La recherche TMDB a échoué. Vérifie ta clé et ta connexion.</p>}
+      {status === 'error' && (
+        <p className="error">
+          La recherche TMDB a échoué. Vérifie <code>VITE_TMDB_KEY</code> (la clé v3 de 32
+          caractères ou le jeton d'accès v4 conviennent), puis redéploie le site.
+        </p>
+      )}
       {status === 'idle' && query.trim().length >= 2 && !results.length && (
         <p className="muted">Aucun film trouvé pour « {query.trim()} ».</p>
       )}

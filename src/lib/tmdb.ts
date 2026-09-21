@@ -1,5 +1,10 @@
-// Client minimal pour l'API TMDB (films). Nécessite une clé gratuite :
+// Client minimal pour l'API TMDB (films). Nécessite un identifiant gratuit :
 // https://www.themoviedb.org/settings/api → VITE_TMDB_KEY
+//
+// Cette page en propose deux, et on accepte les deux :
+//   — « Clé de l'API » (v3), 32 caractères, passée en paramètre d'URL ;
+//   — « Jeton d'accès en lecture à l'API » (v4), un JWT, passé en en-tête
+//     Authorization. C'est celui que TMDB met le plus en avant.
 // Doc : https://developer.themoviedb.org/reference/intro/getting-started
 
 export type Movie = {
@@ -36,10 +41,20 @@ function toMovie(r: RawMovie): Movie {
   }
 }
 
+/** Un jeton v4 est un JWT : trois segments base64url, préfixe « eyJ ». */
+const isV4Token = (key: string) => key.startsWith('eyJ')
+
 async function get<T>(path: string, params: Record<string, string>): Promise<T> {
   if (!KEY) throw new Error("TMDB n'est pas configuré (VITE_TMDB_KEY)")
-  const qs = new URLSearchParams({ api_key: KEY, language: 'fr-FR', ...params })
-  const res = await fetch(`${BASE}${path}?${qs}`)
+  const qs = new URLSearchParams({ language: 'fr-FR', ...params })
+  const headers: Record<string, string> = {}
+  if (isV4Token(KEY)) headers.Authorization = `Bearer ${KEY}`
+  else qs.set('api_key', KEY)
+
+  const res = await fetch(`${BASE}${path}?${qs}`, { headers })
+  if (res.status === 401) {
+    throw new Error('TMDB a refusé la clé (VITE_TMDB_KEY)')
+  }
   if (!res.ok) throw new Error(`TMDB a répondu ${res.status}`)
   return res.json() as Promise<T>
 }
