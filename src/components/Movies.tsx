@@ -55,7 +55,17 @@ export function Movies() {
   const q = normalize(query.trim())
   const matches = (title: string) => !q || normalize(title).includes(q)
   const toWatch = movies.filter((m) => m.status === 'later' && matches(m.title))
-  const watched = movies.filter((m) => m.status === 'watched' && matches(m.title))
+  // Le tri à l'affichage, plutôt que se fier à l'ordre de la liste chargée :
+  // corriger une date après coup (édition, « à sa sortie »…) ne la retrie pas
+  // dans l'état en mémoire. Sans date connue, en dernier plutôt qu'en tête.
+  const watched = movies
+    .filter((m) => m.status === 'watched' && matches(m.title))
+    .sort((a, b) => {
+      if (a.watched_at && b.watched_at) return b.watched_at.localeCompare(a.watched_at)
+      if (a.watched_at) return -1
+      if (b.watched_at) return 1
+      return a.title.localeCompare(b.title, 'fr')
+    })
 
   /**
    * « Je l'ai vu à sa sortie » : plutôt que la date du jour, reprend la date
