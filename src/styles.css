@@ -182,6 +182,9 @@ button { font: inherit; color: inherit; }
 .eplist__date--edit input[type='date'] {
   font: inherit; font-size: .8rem; color: var(--ink); background: var(--surface);
   border: 1.5px solid var(--line); border-radius: 6px; padding: .15rem .4rem;
+  /* Sans largeur explicite, les navigateurs mobiles (Safari/Chrome iOS)
+     réduisent le champ à la seule icône du calendrier, sans texte visible. */
+  min-width: 9rem; flex: none;
 }
 
 /* Barres flottantes */
@@ -434,4 +437,5 @@ button { font: inherit; color: inherit; }
 .season__bulk-date-input {
   font: inherit; font-size: .8rem; color: var(--ink); background: var(--surface);
   border: 1.5px solid var(--line); border-radius: 6px; padding: .15rem .4rem;
+  min-width: 9rem; flex: none;
 }
