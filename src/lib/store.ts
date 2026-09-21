@@ -108,11 +108,14 @@ export async function fetchWatched(): Promise<WatchedMap> {
 }
 
 export async function trackShow(userId: string, show: TvShow): Promise<TrackedShow> {
+  // Tant qu'aucun épisode n'est coché, la série est « à voir », pas « en
+  // cours » : on ne l'a pas encore commencée.
   const row = {
     user_id: userId,
     show_id: show.id,
     name: show.name,
     image_url: show.image?.medium ?? null,
+    status: 'later' as ShowStatus,
   }
   const { error } = await supabase
     .from('tracked_shows')
@@ -124,7 +127,7 @@ export async function trackShow(userId: string, show: TvShow): Promise<TrackedSh
     image_url: row.image_url,
     added_at: new Date().toISOString(),
     last_watched_at: null,
-    status: 'watching',
+    status: 'later',
     rewatches: 0,
     rewatching: false,
   }

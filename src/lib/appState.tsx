@@ -333,9 +333,18 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
           prev.map((t) => (t.show_id === show.id ? { ...t, last_watched_at: last } : t)),
         )
       }
+      // Un premier épisode coché sort la série de « à voir » : elle est
+      // maintenant commencée, pas juste projetée.
+      const wasNotStarted = tracked.find((t) => t.show_id === show.id)?.status === 'later'
+      if (value && wasNotStarted) {
+        setTracked((prev) =>
+          prev.map((t) => (t.show_id === show.id ? { ...t, status: 'watching' } : t)),
+        )
+      }
       try {
         if (value) {
           if (!tracked.some((t) => t.show_id === show.id)) await track(show)
+          if (wasNotStarted) await store.setShowStatus(show.id, 'watching')
           await store.markWatched(userId, show.id, eps, dates, overwrite)
         } else {
           await store.markUnwatched(ids)
@@ -343,6 +352,11 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
         }
       } catch (e) {
         apply(!value)
+        if (wasNotStarted) {
+          setTracked((prev) =>
+            prev.map((t) => (t.show_id === show.id ? { ...t, status: 'later' } : t)),
+          )
+        }
         setNotice(`Enregistrement impossible : ${(e as Error).message}`)
       }
     },
