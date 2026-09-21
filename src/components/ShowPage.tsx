@@ -119,15 +119,11 @@ export function ShowPage({ id }: { id: number }) {
   function toggle(ep: TvEpisode) {
     if (!isAired(ep)) return
     if (watched.has(ep.id)) {
-      // Pendant un revisionnage, décocher est irréversible sans y repenser :
-      // recocher remet la date du jour, pas celle d'origine. Une confirmation
-      // évite qu'un faux clic écrase une vraie date.
-      if (rewatching) {
-        setConfirmUncheck(ep)
-        return
-      }
-      setCatchUp(null)
-      setWatched(show, [ep], false)
+      // Décocher fait perdre la date de visionnage sans retour possible
+      // autrement qu'en la retapant à la main : une confirmation évite qu'un
+      // faux clic l'efface. Pendant un revisionnage, recocher ensuite remet
+      // en plus la date du jour plutôt que la date d'origine.
+      setConfirmUncheck(ep)
       return
     }
     setWatched(show, [ep], true)
@@ -146,6 +142,10 @@ export function ShowPage({ id }: { id: number }) {
   function toggleSeason(eps: TvEpisode[]) {
     const aired = eps.filter((e) => isAired(e))
     const allSeen = aired.every((e) => watched.has(e.id))
+    if (allSeen) {
+      const n = aired.length
+      if (!confirm(`Tout décocher la saison ${eps[0]?.season} ? Les dates de visionnage des ${n} épisodes seront perdues.`)) return
+    }
     setCatchUp(null)
     setWatched(show, allSeen ? aired : aired.filter((e) => !watched.has(e.id)), !allSeen)
   }
@@ -418,8 +418,8 @@ export function ShowPage({ id }: { id: number }) {
       {confirmUncheck && (
         <div className="catchup" role="status">
           <p>
-            Décocher {epCode(confirmUncheck)} ? En revisionnage, la recocher remettra la date
-            d'aujourd'hui, pas celle d'origine.
+            Décocher {epCode(confirmUncheck)} ? Sa date de visionnage sera perdue.
+            {rewatching && ' En revisionnage, la recocher remettra la date d\'aujourd\'hui, pas celle d\'origine.'}
           </p>
           <div className="catchup__actions">
             <button className="btn btn--ghost" onClick={() => setConfirmUncheck(null)}>Annuler</button>
