@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { Auth } from './components/Auth'
-import { Home } from './components/Home'
 import { Import } from './components/Import'
-import { Movies } from './components/Movies'
+import { Library, isLibrary } from './components/Library'
 import { Search } from './components/Search'
-import { Stats } from './components/Stats'
 import { ShowPage } from './components/ShowPage'
 import { AppProvider, useApp } from './lib/appState'
 import { href, useRoute } from './lib/route'
@@ -57,21 +55,17 @@ function Shell() {
       <header className="topbar">
         <a href={href.home} className="wordmark">Zapping</a>
         <nav className="topbar__nav">
-          <a href={href.home} aria-current={route.name === 'home' ? 'page' : undefined}>Mes séries</a>
+          <a href={href.home} aria-current={isLibrary(route) ? 'page' : undefined}>Bibliothèque</a>
           <a href={href.search} aria-current={route.name === 'search' ? 'page' : undefined}>Chercher</a>
-          <a href={href.movies} aria-current={route.name === 'movies' ? 'page' : undefined}>Films</a>
-          <a href={href.stats} aria-current={route.name === 'stats' ? 'page' : undefined}>Stats</a>
           <a href={href.import} aria-current={route.name === 'import' ? 'page' : undefined}>Import</a>
           <button className="link-btn" onClick={() => supabase.auth.signOut()}>Déconnexion</button>
         </nav>
       </header>
 
       <main className="main">
-        {route.name === 'home' && <Home />}
+        {isLibrary(route) && <Library route={route} />}
         {route.name === 'search' && <Search />}
         {route.name === 'import' && <Import />}
-        {route.name === 'movies' && <Movies />}
-        {route.name === 'stats' && <Stats />}
         {route.name === 'show' && <ShowPage id={route.id} />}
       </main>
 
