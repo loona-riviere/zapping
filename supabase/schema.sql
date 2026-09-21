@@ -53,6 +53,15 @@ alter table public.watched_episodes alter column watched_at drop not null;
 create index if not exists watched_episodes_user_show_idx
   on public.watched_episodes (user_id, show_id);
 
+-- Rattache chaque épisode coché à sa série suivie : sans cette FK, l'éditeur
+-- de tables Supabase ne sait pas relier les deux et n'affiche pas la flèche
+-- de navigation vers watched_episodes depuis tracked_shows.
+alter table public.watched_episodes drop constraint if exists watched_episodes_show_fkey;
+alter table public.watched_episodes
+  add constraint watched_episodes_show_fkey
+  foreign key (user_id, show_id) references public.tracked_shows (user_id, show_id)
+  on delete cascade;
+
 -- Épisodes revus pendant le visionnage en cours. La table est vidée à la fin
 -- du revisionnage, qui incrémente alors tracked_shows.rewatches : on ne garde
 -- que la passe en cours, pas l'historique de chaque passe.
@@ -66,6 +75,12 @@ create table if not exists public.rewatch_progress (
 
 create index if not exists rewatch_progress_user_show_idx
   on public.rewatch_progress (user_id, show_id);
+
+alter table public.rewatch_progress drop constraint if exists rewatch_progress_show_fkey;
+alter table public.rewatch_progress
+  add constraint rewatch_progress_show_fkey
+  foreign key (user_id, show_id) references public.tracked_shows (user_id, show_id)
+  on delete cascade;
 
 -- Avance last_watched_at sans jamais le faire reculer : corriger la date
 -- d'un vieil épisode ne doit pas faire passer la série pour « pas revue
