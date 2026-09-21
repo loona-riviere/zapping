@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../lib/appState'
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
-import { searchMovies, tmdbConfigured, type Movie } from '../lib/tmdb'
+import { buildEnvNames, searchMovies, tmdbConfigured, type Movie } from '../lib/tmdb'
 import { Poster } from './Poster'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -49,14 +49,23 @@ export function Movies() {
   }
 
   if (!tmdbConfigured) {
+    const names = buildEnvNames()
     return (
       <section className="empty">
         <h2>Films non configurés</h2>
         <p>
-          Les films viennent de TMDB. Crée une clé gratuite sur{' '}
+          Les films viennent de TMDB. Crée un accès gratuit sur{' '}
           <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer">themoviedb.org</a>,
           puis ajoute <code>VITE_TMDB_KEY</code> dans ton <code>.env</code> et dans les variables
-          d'environnement Netlify.
+          d'environnement Netlify. La clé v3 (32 caractères) comme le jeton v4 conviennent.
+        </p>
+        <p className="diag">
+          Variables reçues à la construction de ce site :{' '}
+          {names.length ? <code>{names.join(', ')}</code> : <em>aucune</em>}.
+          <br />
+          {names.includes('VITE_TMDB_KEY')
+            ? "VITE_TMDB_KEY est bien arrivée mais sa valeur est vide."
+            : "VITE_TMDB_KEY n'est pas arrivée jusqu'au build : vérifie l'orthographe du nom, la portée de la variable (elle doit couvrir « Builds ») et relance un déploiement."}
         </p>
       </section>
     )

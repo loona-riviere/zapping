@@ -18,6 +18,19 @@ export type Movie = {
 const KEY = import.meta.env.VITE_TMDB_KEY
 export const tmdbConfigured = Boolean(KEY)
 
+/**
+ * Les variables VITE_* sont figées dans le bundle au moment du build : si la
+ * clé manque, c'est qu'elle n'était pas là quand le site a été construit.
+ * Reste à savoir laquelle des causes — nom différent, portée Netlify, build
+ * antérieur à l'ajout. On expose donc les NOMS vus au build (jamais les
+ * valeurs, qui partiraient dans le HTML public) pour trancher sans deviner.
+ */
+export function buildEnvNames(): string[] {
+  return Object.keys(import.meta.env)
+    .filter((k) => k.startsWith('VITE_'))
+    .sort()
+}
+
 const BASE = 'https://api.themoviedb.org/3'
 const IMG = 'https://image.tmdb.org/t/p/w342'
 const CACHE_TTL = 24 * 60 * 60 * 1000 // 24 h

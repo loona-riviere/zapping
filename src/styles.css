@@ -287,3 +287,5 @@ button { font: inherit; color: inherit; }
 .row__drop { font-size: .78rem; color: var(--muted); text-decoration-color: var(--line); }
 .row__drop:hover { color: var(--danger); }
 .footer p { margin: .15rem 0; }
+.diag { font-size: .85rem; border: 1px solid var(--line); border-radius: var(--radius); padding: .75rem 1rem; }
+.diag code { word-break: break-all; }
