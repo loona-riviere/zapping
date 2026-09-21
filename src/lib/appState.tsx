@@ -255,15 +255,32 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
             return next
           })
         applyRewatch(value)
-        // Cocher pendant un revisionnage est une vraie activité : sans ça,
-        // la série ne remonterait jamais en tête de l'accueil pendant qu'on
-        // la revoit, faute de last_watched_at mis à jour.
-        if (value) {
-          setTracked((prev) => prev.map((t) => (t.show_id === show.id ? { ...t, last_watched_at: now } : t)))
-        }
+        // Cocher ou décocher pendant un revisionnage est une vraie activité :
+        // sans mise à jour de last_watched_at, la série ne bougerait jamais
+        // dans l'accueil pendant qu'on la revoit — y compris à la baisse si
+        // on décoche par erreur ce qu'on n'a en fait pas encore vu.
+        const nextLastWatched = value
+          ? now
+          : (() => {
+              const remaining = rewatch.get(show.id) ?? new Map()
+              let last: string | null = null
+              remaining.forEach((d, epId) => {
+                if (ids.includes(epId)) return
+                if (d && (!last || d > last)) last = d
+              })
+              // Plus rien coché dans cette passe : on retombe sur le dernier
+              // visionnage historique, pas sur « aucune activité ».
+              if (last) return last
+              const hist = watched.get(show.id)
+              return hist
+                ? [...hist.values()].reduce<string | null>((max, d) => (d && (!max || d > max) ? d : max), null)
+                : null
+            })()
+        setTracked((prev) => prev.map((t) => (t.show_id === show.id ? { ...t, last_watched_at: nextLastWatched } : t)))
         try {
           if (value) await store.markRewatched(userId, show.id, eps)
           else await store.unmarkRewatched(ids)
+          await store.touchLastWatched(show.id, nextLastWatched)
         } catch (e) {
           applyRewatch(!value)
           setNotice(`Enregistrement impossible : ${(e as Error).message}`)
@@ -281,6 +298,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
         })
 
       apply(value) // mise à jour optimiste
+      let uncheckedLastWatched: string | null | undefined
       if (value) {
         // Une reprise sans date ne remonte pas la série en tête de liste.
         const last = ids.reduce<string | null>((max, id) => {
@@ -292,6 +310,20 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
             prev.map((t) => (t.show_id === show.id ? { ...t, last_watched_at: last } : t)),
           )
         }
+      } else {
+        // Décocher ce qui était en fait la date la plus récente doit faire
+        // retomber la série à sa vraie dernière activité, pas la laisser
+        // en tête sur une date qui ne correspond plus à rien de coché.
+        const remaining = watched.get(show.id) ?? new Map()
+        let last: string | null = null
+        remaining.forEach((d, epId) => {
+          if (ids.includes(epId)) return
+          if (d && (!last || d > last)) last = d
+        })
+        uncheckedLastWatched = last
+        setTracked((prev) =>
+          prev.map((t) => (t.show_id === show.id ? { ...t, last_watched_at: last } : t)),
+        )
       }
       try {
         if (value) {
@@ -299,13 +331,14 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
           await store.markWatched(userId, show.id, eps, dates, overwrite)
         } else {
           await store.markUnwatched(ids)
+          await store.touchLastWatched(show.id, uncheckedLastWatched ?? null)
         }
       } catch (e) {
         apply(!value)
         setNotice(`Enregistrement impossible : ${(e as Error).message}`)
       }
     },
-    [isRewatching, track, tracked, userId],
+    [isRewatching, track, tracked, userId, watched, rewatch],
   )
 
   const addMovies = useCallback(

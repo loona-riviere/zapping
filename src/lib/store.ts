@@ -330,8 +330,8 @@ export async function markRewatched(
   await touchLastWatched(showId, now)
 }
 
-/** Marque une série comme vue à l'instant, pour le tri de l'accueil par activité. */
-export async function touchLastWatched(showId: number, at: string): Promise<void> {
+/** Fixe la date d'activité d'une série pour le tri de l'accueil ; null s'il n'en reste aucune. */
+export async function touchLastWatched(showId: number, at: string | null): Promise<void> {
   const { error } = await supabase.from('tracked_shows').update({ last_watched_at: at }).eq('show_id', showId)
   if (error) throw error
 }
