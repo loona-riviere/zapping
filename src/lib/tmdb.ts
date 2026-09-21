@@ -332,3 +332,80 @@ export async function seasonOverviewsFr(
   }
   return episodes
 }
+
+/**
+ * Films recommandés par TMDB à partir d'un film aimé. Sert de base aux
+ * suggestions « Recommandé pour toi », construites à partir des derniers
+ * films vus plutôt que d'un algorithme maison.
+ */
+export async function movieRecommendations(movieId: number): Promise<Movie[]> {
+  if (!KEY) return []
+  const key = `tmdb:movierec:${movieId}`
+  try {
+    const raw = sessionStorage.getItem(key)
+    if (raw) {
+      const c = JSON.parse(raw) as { at: number; data: Movie[] }
+      if (Date.now() - c.at < CACHE_TTL) return c.data
+    }
+  } catch {
+    /* cache illisible : on refetch */
+  }
+  try {
+    const data = await get<{ results: RawMovie[] }>(`/movie/${movieId}/recommendations`, {})
+    const movies = data.results.map(toMovie)
+    try {
+      sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), data: movies }))
+    } catch {
+      /* stockage plein : pas grave */
+    }
+    return movies
+  } catch {
+    // Quota TMDB ou panne : une recommandation manquante n'est pas grave.
+    return []
+  }
+}
+
+export type TvRecommendation = { id: number; name: string; poster_url: string | null; year: number | null }
+
+type RawTvRec = { id: number; name: string; poster_path: string | null; first_air_date: string | null }
+
+/**
+ * Séries recommandées par TMDB à partir d'une série suivie (résolue via son
+ * IMDb ID, le seul pont qu'on a entre TVmaze et TMDB). Ce ne sont que des
+ * suggestions à chercher ensuite sur TVmaze : TMDB ne connaît pas
+ * l'identifiant TVmaze, donc pas de lien direct vers une fiche.
+ */
+export async function tvRecommendationsByImdb(
+  imdbId: string | null | undefined,
+): Promise<TvRecommendation[]> {
+  if (!KEY || !imdbId) return []
+  const tvId = await resolveTvId(imdbId)
+  if (!tvId) return []
+  const key = `tmdb:tvrec:${tvId}`
+  try {
+    const raw = sessionStorage.getItem(key)
+    if (raw) {
+      const c = JSON.parse(raw) as { at: number; data: TvRecommendation[] }
+      if (Date.now() - c.at < CACHE_TTL) return c.data
+    }
+  } catch {
+    /* cache illisible : on refetch */
+  }
+  try {
+    const data = await get<{ results: RawTvRec[] }>(`/tv/${tvId}/recommendations`, {})
+    const recs = data.results.map((r) => ({
+      id: r.id,
+      name: r.name,
+      poster_url: r.poster_path ? IMG + r.poster_path : null,
+      year: r.first_air_date ? Number(r.first_air_date.slice(0, 4)) : null,
+    }))
+    try {
+      sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), data: recs }))
+    } catch {
+      /* stockage plein : pas grave */
+    }
+    return recs
+  } catch {
+    return []
+  }
+}

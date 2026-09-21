@@ -4,6 +4,7 @@ import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { buildEnvNames, searchMovies, tmdbConfigured, type Movie } from '../lib/tmdb'
 import { Poster } from './Poster'
+import { MovieRecommendations } from './Recommendations'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -153,6 +154,8 @@ export function Movies() {
           })}
         </ul>
       )}
+
+      <MovieRecommendations />
 
       <h2 className="section-title">
         À voir {toWatch.length > 0 && <span className="muted">({toWatch.length})</span>}

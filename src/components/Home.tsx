@@ -6,6 +6,7 @@ import { STATUS_LABEL, type ShowStatus } from '../lib/store'
 import type { ShowWithEpisodes } from '../lib/tvmaze'
 import { useShowEpisodes } from '../lib/useShows'
 import { Poster } from './Poster'
+import { ShowRecommendations } from './Recommendations'
 import { StatusPicker } from './StatusPicker'
 
 type Row = {
@@ -45,6 +46,14 @@ export function Home() {
   const [query, setQuery] = useState('')
   const ids = useMemo(() => tracked.map((t) => t.show_id), [tracked])
   const { data: cache, failed } = useShowEpisodes(ids)
+  const topActiveIds = useMemo(
+    () =>
+      [...tracked]
+        .sort((a, b) => (b.last_watched_at ?? '').localeCompare(a.last_watched_at ?? ''))
+        .slice(0, 3)
+        .map((t) => t.show_id),
+    [tracked],
+  )
 
   if (loading) return <p className="muted pad">Chargement de tes séries…</p>
 
@@ -120,6 +129,8 @@ export function Home() {
         )
       ) : (
         <>
+      <ShowRecommendations showIds={topActiveIds} />
+
       {toWatch.length > 0 && (
         <section>
           <h2 className="section-title">À voir</h2>

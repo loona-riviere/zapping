@@ -6,9 +6,9 @@ import { tmdbConfigured } from '../lib/tmdb'
 import type { TvShow } from '../lib/tvmaze'
 import { Poster } from './Poster'
 
-export function Search() {
+export function Search({ initialQuery }: { initialQuery?: string } = {}) {
   const { isTracked, track } = useApp()
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(initialQuery ?? '')
   const [results, setResults] = useState<TvShow[]>([])
   // Titre original ayant permis de trouver, quand le titre français a échoué.
   const [via, setVia] = useState<string | null>(null)

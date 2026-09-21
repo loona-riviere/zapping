@@ -68,7 +68,7 @@ function Shell() {
 
       <main className="main">
         {isLibrary(route) && <Library route={route} />}
-        {route.name === 'search' && <Search />}
+        {route.name === 'search' && <Search initialQuery={route.q} />}
         {route.name === 'import' && <Import />}
         {route.name === 'stats' && <Stats />}
         {route.name === 'show' && <ShowPage id={route.id} />}

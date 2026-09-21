@@ -2,14 +2,17 @@ import { useEffect, useState } from 'react'
 
 export type Route =
   | { name: 'home' }
-  | { name: 'search' }
+  | { name: 'search'; q?: string }
   | { name: 'import' }
   | { name: 'movies' }
   | { name: 'stats' }
   | { name: 'show'; id: number }
 
 function parse(hash: string): Route {
-  if (hash.startsWith('#/search')) return { name: 'search' }
+  if (hash.startsWith('#/search')) {
+    const q = new URLSearchParams(hash.split('?')[1] ?? '').get('q')
+    return { name: 'search', q: q ?? undefined }
+  }
   if (hash.startsWith('#/import')) return { name: 'import' }
   if (hash.startsWith('#/films')) return { name: 'movies' }
   if (hash.startsWith('#/stats')) return { name: 'stats' }
@@ -34,6 +37,7 @@ export function useRoute(): Route {
 export const href = {
   home: '#/',
   search: '#/search',
+  searchFor: (q: string) => `#/search?q=${encodeURIComponent(q)}`,
   import: '#/import',
   movies: '#/films',
   stats: '#/stats',
