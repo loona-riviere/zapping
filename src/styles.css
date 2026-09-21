@@ -187,6 +187,7 @@ button { font: inherit; color: inherit; }
      réduisent le champ à la seule icône du calendrier, sans texte visible. */
   min-width: 9rem; flex: none;
 }
+.eplist__toggle { grid-column: 1 / -1; justify-self: start; font-size: .8rem; margin-top: .2rem; }
 .eplist__summary { grid-column: 1 / -1; font-size: .85rem; line-height: 1.5; margin: .3rem 0 0; }
 
 /* Barres flottantes */
