@@ -13,8 +13,9 @@ const fmtRuntime = (min: number) => {
 }
 
 export function MoviePage({ id }: { id: number }) {
-  const { movies, markMovieWatched, markMovieUnwatched, removeMovie } = useApp()
+  const { movies, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieMeta } = useApp()
   const [details, setDetails] = useState<MovieDetails | null>(null)
+  const movie = movies.find((m) => m.movie_id === id)
 
   useEffect(() => {
     let alive = true
@@ -29,7 +30,17 @@ export function MoviePage({ id }: { id: number }) {
     }
   }, [id])
 
-  const movie = movies.find((m) => m.movie_id === id)
+  // Affiche et/ou durée manquantes (film ajouté sans passer par l'app) :
+  // on les complète tranquillement dès que la fiche TMDB a répondu.
+  useEffect(() => {
+    if (!details || !movie) return
+    const patch: { poster_url?: string; runtime?: number } = {}
+    if (!movie.poster_url && details.posterUrl) patch.poster_url = details.posterUrl
+    if (!movie.runtime && details.runtime) patch.runtime = details.runtime
+    if (Object.keys(patch).length) fillMovieMeta(movie.movie_id, patch)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [details, movie?.movie_id, movie?.poster_url, movie?.runtime])
+
   if (!movie) {
     return <p className="error pad">Film introuvable dans ta liste. <a href={href.movies}>Retour</a></p>
   }

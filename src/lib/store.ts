@@ -331,6 +331,20 @@ export async function setMovieRuntimes(
   }
 }
 
+/**
+ * Complète l'affiche et/ou la durée d'un film à partir de ce que sa fiche
+ * détail vient de trouver chez TMDB — utile pour les films ajoutés sans
+ * passer par l'app (import direct en base) qui n'ont jamais eu droit à cet
+ * enrichissement.
+ */
+export async function fillMovieMeta(
+  movieId: number,
+  patch: { poster_url?: string; runtime?: number },
+): Promise<void> {
+  const { error } = await supabase.from('watched_movies').update(patch).eq('movie_id', movieId)
+  if (error) throw error
+}
+
 /* --------------------------------------------------- revisionnage en cours -- */
 
 export async function fetchRewatchProgress(): Promise<WatchedMap> {

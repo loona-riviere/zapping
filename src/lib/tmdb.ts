@@ -177,14 +177,21 @@ export async function movieRuntime(id: number): Promise<number | null> {
 const normalizeTitle = (s: string) =>
   s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 
-export type MovieDetails = { overview: string | null; genres: string[] }
+export type MovieDetails = {
+  overview: string | null
+  genres: string[]
+  releaseDate: string | null
+  posterUrl: string | null
+  runtime: number | null
+}
 
 const DETAILS_TTL = 30 * 24 * 60 * 60 * 1000 // 30 j : une fiche TMDB ne change presque jamais
 
 /**
- * R\u00e9sum\u00e9 et genres d'un film \u2014 absents de la recherche, une requ\u00eate par
- * film. La dur\u00e9e est d\u00e9j\u00e0 connue via `movieRuntime` / la fiche enregistr\u00e9e,
- * pas la peine de la redemander ici.
+ * R\u00e9sum\u00e9, genres, date de sortie, affiche et dur\u00e9e d'un film \u2014 une seule
+ * requ\u00eate par film, mise en cache. Sert \u00e0 afficher la fiche film et, quand
+ * l'affiche ou la dur\u00e9e manquent encore en base (ajout par script, import\u2026),
+ * \u00e0 les compl\u00e9ter au passage sur la fiche.
  */
 export async function movieDetails(id: number): Promise<MovieDetails | null> {
   const key = `tmdb:details:${id}`
@@ -197,8 +204,20 @@ export async function movieDetails(id: number): Promise<MovieDetails | null> {
   } catch {
     /* cache illisible : on refetch */
   }
-  const data = await get<{ overview: string | null; genres: { name: string }[] }>(`/movie/${id}`, {})
-  const details: MovieDetails = { overview: data.overview || null, genres: data.genres?.map((g) => g.name) ?? [] }
+  const data = await get<{
+    overview: string | null
+    genres: { name: string }[]
+    release_date: string | null
+    poster_path: string | null
+    runtime: number | null
+  }>(`/movie/${id}`, {})
+  const details: MovieDetails = {
+    overview: data.overview || null,
+    genres: data.genres?.map((g) => g.name) ?? [],
+    releaseDate: data.release_date || null,
+    posterUrl: data.poster_path ? IMG + data.poster_path : null,
+    runtime: typeof data.runtime === 'number' && data.runtime > 0 ? data.runtime : null,
+  }
   try {
     localStorage.setItem(key, JSON.stringify({ at: Date.now(), data: details }))
   } catch {
