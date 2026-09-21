@@ -17,6 +17,8 @@ export function ShowPage({ id }: { id: number }) {
   const [openSeasons, setOpenSeasons] = useState<Set<number>>(new Set())
   // Épisode dont la date de visionnage est en cours d'édition dans la liste détaillée.
   const [editingDate, setEditingDate] = useState<number | null>(null)
+  // Saison dont on est en train de choisir une date unique pour tous les épisodes cochés.
+  const [bulkDateSeason, setBulkDateSeason] = useState<number | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -78,6 +80,18 @@ export function ShowPage({ id }: { id: number }) {
     if (!seen.length) return
     const dates = new Map(seen.map((e) => [e.id, e.airstamp ?? isoAtNoon(e.airdate)]))
     setWatched(show, seen, true, dates, true, true)
+  }
+
+  /**
+   * « Je les ai tous vus le même jour » (marathon, import approximatif...) :
+   * une seule date pour tous les épisodes déjà cochés de la saison.
+   */
+  function dateAllTo(eps: TvEpisode[], day: string) {
+    const seen = eps.filter((e) => watched.has(e.id))
+    if (!seen.length) return
+    const at = isoAtNoon(day)
+    setWatched(show, seen, true, new Map(seen.map((e) => [e.id, at])), true, true)
+    setBulkDateSeason(null)
   }
 
   function toggle(ep: TvEpisode) {
@@ -184,6 +198,26 @@ export function ShowPage({ id }: { id: number }) {
                 >
                   Dater à la diffusion
                 </button>
+              )}
+              {seen > 0 && !isRewatching(show.id) && (
+                bulkDateSeason === season ? (
+                  <input
+                    type="date"
+                    className="season__bulk-date-input"
+                    max={new Date().toISOString().slice(0, 10)}
+                    autoFocus
+                    onChange={(e) => e.target.value && dateAllTo(eps, e.target.value)}
+                    onBlur={() => setBulkDateSeason(null)}
+                  />
+                ) : (
+                  <button
+                    className="link-btn season__dates"
+                    onClick={() => setBulkDateSeason(season)}
+                    title="Mettre la même date sur tous les épisodes déjà cochés de cette saison"
+                  >
+                    Dater tout à…
+                  </button>
+                )
               )}
             </div>
 
