@@ -423,8 +423,12 @@ button { font: inherit; color: inherit; }
 
 /* Sous-onglets de la bibliothèque : Séries / Films. */
 .subtabs { display: flex; align-items: center; gap: .25rem; margin: .25rem 0 .5rem; border-bottom: 1.5px solid var(--line); }
-.subtabs a { padding: .55rem .75rem; margin-bottom: -1.5px; text-decoration: none; color: var(--muted); font-weight: 600; border-bottom: 3px solid transparent; }
-.subtabs a[aria-current='page'] { color: var(--ink); border-bottom-color: var(--accent); }
+.subtabs a, .subtabs button {
+  padding: .55rem .75rem; margin-bottom: -1.5px; text-decoration: none; color: var(--muted);
+  font-weight: 600; border-bottom: 3px solid transparent; background: none; border-left: none;
+  border-right: none; border-top: none; font: inherit; cursor: pointer;
+}
+.subtabs a[aria-current='page'], .subtabs button[aria-selected='true'] { color: var(--ink); border-bottom-color: var(--accent); }
 
 /* Où regarder : badges des plateformes incluses dans l'abonnement. */
 .where { margin-top: 1.5rem; }

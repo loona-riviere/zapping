@@ -1,40 +1,19 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useApp } from '../lib/appState'
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
-import { buildEnvNames, searchMovies, tmdbConfigured, type Movie } from '../lib/tmdb'
+import { buildEnvNames, tmdbConfigured } from '../lib/tmdb'
 import { Poster } from './Poster'
-import { MovieRecommendations } from './Recommendations'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-export function Movies() {
-  const { movies, moviesReady, loading, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie } = useApp()
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<Movie[]>([])
-  const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
-  const [date, setDate] = useState(today)
-  const input = useRef<HTMLInputElement>(null)
+/** Insensible aux accents et à la casse : « chateau » retrouve « Château ». */
+const normalize = (s: string) =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
-  useEffect(() => {
-    const q = query.trim()
-    if (q.length < 2) {
-      setResults([])
-      setStatus('idle')
-      return
-    }
-    setStatus('loading')
-    let alive = true
-    const t = setTimeout(() => {
-      searchMovies(q)
-        .then((r) => alive && (setResults(r), setStatus('idle')))
-        .catch(() => alive && setStatus('error'))
-    }, 350)
-    return () => {
-      alive = false
-      clearTimeout(t)
-    }
-  }, [query])
+export function Movies() {
+  const { movies, moviesReady, loading, markMovieWatched, markMovieUnwatched, removeMovie } = useApp()
+  const [query, setQuery] = useState('')
 
   if (!moviesReady) {
     return (
@@ -72,96 +51,36 @@ export function Movies() {
     )
   }
 
-  const byId = new Map(movies.map((m) => [m.movie_id, m]))
-  const toWatch = movies.filter((m) => m.status === 'later')
-  const watched = movies.filter((m) => m.status === 'watched')
+  const q = normalize(query.trim())
+  const matches = (title: string) => !q || normalize(title).includes(q)
+  const toWatch = movies.filter((m) => m.status === 'later' && matches(m.title))
+  const watched = movies.filter((m) => m.status === 'watched' && matches(m.title))
 
   return (
     <div className="movies">
-      <h2 className="section-title">Ajouter un film</h2>
-      <div className="movies__add">
-        <label htmlFor="mq" className="visually-hidden">Titre du film</label>
+      <div className="home__search">
+        <label htmlFor="movies-q" className="visually-hidden">Chercher dans mes films</label>
         <input
-          id="mq"
-          ref={input}
+          id="movies-q"
           type="search"
           className="search__input"
-          placeholder="Titre du film"
+          placeholder="Chercher dans mes films…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          autoComplete="off"
         />
-        <label className="movies__date">
-          Vu le
-          <input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} />
-          {date && (
-            <button className="link-btn" onClick={() => setDate('')} title="Je ne sais plus quand">
-              oublier
-            </button>
-          )}
-        </label>
       </div>
-
-      {status === 'error' && (
-        <p className="error">
-          La recherche TMDB a échoué. Vérifie <code>VITE_TMDB_KEY</code> (la clé v3 de 32
-          caractères ou le jeton d'accès v4 conviennent), puis redéploie le site.
-        </p>
-      )}
-      {!date && (
-        <p className="muted movies__hint">
-          Sans date, le film est enregistré comme vu sans quand — mieux qu'une date inventée,
-          qui fausserait les statistiques.
-        </p>
-      )}
-      {status === 'idle' && query.trim().length >= 2 && !results.length && (
-        <p className="muted">Aucun film trouvé pour « {query.trim()} ».</p>
-      )}
-
-      {results.length > 0 && (
-        <ul className="rows">
-          {results.slice(0, 10).map((m) => {
-            const existing = byId.get(m.id)
-            return (
-              <li key={m.id} className="row">
-                <div className="row__link">
-                  <Poster src={m.poster_url} alt={m.title} />
-                  <div className="row__body">
-                    <h3>{m.title}</h3>
-                    <p className="muted">{m.year ?? 'Année inconnue'}</p>
-                  </div>
-                </div>
-                <div className="row__actions">
-                  <button
-                    className={`btn ${existing?.status === 'watched' ? 'btn--ghost' : 'btn--primary'}`}
-                    disabled={existing?.status === 'watched'}
-                    onClick={() =>
-                      existing?.status === 'later'
-                        ? markMovieWatched(m.id, date || null)
-                        : addMovies([{ movie: m, watchedAt: date || null }])
-                    }
-                  >
-                    {existing?.status === 'watched' ? 'Vu' : 'Marquer vu'}
-                  </button>
-                  {!existing && (
-                    <button className="btn btn--ghost" onClick={() => addToWatchlist(m)}>
-                      À voir
-                    </button>
-                  )}
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      )}
-
-      <MovieRecommendations />
 
       <h2 className="section-title">
         À voir {toWatch.length > 0 && <span className="muted">({toWatch.length})</span>}
       </h2>
       {loading && <p className="muted">Chargement…</p>}
-      {!loading && !toWatch.length && <p className="muted">Aucun film en attente pour l'instant.</p>}
+      {!loading && !toWatch.length && (
+        <p className="muted">
+          {q
+            ? `Aucun film à voir ne correspond à « ${query.trim()} ».`
+            : <>Aucun film en attente pour l'instant. Cherche-en un dans <a href={href.search}>Chercher</a>.</>}
+        </p>
+      )}
       <ul className="rows">
         {toWatch.map((m) => (
           <li key={m.movie_id} className="row">
@@ -192,8 +111,10 @@ export function Movies() {
       </h2>
       {!loading && !watched.length && (
         <p className="muted">
-          Aucun film vu pour l'instant. Cherche-en un ci-dessus, ou{' '}
-          <a href={href.import}>importe ton historique Netflix</a>.
+          {q
+            ? `Aucun film vu ne correspond à « ${query.trim()} ».`
+            : <>Aucun film vu pour l'instant. Cherche-en un dans <a href={href.search}>Chercher</a>, ou{' '}
+              <a href={href.import}>importe ton historique Netflix</a>.</>}
         </p>
       )}
       <ul className="rows">

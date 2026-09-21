@@ -2,14 +2,77 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../lib/appState'
 import { searchShowsWide } from '../lib/lookup'
 import { href } from '../lib/route'
-import { tmdbConfigured } from '../lib/tmdb'
+import { buildEnvNames, searchMovies, tmdbConfigured, type Movie } from '../lib/tmdb'
 import type { TvShow } from '../lib/tvmaze'
 import { Poster } from './Poster'
-import { ShowRecommendations } from './Recommendations'
+import { MovieRecommendations, ShowRecommendations } from './Recommendations'
 
+type Kind = 'show' | 'movie'
+
+const today = () => new Date().toISOString().slice(0, 10)
+
+/**
+ * Un seul endroit pour trouver du nouveau contenu, séries ou films, plutôt
+ * qu'une recherche cachée dans chaque bibliothèque : le bouton bascule le
+ * type cherché, la recherche elle-même reste la même pour les deux.
+ */
 export function Search({ initialQuery }: { initialQuery?: string } = {}) {
-  const { tracked, isTracked, track } = useApp()
+  const [kind, setKind] = useState<Kind>('show')
   const [query, setQuery] = useState(initialQuery ?? '')
+  const input = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    input.current?.focus()
+  }, [kind])
+
+  return (
+    <div className="search">
+      <div className="subtabs" role="tablist" aria-label="Type recherché">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={kind === 'show'}
+          onClick={() => setKind('show')}
+        >
+          Séries
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={kind === 'movie'}
+          onClick={() => setKind('movie')}
+        >
+          Films
+        </button>
+      </div>
+
+      <label htmlFor="q" className="visually-hidden">
+        {kind === 'show' ? 'Nom de la série' : 'Titre du film'}
+      </label>
+      <input
+        id="q"
+        ref={input}
+        type="search"
+        className="search__input"
+        placeholder={kind === 'show' ? 'Nom de la série' : 'Titre du film'}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        autoComplete="off"
+      />
+
+      {kind === 'show' ? <ShowSearch query={query} /> : <MovieSearch query={query} />}
+    </div>
+  )
+}
+
+function ShowSearch({ query }: { query: string }) {
+  const { tracked, isTracked, track } = useApp()
+  const [results, setResults] = useState<TvShow[]>([])
+  // Titre original ayant permis de trouver, quand le titre français a échoué.
+  const [via, setVia] = useState<string | null>(null)
+  const [tried, setTried] = useState<string[]>([])
+  const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+
   // Des séries vraiment vues, pas juste ajoutées : sinon une série « à voir »
   // jamais commencée servirait de base aux suggestions.
   const seedIds = useMemo(
@@ -21,14 +84,6 @@ export function Search({ initialQuery }: { initialQuery?: string } = {}) {
         .map((t) => t.show_id),
     [tracked],
   )
-  const [results, setResults] = useState<TvShow[]>([])
-  // Titre original ayant permis de trouver, quand le titre français a échoué.
-  const [via, setVia] = useState<string | null>(null)
-  const [tried, setTried] = useState<string[]>([])
-  const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
-  const input = useRef<HTMLInputElement>(null)
-
-  useEffect(() => input.current?.focus(), [])
 
   useEffect(() => {
     const q = query.trim()
@@ -59,18 +114,7 @@ export function Search({ initialQuery }: { initialQuery?: string } = {}) {
   }, [query])
 
   return (
-    <div className="search">
-      <label htmlFor="q" className="visually-hidden">Nom de la série</label>
-      <input
-        id="q"
-        ref={input}
-        type="search"
-        className="search__input"
-        placeholder="Nom de la série"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        autoComplete="off"
-      />
+    <>
       {status === 'error' && <p className="error">La recherche TVmaze a échoué. Vérifie ta connexion et réessaie.</p>}
       {status === 'idle' && query.trim().length >= 2 && !results.length && (
         <p className="muted">
@@ -111,6 +155,124 @@ export function Search({ initialQuery }: { initialQuery?: string } = {}) {
           )
         })}
       </ul>
-    </div>
+    </>
+  )
+}
+
+function MovieSearch({ query }: { query: string }) {
+  const { movies, addMovies, addToWatchlist, markMovieWatched } = useApp()
+  const [results, setResults] = useState<Movie[]>([])
+  const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [date, setDate] = useState(today)
+
+  useEffect(() => {
+    const q = query.trim()
+    if (q.length < 2) {
+      setResults([])
+      setStatus('idle')
+      return
+    }
+    setStatus('loading')
+    let alive = true
+    const t = setTimeout(() => {
+      searchMovies(q)
+        .then((r) => alive && (setResults(r), setStatus('idle')))
+        .catch(() => alive && setStatus('error'))
+    }, 350)
+    return () => {
+      alive = false
+      clearTimeout(t)
+    }
+  }, [query])
+
+  if (!tmdbConfigured) {
+    const names = buildEnvNames()
+    return (
+      <section className="empty">
+        <h2>Films non configurés</h2>
+        <p>
+          Les films viennent de TMDB. Crée un accès gratuit sur{' '}
+          <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer">themoviedb.org</a>,
+          puis ajoute <code>VITE_TMDB_KEY</code> dans ton <code>.env</code> et dans les variables
+          d'environnement Netlify. La clé v3 (32 caractères) comme le jeton v4 conviennent.
+        </p>
+        <p className="diag">
+          Variables reçues à la construction de ce site :{' '}
+          {names.length ? <code>{names.join(', ')}</code> : <em>aucune</em>}.
+          <br />
+          {names.includes('VITE_TMDB_KEY')
+            ? "VITE_TMDB_KEY est bien arrivée mais sa valeur est vide."
+            : "VITE_TMDB_KEY n'est pas arrivée jusqu'au build : vérifie l'orthographe du nom, la portée de la variable (elle doit couvrir « Builds ») et relance un déploiement."}
+        </p>
+      </section>
+    )
+  }
+
+  const byId = new Map(movies.map((m) => [m.movie_id, m]))
+
+  return (
+    <>
+      <label className="movies__date">
+        Vu le
+        <input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} />
+        {date && (
+          <button className="link-btn" onClick={() => setDate('')} title="Je ne sais plus quand">
+            oublier
+          </button>
+        )}
+      </label>
+      {!date && (
+        <p className="muted movies__hint">
+          Sans date, le film est enregistré comme vu sans quand — mieux qu'une date inventée,
+          qui fausserait les statistiques.
+        </p>
+      )}
+
+      {status === 'error' && (
+        <p className="error">
+          La recherche TMDB a échoué. Vérifie <code>VITE_TMDB_KEY</code> (la clé v3 de 32
+          caractères ou le jeton d'accès v4 conviennent), puis redéploie le site.
+        </p>
+      )}
+      {status === 'idle' && query.trim().length >= 2 && !results.length && (
+        <p className="muted">Aucun film trouvé pour « {query.trim()} ».</p>
+      )}
+      {!query.trim() && <MovieRecommendations />}
+
+      <ul className="rows">
+        {results.slice(0, 10).map((m) => {
+          const existing = byId.get(m.id)
+          return (
+            <li key={m.id} className="row">
+              <div className="row__link">
+                <Poster src={m.poster_url} alt={m.title} />
+                <div className="row__body">
+                  <h3>{m.title}</h3>
+                  <p className="muted">{m.year ?? 'Année inconnue'}</p>
+                </div>
+              </div>
+              <div className="row__actions">
+                <button
+                  className={`btn ${existing?.status === 'watched' ? 'btn--ghost' : 'btn--primary'}`}
+                  disabled={existing?.status === 'watched'}
+                  onClick={() =>
+                    existing?.status === 'later'
+                      ? markMovieWatched(m.id, date || null)
+                      : addMovies([{ movie: m, watchedAt: date || null }])
+                  }
+                >
+                  {existing?.status === 'watched' ? 'Vu' : 'Marquer vu'}
+                </button>
+                {!existing && (
+                  <button className="btn btn--ghost" onClick={() => addToWatchlist(m)}>
+                    À voir
+                  </button>
+                )}
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </>
   )
 }
