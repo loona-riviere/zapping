@@ -9,12 +9,14 @@ import { StatusPicker } from './StatusPicker'
 import { WhereToWatch } from './WhereToWatch'
 
 export function ShowPage({ id }: { id: number }) {
-  const { isTracked, track, untrack, watchedFor, setWatched } = useApp()
+  const { isTracked, track, untrack, watchedFor, setWatched, isRewatching } = useApp()
   const [data, setData] = useState<ShowWithEpisodes | null>(null)
   const [error, setError] = useState(false)
   const [catchUp, setCatchUp] = useState<TvEpisode[] | null>(null)
   const [refresh, setRefresh] = useState<'idle' | 'busy' | 'done' | 'nochange' | 'failed'>('idle')
   const [openSeasons, setOpenSeasons] = useState<Set<number>>(new Set())
+  // Épisode dont la date de visionnage est en cours d'édition dans la liste détaillée.
+  const [editingDate, setEditingDate] = useState<number | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -47,6 +49,36 @@ export function ShowPage({ id }: { id: number }) {
   const progress = computeProgress(episodes, watched)
   const channel = show.network?.name ?? show.webChannel?.name
   const summary = stripHtml(show.summary)
+
+  /** Un jour seul : on horodate à midi pour éviter les sauts de fuseau. */
+  const isoAtNoon = (day: string) => `${day}T12:00:00.000Z`
+
+  /**
+   * Corrige la date d'un épisode déjà coché — « je l'ai vu hier, pas
+   * aujourd'hui ». `overwrite` (déjà utilisé par les imports) fait que la
+   * ligne existante est réécrite plutôt qu'ignorée.
+   */
+  function editDate(ep: TvEpisode, day: string) {
+    setWatched(show, [ep], true, new Map([[ep.id, isoAtNoon(day)]]), true, true)
+    setEditingDate(null)
+  }
+
+  function clearDate(ep: TvEpisode) {
+    setWatched(show, [ep], true, new Map([[ep.id, null]]), true, true)
+    setEditingDate(null)
+  }
+
+  /**
+   * « Je les ai vus à peu près à leur sortie » : plutôt que corriger épisode
+   * par épisode, on reprend la date de diffusion que TVmaze connaît déjà
+   * pour chacun des épisodes cochés de la saison.
+   */
+  function dateToAirdates(eps: TvEpisode[]) {
+    const seen = eps.filter((e) => watched.has(e.id) && (e.airstamp || e.airdate))
+    if (!seen.length) return
+    const dates = new Map(seen.map((e) => [e.id, e.airstamp ?? isoAtNoon(e.airdate)]))
+    setWatched(show, seen, true, dates, true, true)
+  }
 
   function toggle(ep: TvEpisode) {
     if (!isAired(ep)) return
@@ -144,6 +176,15 @@ export function ShowPage({ id }: { id: number }) {
                   {complete ? 'Tout décocher' : 'Tout cocher'}
                 </button>
               )}
+              {seen > 0 && !isRewatching(show.id) && (
+                <button
+                  className="link-btn season__dates"
+                  onClick={() => dateToAirdates(eps)}
+                  title="Reprend la date de diffusion d'origine de chaque épisode déjà coché"
+                >
+                  Dater à la diffusion
+                </button>
+              )}
             </div>
 
             <div className="tiles">
@@ -183,20 +224,52 @@ export function ShowPage({ id }: { id: number }) {
                 {eps.map((ep) => {
                   const out = isAired(ep)
                   const seenAt = watched.get(ep.id)
+                  const editable = watched.has(ep.id) && !isRewatching(show.id)
                   return (
                     <li key={ep.id}>
                       <label className={out ? '' : 'is-future'}>
                         <input type="checkbox" checked={watched.has(ep.id)} disabled={!out} onChange={() => toggle(ep)} />
                         <span className="eplist__code">{epCode(ep)}</span>
                         <span className="eplist__name">{ep.name}</span>
-                        {watched.has(ep.id) ? (
+                      </label>
+                      {watched.has(ep.id) ? (
+                        editingDate === ep.id ? (
+                          <span className="eplist__date eplist__date--edit">
+                            <input
+                              type="date"
+                              defaultValue={seenAt ? seenAt.slice(0, 10) : ''}
+                              max={new Date().toISOString().slice(0, 10)}
+                              autoFocus
+                              onChange={(e) => e.target.value && editDate(ep, e.target.value)}
+                              onBlur={() => setEditingDate(null)}
+                            />
+                            {seenAt && (
+                              <button
+                                type="button"
+                                className="link-btn"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => clearDate(ep)}
+                              >
+                                oublier
+                              </button>
+                            )}
+                          </span>
+                        ) : editable ? (
+                          <button
+                            type="button"
+                            className="eplist__date eplist__date--seen eplist__date--btn"
+                            onClick={() => setEditingDate(ep.id)}
+                          >
+                            {seenAt ? `Vu le ${formatShortDate(seenAt)}` : 'Vu'}
+                          </button>
+                        ) : (
                           <span className="eplist__date eplist__date--seen">
                             {seenAt ? `Vu le ${formatShortDate(seenAt)}` : 'Vu'}
                           </span>
-                        ) : (
-                          ep.airdate && <span className="eplist__date">{formatDate(ep.airstamp ?? ep.airdate)}</span>
-                        )}
-                      </label>
+                        )
+                      ) : (
+                        ep.airdate && <span className="eplist__date">{formatDate(ep.airstamp ?? ep.airdate)}</span>
+                      )}
                     </li>
                   )
                 })}

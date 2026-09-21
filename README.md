@@ -17,7 +17,10 @@ Un suivi de séries façon TVTime : cherche une série, coche les épisodes vus,
 - Accueil trié par activité récente : À voir (avec bouton « Vu » sur le prochain épisode), À jour (avec la date du prochain épisode), Terminées
 - **Statuts** : En cours, En pause, À regarder plus tard, Abandonnée. Seules les séries « en cours »
   alimentent À voir / À jour ; les autres ont leur propre section sur l'accueil
-- **Dates de visionnage** : chaque épisode coché retient son jour, affiché dans la liste des titres.
+- **Dates de visionnage** : chaque épisode coché retient son jour, affiché dans la liste des titres,
+  et modifiable après coup (« je l'avais vu hier, pas aujourd'hui »). Par saison, « Dater à la
+  diffusion » reprend en un clic la date de sortie de chaque épisode déjà coché — pratique pour
+  une série qu'on a suivie à sa sortie sans jamais cocher les dates au fur et à mesure.
   La date peut rester inconnue — mieux vaut « vu, sans savoir quand » qu'une date inventée, qui
   ferait un faux pic dans les statistiques
 - **Revisionnages** : un compteur « vue N fois » par série, qui multiplie son temps dans les

@@ -161,15 +161,28 @@ button { font: inherit; color: inherit; }
 .tile--future { cursor: default; border-style: dashed; background: transparent; color: var(--muted); opacity: .7; }
 
 .eplist { list-style: none; margin: .5rem 0 0; padding: 0; }
-.eplist label {
+.eplist li {
   display: grid; grid-template-columns: auto auto 1fr; gap: .15rem .6rem; align-items: center;
-  padding: .5rem 0; border-bottom: 1px solid var(--line); cursor: pointer;
+  padding: .5rem 0; border-bottom: 1px solid var(--line);
 }
+/* display: contents : le label s'efface visuellement, ses enfants rejoignent
+   directement la grille du <li> — la date, elle, est un frère du label plutôt
+   qu'un de ses enfants, pour ne pas hériter du clic « coche la case ». */
+.eplist label { display: contents; cursor: pointer; }
 .eplist label.is-future { cursor: default; color: var(--muted); }
 .eplist input { width: 1.15rem; height: 1.15rem; accent-color: var(--accent); margin: 0; }
 .eplist__code { font-weight: 700; font-variant-numeric: tabular-nums; font-size: .9rem; }
 .eplist__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .eplist__date { grid-column: 3; font-size: .8rem; color: var(--muted); }
+.eplist__date--btn {
+  background: none; border: 0; padding: 0; text-align: left; cursor: pointer;
+  font: inherit; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;
+}
+.eplist__date--edit { display: flex; align-items: center; gap: .5rem; }
+.eplist__date--edit input[type='date'] {
+  font: inherit; font-size: .8rem; color: var(--ink); background: var(--surface);
+  border: 1.5px solid var(--line); border-radius: 6px; padding: .15rem .4rem;
+}
 
 /* Barres flottantes */
 .catchup, .notice {
@@ -417,3 +430,4 @@ button { font: inherit; color: inherit; }
 .row__head { display: flex; align-items: flex-start; gap: .75rem; }
 .row__fixactions { display: flex; flex-direction: column; align-items: flex-end; gap: .3rem; flex: none; font-size: .85rem; }
 .row__stack { display: flex; flex-direction: column; gap: .4rem; flex: 1; }
+.season__dates { font-size: .8rem; color: var(--muted); }
