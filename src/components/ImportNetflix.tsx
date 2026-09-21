@@ -43,6 +43,9 @@ export function ImportNetflix() {
   const [done, setDone] = useState(0)
   const [saved, setSaved] = useState({ shows: 0, episodes: 0, movies: 0 })
   const [error, setError] = useState<string | null>(null)
+  // Les reprises antérieures ont pu horodater à la date du jour ; ce CSV porte
+  // les vraies dates, encore faut-il autoriser l'écrasement.
+  const [fixDates, setFixDates] = useState(false)
 
   async function onFile(file: File) {
     setError(null)
@@ -111,7 +114,7 @@ export function ImportNetflix() {
         if (picks.length) {
           const eps: TvEpisode[] = picks.map((p) => p.episode)
           const dates = new Map(picks.map((p) => [p.episode.id, isoAt(p.date)]))
-          await setWatched(item.show!, eps, true, dates)
+          await setWatched(item.show!, eps, true, dates, fixDates)
           episodes += eps.length
         }
         shows++
@@ -218,6 +221,19 @@ export function ImportNetflix() {
             <ImportRow key={item.group.key} item={item} index={i} phase={phase} onToggle={toggle} onSwap={swapKind} />
           ))}
         </ul>
+      )}
+
+      {phase === 'review' && (
+        <label className="import__toggle">
+          <input type="checkbox" checked={fixDates} onChange={(e) => setFixDates(e.target.checked)} />
+          <span>
+            Corriger les dates déjà enregistrées
+            <span className="muted">
+              {' '}— à cocher si une reprise précédente a daté des épisodes à la date du jour.
+              Sans ça, les épisodes déjà cochés gardent leur date actuelle.
+            </span>
+          </span>
+        </label>
       )}
 
       {phase === 'review' && (

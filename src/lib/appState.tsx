@@ -33,6 +33,8 @@ type AppState = {
     eps: TvEpisode[],
     value: boolean,
     dates?: Map<number, string | null>,
+    /** Réécrit la date des épisodes déjà cochés au lieu de les laisser tels quels. */
+    overwrite?: boolean,
   ) => Promise<void>
   addMovies: (items: { movie: Movie; watchedAt: string | null }[]) => Promise<void>
   removeMovie: (movieId: number) => Promise<void>
@@ -130,7 +132,13 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
   }, [])
 
   const setWatched = useCallback(
-    async (show: TvShow, eps: TvEpisode[], value: boolean, dates?: Map<number, string | null>) => {
+    async (
+      show: TvShow,
+      eps: TvEpisode[],
+      value: boolean,
+      dates?: Map<number, string | null>,
+      overwrite = false,
+    ) => {
       if (!eps.length) return
       const ids = eps.map((e) => e.id)
       const now = new Date().toISOString()
@@ -159,7 +167,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       try {
         if (value) {
           if (!tracked.some((t) => t.show_id === show.id)) await track(show)
-          await store.markWatched(userId, show.id, eps, dates)
+          await store.markWatched(userId, show.id, eps, dates, overwrite)
         } else {
           await store.markUnwatched(ids)
         }

@@ -27,7 +27,9 @@ Un suivi de séries façon TVTime : cherche une série, coche les épisodes vus,
 - **Où la regarder** : sur la fiche d'une série, les plateformes qui la proposent en abonnement
   en France (données JustWatch via TMDB, nécessite la clé)
 - **Import Netflix** : dépose le `NetflixViewingHistory.csv` de ton profil, l'app regroupe par
-  œuvre, retrouve chaque série et coche les épisodes avec leurs dates réelles
+  œuvre, retrouve chaque série et coche les épisodes avec leurs dates réelles. Une case
+  « Corriger les dates déjà enregistrées » permet de repasser sur des dates fausses laissées par
+  une reprise antérieure ; sans elle, les épisodes déjà cochés sont laissés tels quels
 - **Liste à coller** : une ligne par titre (« Breaking Bad S05E08 »), avec une date facultative
   (« The Boys S01E08 @ 12/03/2024 »). Un titre inconnu au catalogue séries est cherché parmi les
   films — c'est la voie pour Prime Video, Disney+ ou Apple TV, qui n'exportent pas d'historique

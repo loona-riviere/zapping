@@ -131,12 +131,17 @@ function chunks<T>(arr: T[], size: number): T[][] {
 /**
  * Coche des épisodes. `dates` permet de fournir la date de visionnage réelle
  * (import Netflix) ; sans elle, c'est maintenant.
+ *
+ * `overwrite` réécrit les lignes déjà présentes au lieu de les ignorer : c'est
+ * ce qui permet de corriger après coup des dates fausses, quand une reprise en
+ * masse antérieure avait horodaté à la date du jour.
  */
 export async function markWatched(
   userId: string,
   showId: number,
   eps: TvEpisode[],
   dates?: Map<number, string | null>,
+  overwrite = false,
 ): Promise<void> {
   if (!eps.length) return
   // Sans table de dates, c'est un clic dans l'app : la date est maintenant.
@@ -153,7 +158,7 @@ export async function markWatched(
   for (const batch of chunks(rows, 500)) {
     const { error } = await supabase
       .from('watched_episodes')
-      .upsert(batch, { onConflict: 'user_id,episode_id', ignoreDuplicates: true })
+      .upsert(batch, { onConflict: 'user_id,episode_id', ignoreDuplicates: !overwrite })
     if (error) throw error
   }
   // Les épisodes sans date ne peuvent pas dater la série : si aucun n'est daté,
