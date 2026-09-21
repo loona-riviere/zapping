@@ -54,6 +54,11 @@ create table if not exists public.watched_movies (
 -- l'absence de date qu'une date inventée, qui fausserait les statistiques.
 alter table public.watched_movies alter column watched_at drop not null;
 
+-- Durée en minutes, pour le temps total des statistiques. TMDB ne la donne pas
+-- dans les résultats de recherche : elle demande une requête de détail, d'où
+-- des lignes anciennes sans durée, complétées après coup.
+alter table public.watched_movies add column if not exists runtime integer;
+
 create index if not exists watched_movies_user_date_idx
   on public.watched_movies (user_id, watched_at desc);
 

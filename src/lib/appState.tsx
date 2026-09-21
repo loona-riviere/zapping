@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import * as store from './store'
 import type { ShowStatus, TrackedShow, WatchedMap, WatchedMovie } from './store'
-import type { Movie } from './tmdb'
+import { movieRuntime, type Movie } from './tmdb'
 import type { TvEpisode, TvShow } from './tvmaze'
 
 /**
@@ -36,6 +36,8 @@ type AppState = {
   ) => Promise<void>
   addMovies: (items: { movie: Movie; watchedAt: string | null }[]) => Promise<void>
   removeMovie: (movieId: number) => Promise<void>
+  /** Relève chez TMDB la durée des films qui n'en ont pas encore. */
+  fillMovieRuntimes: (onProgress?: (done: number, total: number) => void) => Promise<void>
 }
 
 const Ctx = createContext<AppState | null>(null)
@@ -177,10 +179,18 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
         return
       }
       try {
-        await store.addMovies(userId, items)
+        // Une requête de détail par film pour connaître sa durée. Un échec ici
+        // ne doit pas empêcher d'enregistrer le film : la durée se rattrape.
+        const withRuntime = await Promise.all(
+          items.map(async (i) => ({
+            ...i,
+            runtime: await movieRuntime(i.movie.id).catch(() => null),
+          })),
+        )
+        await store.addMovies(userId, withRuntime)
         setMovies((prev) => {
           const byId = new Map(prev.map((m) => [m.movie_id, m]))
-          for (const { movie, watchedAt } of items) {
+          for (const { movie, watchedAt, runtime } of withRuntime) {
             if (byId.has(movie.id)) continue
             byId.set(movie.id, {
               movie_id: movie.id,
@@ -188,6 +198,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
               poster_url: movie.poster_url,
               release_year: movie.year,
               watched_at: watchedAt,
+              runtime,
             })
           }
           // Les films sans date passent en fin de liste.
@@ -198,6 +209,34 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       }
     },
     [moviesReady, userId],
+  )
+
+  const fillMovieRuntimes = useCallback(
+    async (onProgress?: (done: number, total: number) => void) => {
+      const missing = movies.filter((m) => m.runtime == null)
+      if (!missing.length) return
+      const found: { movie_id: number; runtime: number }[] = []
+      for (const [i, m] of missing.entries()) {
+        try {
+          const runtime = await movieRuntime(m.movie_id)
+          if (runtime !== null) found.push({ movie_id: m.movie_id, runtime })
+        } catch {
+          /* un film sans durée relevable reste sans durée */
+        }
+        onProgress?.(i + 1, missing.length)
+      }
+      if (!found.length) return
+      try {
+        await store.setMovieRuntimes(found)
+        const byId = new Map(found.map((f) => [f.movie_id, f.runtime]))
+        setMovies((prev) =>
+          prev.map((m) => (byId.has(m.movie_id) ? { ...m, runtime: byId.get(m.movie_id)! } : m)),
+        )
+      } catch (e) {
+        setNotice(`Mise à jour des durées impossible : ${(e as Error).message}`)
+      }
+    },
+    [movies],
   )
 
   const removeMovie = useCallback(async (movieId: number) => {
@@ -215,10 +254,11 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     () => ({
       userId, tracked, watched, movies, moviesReady, loading, notice,
       dismissNotice: () => setNotice(null),
-      isTracked, statusOf, watchedFor, track, untrack, setStatus, setWatched, addMovies, removeMovie,
+      isTracked, statusOf, watchedFor, track, untrack, setStatus, setWatched,
+      addMovies, removeMovie, fillMovieRuntimes,
     }),
     [userId, tracked, watched, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
-     track, untrack, setStatus, setWatched, addMovies, removeMovie],
+     track, untrack, setStatus, setWatched, addMovies, removeMovie, fillMovieRuntimes],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

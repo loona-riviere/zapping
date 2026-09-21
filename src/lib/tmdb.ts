@@ -98,6 +98,28 @@ export async function originalTitlesFor(query: string): Promise<string[]> {
   return out
 }
 
+/**
+ * Durée d'un film, en minutes. TMDB ne la renvoie pas avec la recherche : il
+ * faut une requête par film. On la garde en cache local, elle ne change jamais.
+ */
+export async function movieRuntime(id: number): Promise<number | null> {
+  const key = `tmdb:runtime:${id}`
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw !== null) return raw === 'null' ? null : Number(raw)
+  } catch {
+    /* cache illisible : on refetch */
+  }
+  const data = await get<{ runtime: number | null }>(`/movie/${id}`, {})
+  const runtime = typeof data.runtime === 'number' && data.runtime > 0 ? data.runtime : null
+  try {
+    localStorage.setItem(key, String(runtime))
+  } catch {
+    /* stockage plein : pas grave */
+  }
+  return runtime
+}
+
 const normalizeTitle = (s: string) =>
   s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 

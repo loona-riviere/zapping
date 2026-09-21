@@ -341,3 +341,8 @@ button { font: inherit; color: inherit; }
 .data-table th { color: var(--muted); font-weight: 600; }
 .data-table td:nth-child(n+2) { text-align: right; font-variant-numeric: tabular-nums; }
 .stats__caveat { font-size: .8rem; line-height: 1.7; border-top: 1px solid var(--line); padding-top: 1rem; }
+.stats__fill { font-size: .85rem; margin: -1rem 0 1.5rem; }
+.split { list-style: none; display: flex; gap: 2rem; margin: 1.1rem 0 0; padding: 0; }
+.split__value { display: block; font-weight: 700; font-size: 1.5rem; line-height: 1.1; }
+.split__value small { font-size: .85rem; font-weight: 600; color: var(--muted); }
+.split__label { font-size: .82rem; color: var(--muted); }

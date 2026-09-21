@@ -30,6 +30,8 @@ export type WatchedMovie = {
   release_year: number | null
   /** Null quand la date de visionnage est inconnue. */
   watched_at: string | null
+  /** Durée en minutes, null tant qu'elle n'a pas été relevée chez TMDB. */
+  runtime: number | null
 }
 
 /**
@@ -182,7 +184,7 @@ export async function fetchMovies(): Promise<WatchedMovie[]> {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from('watched_movies')
-      .select('movie_id, title, poster_url, release_year, watched_at')
+      .select('movie_id, title, poster_url, release_year, watched_at, runtime')
       .order('watched_at', { ascending: false, nullsFirst: false })
       .range(from, from + PAGE - 1)
     if (error) throw error
@@ -192,7 +194,12 @@ export async function fetchMovies(): Promise<WatchedMovie[]> {
   return out
 }
 
-export function movieRow(userId: string, movie: Movie, watchedAt: string | null) {
+export function movieRow(
+  userId: string,
+  movie: Movie,
+  watchedAt: string | null,
+  runtime: number | null = null,
+) {
   return {
     user_id: userId,
     movie_id: movie.id,
@@ -200,15 +207,16 @@ export function movieRow(userId: string, movie: Movie, watchedAt: string | null)
     poster_url: movie.poster_url,
     release_year: movie.year,
     watched_at: watchedAt,
+    runtime,
   }
 }
 
 export async function addMovies(
   userId: string,
-  items: { movie: Movie; watchedAt: string | null }[],
+  items: { movie: Movie; watchedAt: string | null; runtime?: number | null }[],
 ): Promise<void> {
   if (!items.length) return
-  const rows = items.map((i) => movieRow(userId, i.movie, i.watchedAt))
+  const rows = items.map((i) => movieRow(userId, i.movie, i.watchedAt, i.runtime ?? null))
   for (const batch of chunks(rows, 500)) {
     const { error } = await supabase
       .from('watched_movies')
@@ -220,4 +228,17 @@ export async function addMovies(
 export async function removeMovie(movieId: number): Promise<void> {
   const { error } = await supabase.from('watched_movies').delete().eq('movie_id', movieId)
   if (error) throw error
+}
+
+/** Complète la durée de films déjà enregistrés, sans toucher au reste. */
+export async function setMovieRuntimes(
+  runtimes: { movie_id: number; runtime: number }[],
+): Promise<void> {
+  for (const { movie_id, runtime } of runtimes) {
+    const { error } = await supabase
+      .from('watched_movies')
+      .update({ runtime })
+      .eq('movie_id', movie_id)
+    if (error) throw error
+  }
 }
