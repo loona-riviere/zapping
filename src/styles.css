@@ -335,6 +335,7 @@ button { font: inherit; color: inherit; }
 .hero { margin: 1.5rem 0 2rem; }
 .hero__value { font-family: var(--body); font-weight: 800; font-size: clamp(3rem, 16vw, 4.5rem); line-height: 1; margin: 0; letter-spacing: -.03em; }
 .hero__unit { font-size: 1.1rem; margin: .25rem 0 0; }
+.hero__breakdown { font-size: .95rem; margin: .35rem 0 0; }
 .hero__note { font-size: .9rem; margin: .6rem 0 0; }
 
 .tiles-stat { list-style: none; margin: 0 0 2.5rem; padding: 0; display: grid; gap: .6rem; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); }

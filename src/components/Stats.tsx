@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
 import { href } from '../lib/route'
 import {
-  computeStats, countByStatus, formatNumber, humanDuration, monthLabel, shortUnit,
-  type ShowTotal,
+  computeStats, countByStatus, formatNumber, humanBreakdown, humanDuration, monthLabel, shortUnit,
+  totalHours, type ShowTotal,
 } from '../lib/stats'
 import { STATUS_LABEL } from '../lib/store'
 import { useShowEpisodes } from '../lib/useShows'
@@ -30,9 +30,10 @@ export function Stats() {
     )
   }
 
-  const total = humanDuration(stats.minutes)
-  const series = humanDuration(stats.showMinutes)
-  const films = humanDuration(stats.movieMinutes)
+  const total = totalHours(stats.minutes)
+  const series = totalHours(stats.showMinutes)
+  const films = totalHours(stats.movieMinutes)
+  const breakdown = humanBreakdown(stats.minutes)
 
   return (
     <div className="stats">
@@ -48,6 +49,7 @@ export function Stats() {
       <section className="hero">
         <p className="hero__value">{total.value}</p>
         <p className="hero__unit">{total.unit} de visionnage</p>
+        <p className="muted hero__breakdown">soit {breakdown}</p>
         <p className="muted hero__note">
           {formatNumber(stats.episodesWithRewatches)} épisode
           {stats.episodesWithRewatches > 1 ? 's' : ''} et {formatNumber(stats.movies)} film

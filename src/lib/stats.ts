@@ -158,6 +158,30 @@ export function humanDuration(minutes: number): { value: string; unit: string } 
   return { value: days.toFixed(days < 10 ? 1 : 0).replace('.', ','), unit: days >= 2 ? 'jours' : 'jour' }
 }
 
+/** Toujours en heures, arrondi — le chiffre vitrine, façon TV Time. */
+export function totalHours(minutes: number): { value: string; unit: string } {
+  const hours = Math.round(minutes / 60)
+  return { value: formatNumber(hours), unit: hours > 1 ? 'heures' : 'heure' }
+}
+
+/**
+ * « 2 mois et 3 jours », « 12 jours », « 6 h » : la même durée en clair, à
+ * mettre sous le total en heures plutôt qu'à la place.
+ */
+export function humanBreakdown(minutes: number): string {
+  const totalDays = Math.floor(minutes / (60 * 24))
+  if (totalDays < 1) {
+    const hours = Math.round(minutes / 60)
+    return `${formatNumber(hours)} heure${hours > 1 ? 's' : ''}`
+  }
+  const months = Math.floor(totalDays / 30)
+  const days = totalDays % 30
+  if (months < 1) return `${formatNumber(totalDays)} jour${totalDays > 1 ? 's' : ''}`
+  const monthPart = `${formatNumber(months)} mois`
+  if (days < 1) return monthPart
+  return `${monthPart} et ${formatNumber(days)} jour${days > 1 ? 's' : ''}`
+}
+
 export const formatNumber = (n: number) => n.toLocaleString('fr-FR')
 
 /** Abrégé de l'unité rendue par humanDuration : « min », « h » ou « j ». */
