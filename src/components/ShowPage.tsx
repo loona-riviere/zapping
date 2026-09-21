@@ -13,6 +13,7 @@ export function ShowPage({ id }: { id: number }) {
   const [data, setData] = useState<ShowWithEpisodes | null>(null)
   const [error, setError] = useState(false)
   const [catchUp, setCatchUp] = useState<TvEpisode[] | null>(null)
+  const [confirmUncheck, setConfirmUncheck] = useState<TvEpisode | null>(null)
   const [refresh, setRefresh] = useState<'idle' | 'busy' | 'done' | 'nochange' | 'failed'>('idle')
   const [openSeasons, setOpenSeasons] = useState<Set<number>>(new Set())
 
@@ -95,6 +96,13 @@ export function ShowPage({ id }: { id: number }) {
   function toggle(ep: TvEpisode) {
     if (!isAired(ep)) return
     if (watched.has(ep.id)) {
+      // Pendant un revisionnage, décocher est irréversible sans y repenser :
+      // recocher remet la date du jour, pas celle d'origine. Une confirmation
+      // évite qu'un faux clic écrase une vraie date.
+      if (rewatching) {
+        setConfirmUncheck(ep)
+        return
+      }
       setCatchUp(null)
       setWatched(show, [ep], false)
       return
@@ -104,6 +112,12 @@ export function ShowPage({ id }: { id: number }) {
     const idx = episodes.findIndex((e) => e.id === ep.id)
     const before = episodes.slice(0, idx).filter((e) => isAired(e) && !watched.has(e.id))
     setCatchUp(before.length ? before : null)
+  }
+
+  function uncheck(ep: TvEpisode) {
+    setCatchUp(null)
+    setConfirmUncheck(null)
+    setWatched(show, [ep], false)
   }
 
   function toggleSeason(eps: TvEpisode[]) {
@@ -344,6 +358,19 @@ export function ShowPage({ id }: { id: number }) {
             >
               Cocher
             </button>
+          </div>
+        </div>
+      )}
+
+      {confirmUncheck && (
+        <div className="catchup" role="status">
+          <p>
+            Décocher {epCode(confirmUncheck)} ? En revisionnage, la recocher remettra la date
+            d'aujourd'hui, pas celle d'origine.
+          </p>
+          <div className="catchup__actions">
+            <button className="btn btn--ghost" onClick={() => setConfirmUncheck(null)}>Annuler</button>
+            <button className="btn btn--primary" onClick={() => uncheck(confirmUncheck)}>Décocher</button>
           </div>
         </div>
       )}
