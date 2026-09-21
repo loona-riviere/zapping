@@ -8,7 +8,7 @@ import { Poster } from './Poster'
 const today = () => new Date().toISOString().slice(0, 10)
 
 export function Movies() {
-  const { movies, moviesReady, loading, addMovies, removeMovie } = useApp()
+  const { movies, moviesReady, loading, addMovies, addToWatchlist, markMovieWatched, removeMovie } = useApp()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Movie[]>([])
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
@@ -71,7 +71,9 @@ export function Movies() {
     )
   }
 
-  const seen = new Set(movies.map((m) => m.movie_id))
+  const byId = new Map(movies.map((m) => [m.movie_id, m]))
+  const toWatch = movies.filter((m) => m.status === 'later')
+  const watched = movies.filter((m) => m.status === 'watched')
 
   return (
     <div className="movies">
@@ -117,37 +119,82 @@ export function Movies() {
 
       {results.length > 0 && (
         <ul className="rows">
-          {results.slice(0, 10).map((m) => (
-            <li key={m.id} className="row">
-              <div className="row__link">
-                <Poster src={m.poster_url} alt={m.title} />
-                <div className="row__body">
-                  <h3>{m.title}</h3>
-                  <p className="muted">{m.year ?? 'Année inconnue'}</p>
+          {results.slice(0, 10).map((m) => {
+            const existing = byId.get(m.id)
+            return (
+              <li key={m.id} className="row">
+                <div className="row__link">
+                  <Poster src={m.poster_url} alt={m.title} />
+                  <div className="row__body">
+                    <h3>{m.title}</h3>
+                    <p className="muted">{m.year ?? 'Année inconnue'}</p>
+                  </div>
                 </div>
-              </div>
-              <button
-                className={`btn ${seen.has(m.id) ? 'btn--ghost' : 'btn--primary'}`}
-                disabled={seen.has(m.id)}
-                onClick={() => addMovies([{ movie: m, watchedAt: date || null }])}
-              >
-                {seen.has(m.id) ? 'Vu' : 'Marquer vu'}
-              </button>
-            </li>
-          ))}
+                <div className="row__actions">
+                  <button
+                    className={`btn ${existing?.status === 'watched' ? 'btn--ghost' : 'btn--primary'}`}
+                    disabled={existing?.status === 'watched'}
+                    onClick={() =>
+                      existing?.status === 'later'
+                        ? markMovieWatched(m.id, date || null)
+                        : addMovies([{ movie: m, watchedAt: date || null }])
+                    }
+                  >
+                    {existing?.status === 'watched' ? 'Vu' : 'Marquer vu'}
+                  </button>
+                  {!existing && (
+                    <button className="btn btn--ghost" onClick={() => addToWatchlist(m)}>
+                      À voir
+                    </button>
+                  )}
+                </div>
+              </li>
+            )
+          })}
         </ul>
       )}
 
-      <h2 className="section-title">Mes films {movies.length > 0 && <span className="muted">({movies.length})</span>}</h2>
+      <h2 className="section-title">
+        À voir {toWatch.length > 0 && <span className="muted">({toWatch.length})</span>}
+      </h2>
       {loading && <p className="muted">Chargement…</p>}
-      {!loading && !movies.length && (
+      {!loading && !toWatch.length && <p className="muted">Aucun film en attente pour l'instant.</p>}
+      <ul className="rows">
+        {toWatch.map((m) => (
+          <li key={m.movie_id} className="row">
+            <div className="row__link">
+              <Poster src={m.poster_url} alt={m.title} />
+              <div className="row__body">
+                <h3>{m.title}</h3>
+                <p className="muted">{m.release_year ?? 'Année inconnue'}</p>
+              </div>
+            </div>
+            <div className="row__actions">
+              <button className="btn btn--seen" onClick={() => markMovieWatched(m.movie_id, today())}>
+                Vu
+              </button>
+              <button
+                className="link-btn muted"
+                onClick={() => confirm(`Retirer ${m.title} de tes films à voir ?`) && removeMovie(m.movie_id)}
+              >
+                Retirer
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <h2 className="section-title">
+        Vus {watched.length > 0 && <span className="muted">({watched.length})</span>}
+      </h2>
+      {!loading && !watched.length && (
         <p className="muted">
-          Aucun film pour l'instant. Cherche-en un ci-dessus, ou{' '}
+          Aucun film vu pour l'instant. Cherche-en un ci-dessus, ou{' '}
           <a href={href.import}>importe ton historique Netflix</a>.
         </p>
       )}
       <ul className="rows">
-        {movies.map((m) => (
+        {watched.map((m) => (
           <li key={m.movie_id} className="row">
             <div className="row__link">
               <Poster src={m.poster_url} alt={m.title} />

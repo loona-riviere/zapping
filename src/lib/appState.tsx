@@ -49,6 +49,10 @@ type AppState = {
     toHistory?: boolean,
   ) => Promise<void>
   addMovies: (items: { movie: Movie; watchedAt: string | null }[]) => Promise<void>
+  /** Ajoute un film à la liste « à voir », sans date : il n'est pas encore vu. */
+  addToWatchlist: (movie: Movie) => Promise<void>
+  /** Bascule un film « à voir » sur « vu », à la date donnée (ou inconnue). */
+  markMovieWatched: (movieId: number, watchedAt: string | null) => Promise<void>
   removeMovie: (movieId: number) => Promise<void>
   /** Relève chez TMDB la durée des films qui n'en ont pas encore. */
   fillMovieRuntimes: (onProgress?: (done: number, total: number) => void) => Promise<void>
@@ -373,6 +377,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
               release_year: movie.year,
               watched_at: watchedAt,
               runtime,
+              status: 'watched',
             })
           }
           // Les films sans date passent en fin de liste.
@@ -424,6 +429,49 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     }
   }, [tracked, patchShow])
 
+  const addToWatchlist = useCallback(
+    async (movie: Movie) => {
+      if (!moviesReady) {
+        setNotice("Films indisponibles : relance supabase/schema.sql dans ton projet Supabase.")
+        return
+      }
+      if (movies.some((m) => m.movie_id === movie.id)) return
+      const row: WatchedMovie = {
+        movie_id: movie.id,
+        title: movie.title,
+        poster_url: movie.poster_url,
+        release_year: movie.year,
+        watched_at: null,
+        runtime: null,
+        status: 'later',
+      }
+      setMovies((prev) => [row, ...prev])
+      try {
+        await store.addToWatchlist(userId, movie)
+      } catch (e) {
+        setMovies((prev) => prev.filter((m) => m.movie_id !== movie.id))
+        setNotice(`Ajout à voir impossible : ${(e as Error).message}`)
+      }
+    },
+    [moviesReady, movies, userId],
+  )
+
+  const markMovieWatched = useCallback(
+    async (movieId: number, watchedAt: string | null) => {
+      const before = movies.find((m) => m.movie_id === movieId)
+      setMovies((prev) =>
+        prev.map((m) => (m.movie_id === movieId ? { ...m, status: 'watched', watched_at: watchedAt } : m)),
+      )
+      try {
+        await store.markMovieWatched(movieId, watchedAt)
+      } catch (e) {
+        if (before) setMovies((prev) => prev.map((m) => (m.movie_id === movieId ? before : m)))
+        setNotice(`Enregistrement impossible : ${(e as Error).message}`)
+      }
+    },
+    [movies],
+  )
+
   const removeMovie = useCallback(async (movieId: number) => {
     const snapshot = movies
     setMovies((prev) => prev.filter((m) => m.movie_id !== movieId))
@@ -442,11 +490,11 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       isTracked, statusOf, watchedFor, historyFor, rewatchesOf, setRewatches,
       isRewatching, startRewatch, endRewatch,
       track, untrack, setStatus, setWatched,
-      addMovies, removeMovie, fillMovieRuntimes, fixActivity,
+      addMovies, addToWatchlist, markMovieWatched, removeMovie, fillMovieRuntimes, fixActivity,
     }),
     [userId, tracked, watched, rewatch, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
      historyFor, rewatchesOf, setRewatches, isRewatching, startRewatch, endRewatch,
-     track, untrack, setStatus, setWatched, addMovies, removeMovie, fillMovieRuntimes, fixActivity],
+     track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, removeMovie, fillMovieRuntimes, fixActivity],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

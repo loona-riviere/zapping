@@ -36,6 +36,8 @@ export type WatchedMovie = {
   watched_at: string | null
   /** Durée en minutes, null tant qu'elle n'a pas été relevée chez TMDB. */
   runtime: number | null
+  /** « later » : ajouté à voir, pas encore vu. */
+  status: 'watched' | 'later'
 }
 
 /**
@@ -205,6 +207,28 @@ export async function markUnwatched(ids: number[]): Promise<void> {
 
 export async function fetchMovies(): Promise<WatchedMovie[]> {
   const out: WatchedMovie[] = []
+  // `*` plutôt qu'une liste de colonnes : si `status` n'existe pas encore
+  // (schema.sql pas relancé), elle est juste absente des lignes plutôt que de
+  // faire échouer toute la requête, et on retombe alors sur « vu ».
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('watched_movies')
+      .select('movie_id, title, poster_url, release_year, watched_at, runtime, status')
+      .order('watched_at', { ascending: false, nullsFirst: false })
+      .range(from, from + PAGE - 1)
+    if (error) {
+      if (!isMissingSchema(error)) throw error
+      return fetchMoviesLegacy()
+    }
+    out.push(...(data ?? []).map((r) => ({ ...r, status: r.status ?? 'watched' }) as WatchedMovie))
+    if (!data || data.length < PAGE) break
+  }
+  return out
+}
+
+/** Schéma pas encore migré : pas de colonne `status`, tout est « vu ». */
+async function fetchMoviesLegacy(): Promise<WatchedMovie[]> {
+  const out: WatchedMovie[] = []
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from('watched_movies')
@@ -212,7 +236,7 @@ export async function fetchMovies(): Promise<WatchedMovie[]> {
       .order('watched_at', { ascending: false, nullsFirst: false })
       .range(from, from + PAGE - 1)
     if (error) throw error
-    out.push(...(data ?? []))
+    out.push(...(data ?? []).map((r) => ({ ...r, status: 'watched' as const })))
     if (!data || data.length < PAGE) break
   }
   return out
@@ -232,6 +256,7 @@ export function movieRow(
     release_year: movie.year,
     watched_at: watchedAt,
     runtime,
+    status: 'watched' as const,
   }
 }
 
@@ -247,6 +272,33 @@ export async function addMovies(
       .upsert(batch, { onConflict: 'user_id,movie_id', ignoreDuplicates: true })
     if (error) throw error
   }
+}
+
+/** Ajoute un film à voir, sans date : il n'est pas encore vu. */
+export async function addToWatchlist(userId: string, movie: Movie): Promise<void> {
+  const row = {
+    user_id: userId,
+    movie_id: movie.id,
+    title: movie.title,
+    poster_url: movie.poster_url,
+    release_year: movie.year,
+    watched_at: null,
+    runtime: null,
+    status: 'later' as const,
+  }
+  const { error } = await supabase
+    .from('watched_movies')
+    .upsert(row, { onConflict: 'user_id,movie_id', ignoreDuplicates: true })
+  if (error) throw error
+}
+
+/** Bascule un film « à voir » sur « vu », à la date donnée (ou inconnue). */
+export async function markMovieWatched(movieId: number, watchedAt: string | null): Promise<void> {
+  const { error } = await supabase
+    .from('watched_movies')
+    .update({ status: 'watched', watched_at: watchedAt })
+    .eq('movie_id', movieId)
+  if (error) throw error
 }
 
 export async function removeMovie(movieId: number): Promise<void> {

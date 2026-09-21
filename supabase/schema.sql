@@ -128,6 +128,13 @@ alter table public.watched_movies add column if not exists runtime integer;
 create index if not exists watched_movies_user_date_idx
   on public.watched_movies (user_id, watched_at desc);
 
+-- « later » : un film ajouté à voir, pas encore vu — watched_at reste vide
+-- tant qu'il n'est pas basculé sur « watched ».
+alter table public.watched_movies add column if not exists status text not null default 'watched';
+alter table public.watched_movies drop constraint if exists watched_movies_status_check;
+alter table public.watched_movies
+  add constraint watched_movies_status_check check (status in ('watched', 'later'));
+
 alter table public.tracked_shows enable row level security;
 alter table public.watched_episodes enable row level security;
 alter table public.rewatch_progress enable row level security;
