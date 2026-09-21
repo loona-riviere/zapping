@@ -299,6 +299,7 @@ export function ShowPage({ id }: { id: number }) {
                       ) : (
                         ep.airdate && <span className="eplist__date">{formatDate(ep.airstamp ?? ep.airdate)}</span>
                       )}
+                      {ep.summary && <p className="eplist__summary muted">{stripHtml(ep.summary)}</p>}
                     </li>
                   )
                 })}

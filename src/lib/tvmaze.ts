@@ -23,6 +23,7 @@ export type TvEpisode = {
   airdate: string
   airstamp: string | null
   runtime: number | null
+  summary: string | null
 }
 
 export type ShowWithEpisodes = { show: TvShow; episodes: TvEpisode[] }
@@ -76,8 +77,8 @@ export function getShowWithEpisodes(id: number, force = false): Promise<ShowWith
     .then(({ _embedded, ...show }) => {
       const episodes = _embedded.episodes
         .filter((e): e is TvEpisode => e.number !== null) // on ignore les épisodes spéciaux
-        .map(({ id, season, number, name, airdate, airstamp, runtime }) => ({
-          id, season, number, name, airdate, airstamp, runtime,
+        .map(({ id, season, number, name, airdate, airstamp, runtime, summary }) => ({
+          id, season, number, name, airdate, airstamp, runtime, summary: summary ?? null,
         }))
       const s: TvShow = {
         id: show.id, name: show.name, image: show.image, premiered: show.premiered,
