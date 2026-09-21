@@ -86,11 +86,11 @@ export function ShowPage({ id }: { id: number }) {
    * ligne existante est réécrite plutôt qu'ignorée.
    */
   function editDate(ep: TvEpisode, day: string) {
-    setWatched(show, [ep], true, new Map([[ep.id, isoAtNoon(day)]]), true, true)
+    setWatched(show, [ep], true, new Map([[ep.id, isoAtNoon(day)]]), true, false)
   }
 
   function clearDate(ep: TvEpisode) {
-    setWatched(show, [ep], true, new Map([[ep.id, null]]), true, true)
+    setWatched(show, [ep], true, new Map([[ep.id, null]]), true, false)
   }
 
   /**
@@ -317,7 +317,7 @@ export function ShowPage({ id }: { id: number }) {
                 {eps.map((ep) => {
                   const out = isAired(ep)
                   const seenAt = watched.get(ep.id)
-                  const editable = watched.has(ep.id) && !isRewatching(show.id)
+                  const editable = watched.has(ep.id)
                   const epSummary = frEpisodes.get(season)?.get(ep.number) ?? (ep.summary ? stripHtml(ep.summary) : '')
                   return (
                     <li key={ep.id}>

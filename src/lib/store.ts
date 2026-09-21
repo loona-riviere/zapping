@@ -309,6 +309,8 @@ export async function markRewatched(
   userId: string,
   showId: number,
   eps: TvEpisode[],
+  dates?: Map<number, string | null>,
+  overwrite = false,
 ): Promise<void> {
   if (!eps.length) return
   const now = new Date().toISOString()
@@ -316,18 +318,17 @@ export async function markRewatched(
     user_id: userId,
     show_id: showId,
     episode_id: e.id,
-    watched_at: now,
+    watched_at: dates ? (dates.get(e.id) ?? null) : now,
   }))
   for (const batch of chunks(rows, 500)) {
     const { error } = await supabase
       .from('rewatch_progress')
-      .upsert(batch, { onConflict: 'user_id,episode_id', ignoreDuplicates: true })
+      .upsert(batch, { onConflict: 'user_id,episode_id', ignoreDuplicates: !overwrite })
     if (error) throw error
   }
-  // Sans ça, une série en cours de revisionnage ne remonte jamais en tête de
-  // l'accueil : coche un épisode compte comme activité récente, comme pour
-  // l'historique normal.
-  await touchLastWatched(showId, now)
+  // touchLastWatched est appelé par l'appelant (appState), qui recalcule la
+  // vraie date à partir de l'ensemble de la passe en cours plutôt que de
+  // toujours poser « maintenant » — utile pour corriger une date après coup.
 }
 
 /** Fixe la date d'activité d'une série pour le tri de l'accueil ; null s'il n'en reste aucune. */

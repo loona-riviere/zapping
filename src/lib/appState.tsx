@@ -252,37 +252,39 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
           setRewatch((prev) => {
             const next = new Map(prev)
             const eps = new Map(prev.get(show.id) ?? [])
-            ids.forEach((id) => (on ? eps.set(id, now) : eps.delete(id)))
+            ids.forEach((id) => {
+              if (!on) { eps.delete(id); return }
+              eps.set(id, dates ? (dates.get(id) ?? null) : now)
+            })
             next.set(show.id, eps)
             return next
           })
         applyRewatch(value)
-        // Cocher ou décocher pendant un revisionnage est une vraie activité :
-        // sans mise à jour de last_watched_at, la série ne bougerait jamais
-        // dans l'accueil pendant qu'on la revoit — y compris à la baisse si
-        // on décoche par erreur ce qu'on n'a en fait pas encore vu.
-        const nextLastWatched = value
-          ? now
-          : (() => {
-              const remaining = rewatch.get(show.id) ?? new Map()
-              let last: string | null = null
-              remaining.forEach((d, epId) => {
-                if (ids.includes(epId)) return
-                if (d && (!last || d > last)) last = d
-              })
-              // Plus rien coché dans cette passe : on retombe sur le dernier
-              // visionnage historique, pas sur « aucune activité ».
-              if (last) return last
-              const hist = watched.get(show.id)
-              return hist
-                ? [...hist.values()].reduce<string | null>((max, d) => (d && (!max || d > max) ? d : max), null)
-                : null
-            })()
-        setTracked((prev) => prev.map((t) => (t.show_id === show.id ? { ...t, last_watched_at: nextLastWatched } : t)))
+        // Cocher, décocher ou corriger une date pendant un revisionnage est
+        // une vraie activité : sans mise à jour de last_watched_at, la série
+        // ne bougerait jamais dans l'accueil pendant qu'on la revoit — y
+        // compris à la baisse si on décoche par erreur, ou si une correction
+        // de date recule la plus récente connue.
+        const currentPass = new Map(rewatch.get(show.id) ?? [])
+        ids.forEach((id) => {
+          if (!value) { currentPass.delete(id); return }
+          currentPass.set(id, dates ? (dates.get(id) ?? null) : now)
+        })
+        let last: string | null = null
+        currentPass.forEach((d) => { if (d && (!last || d > last)) last = d })
+        // Plus rien de daté dans cette passe : on retombe sur le dernier
+        // visionnage historique, pas sur « aucune activité ».
+        if (!last) {
+          const hist = watched.get(show.id)
+          last = hist
+            ? [...hist.values()].reduce<string | null>((max, d) => (d && (!max || d > max) ? d : max), null)
+            : null
+        }
+        setTracked((prev) => prev.map((t) => (t.show_id === show.id ? { ...t, last_watched_at: last } : t)))
         try {
-          if (value) await store.markRewatched(userId, show.id, eps)
+          if (value) await store.markRewatched(userId, show.id, eps, dates, overwrite)
           else await store.unmarkRewatched(ids)
-          await store.touchLastWatched(show.id, nextLastWatched)
+          await store.touchLastWatched(show.id, last)
         } catch (e) {
           applyRewatch(!value)
           setNotice(`Enregistrement impossible : ${(e as Error).message}`)
