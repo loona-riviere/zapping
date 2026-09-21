@@ -72,6 +72,10 @@ button { font: inherit; color: inherit; }
 .main { max-width: 44rem; margin: 0 auto; padding: 1rem 1rem 6rem; }
 .footer { text-align: center; font-size: .8rem; padding: 0 1rem 2rem; }
 
+/* Barre de navigation mobile : masquée par défaut, la media query ci-dessous
+   la révèle et cache le header texte à la place. */
+.bottomnav { display: none; }
+
 /* Boutons */
 .btn {
   border: 0; border-radius: 999px; padding: .55rem 1.1rem; cursor: pointer;
@@ -235,15 +239,23 @@ button { font: inherit; color: inherit; }
 .btn--google:hover { background: #f7f7f7; }
 
 @media (max-width: 620px) {
-  /* Six liens ne tiennent plus sur une ligne : la barre passe sur deux, et la
-     navigation défile si la largeur ne suffit toujours pas. */
-  .topbar { flex-wrap: wrap; gap: .5rem; }
-  .topbar__nav {
-    flex: 1 1 100%; gap: .9rem; font-size: .9rem;
-    overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  /* Sur mobile, la navigation textuelle du header cède la place à une barre
+     du bas avec icônes, plus proche du pouce et des habitudes des apps
+     natives ; seule la déconnexion reste dans le header. */
+  .topbar__nav > a { display: none; }
+  .main { padding-bottom: 5.5rem; }
+  .bottomnav {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    padding: .35rem .5rem calc(.35rem + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--line);
   }
-  .topbar__nav::-webkit-scrollbar { display: none; }
-  .topbar__nav > * { flex: none; }
+  .bottomnav a {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: .15rem;
+    padding: .3rem 0; text-decoration: none; color: var(--muted); font-size: .68rem;
+  }
+  .bottomnav a[aria-current='page'] { color: var(--accent); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

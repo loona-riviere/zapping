@@ -34,11 +34,21 @@ export function computeProgress(episodes: TvEpisode[], watched: WatchedEpisodes)
 const pad = (n: number) => String(n).padStart(2, '0')
 export const epCode = (ep: TvEpisode) => `S${pad(ep.season)}E${pad(ep.number)}`
 
+/** TVmaze renvoie parfois une chaîne vide pour une date pas encore annoncée :
+ * sans ce garde-fou, `new Date('')` produit un Invalid Date silencieusement
+ * affiché tel quel. */
+function safeDate(iso: string): Date | null {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
 export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  const d = safeDate(iso)
+  return d ? d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'date inconnue'
 }
 
 /** Date courte, pour les listes denses : « 21 sept. 2026 ». */
 export function formatShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+  const d = safeDate(iso)
+  return d ? d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : 'date inconnue'
 }

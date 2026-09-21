@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { Auth } from './components/Auth'
+import { BottomNav } from './components/BottomNav'
 import { Footer } from './components/Footer'
 import { Import } from './components/Import'
 import { Library, isLibrary } from './components/Library'
@@ -81,6 +82,7 @@ function Shell() {
       )}
 
       <Footer tmdbConfigured={tmdbConfigured} />
+      <BottomNav route={route} />
     </>
   )
 }
