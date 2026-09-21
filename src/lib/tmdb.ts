@@ -57,8 +57,36 @@ function toMovie(r: RawMovie): Movie {
 /** Un jeton v4 est un JWT : trois segments base64url, préfixe « eyJ ». */
 const isV4Token = (key: string) => key.startsWith('eyJ')
 
+/** Quota TMDB atteint : on lève ça plutôt qu'une Error générique pour que les appelants d'enrichissement (pas critiques) l'ignorent silencieusement sans casser l'affichage. */
+export class TmdbPausedError extends Error {}
+
+const PAUSE_KEY = 'tmdb:paused-until'
+const DEFAULT_PAUSE = 10 * 60 * 1000 // 10 min, si TMDB ne dit pas combien de temps attendre
+
+function pausedUntil(): number {
+  try {
+    return Number(localStorage.getItem(PAUSE_KEY) ?? 0)
+  } catch {
+    return 0
+  }
+}
+
+/** 429 chez TMDB : on se met en pause, et on ressaie tout seul une fois le délai passé — pas besoin d'y retoucher à la main. */
+function pauseFor(ms: number) {
+  try {
+    localStorage.setItem(PAUSE_KEY, String(Date.now() + ms))
+  } catch {
+    /* stockage plein : tant pis, on retentera juste plus tôt que prévu */
+  }
+}
+
 async function get<T>(path: string, params: Record<string, string>): Promise<T> {
   if (!KEY) throw new Error("TMDB n'est pas configuré (VITE_TMDB_KEY)")
+  const until = pausedUntil()
+  if (until > Date.now()) {
+    throw new TmdbPausedError(`TMDB en pause jusqu'à ${new Date(until).toLocaleTimeString('fr-FR')}`)
+  }
+
   const qs = new URLSearchParams({ language: 'fr-FR', ...params })
   const headers: Record<string, string> = {}
   if (isV4Token(KEY)) headers.Authorization = `Bearer ${KEY}`
@@ -68,8 +96,34 @@ async function get<T>(path: string, params: Record<string, string>): Promise<T> 
   if (res.status === 401) {
     throw new Error('TMDB a refusé la clé (VITE_TMDB_KEY)')
   }
+  if (res.status === 429) {
+    const retryAfter = Number(res.headers.get('Retry-After'))
+    pauseFor(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : DEFAULT_PAUSE)
+    throw new TmdbPausedError('TMDB a atteint sa limite de requêtes')
+  }
   if (!res.ok) throw new Error(`TMDB a répondu ${res.status}`)
   return res.json() as Promise<T>
+}
+
+/** Identifiant TMDB d'une série à partir de son IMDb ID — le lien ne change jamais, cache long. */
+async function resolveTvId(imdbId: string): Promise<number | null> {
+  const key = `tmdb:tvid:${imdbId}`
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw !== null) return raw === 'null' ? null : Number(raw)
+  } catch {
+    /* cache illisible : on refetch */
+  }
+  const found = await get<{ tv_results: { id: number }[] }>(`/find/${encodeURIComponent(imdbId)}`, {
+    external_source: 'imdb_id',
+  })
+  const tvId = found.tv_results?.[0]?.id ?? null
+  try {
+    localStorage.setItem(key, String(tvId))
+  } catch {
+    /* stockage plein : pas grave */
+  }
+  return tvId
 }
 
 type RawTv = { id: number; name: string; original_name: string; first_air_date: string | null }
@@ -158,10 +212,7 @@ export async function watchProviders(
   }
 
   let data: Availability | null = null
-  const found = await get<{ tv_results: { id: number }[] }>(`/find/${encodeURIComponent(imdbId)}`, {
-    external_source: 'imdb_id',
-  })
-  const tvId = found.tv_results?.[0]?.id
+  const tvId = await resolveTvId(imdbId)
   if (tvId) {
     const res = await get<{
       results: Record<string, { link?: string; flatrate?: RawProvider[] }>
@@ -209,4 +260,75 @@ export async function searchMovies(query: string, year?: number): Promise<Movie[
     /* stockage plein : pas grave */
   }
   return movies
+}
+
+const SUMMARY_TTL = 7 * 24 * 60 * 60 * 1000 // 7 j
+
+/**
+ * Résumé d'une série en français. TVmaze n'a que l'anglais ; on va chercher
+ * la traduction chez TMDB via le pont IMDb. Retourne null sans série
+ * d'IMDb ID, sans traduction connue, ou si TMDB est en pause (quota) — dans
+ * tous les cas, l'appelant retombe alors sur le texte anglais de TVmaze.
+ */
+export async function showOverviewFr(imdbId: string | null | undefined): Promise<string | null> {
+  if (!KEY || !imdbId) return null
+  const key = `tmdb:overview:${imdbId}`
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw !== null) {
+      const cached = JSON.parse(raw) as { at: number; overview: string | null }
+      if (Date.now() - cached.at < SUMMARY_TTL) return cached.overview
+    }
+  } catch {
+    /* cache illisible : on refetch */
+  }
+
+  const tvId = await resolveTvId(imdbId)
+  if (!tvId) return null
+  const show = await get<{ overview: string | null }>(`/tv/${tvId}`, {})
+  const overview = show.overview || null
+  try {
+    localStorage.setItem(key, JSON.stringify({ at: Date.now(), overview }))
+  } catch {
+    /* stockage plein : pas grave */
+  }
+  return overview
+}
+
+/**
+ * Résumés de tous les épisodes d'une saison, en français, par numéro
+ * d'épisode — une seule requête TMDB couvre la saison entière. Même repli
+ * que `showOverviewFr` en cas d'échec.
+ */
+export async function seasonOverviewsFr(
+  imdbId: string | null | undefined,
+  season: number,
+): Promise<Map<number, string> | null> {
+  if (!KEY || !imdbId) return null
+  const key = `tmdb:season:${imdbId}:${season}`
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw) {
+      const cached = JSON.parse(raw) as { at: number; episodes: [number, string][] }
+      if (Date.now() - cached.at < SUMMARY_TTL) return new Map(cached.episodes)
+    }
+  } catch {
+    /* cache illisible : on refetch */
+  }
+
+  const tvId = await resolveTvId(imdbId)
+  if (!tvId) return null
+  const data = await get<{ episodes: { episode_number: number; overview: string | null }[] }>(
+    `/tv/${tvId}/season/${season}`,
+    {},
+  )
+  const episodes = new Map(
+    data.episodes.filter((e) => e.overview).map((e) => [e.episode_number, e.overview as string]),
+  )
+  try {
+    localStorage.setItem(key, JSON.stringify({ at: Date.now(), episodes: [...episodes.entries()] }))
+  } catch {
+    /* stockage plein : pas grave */
+  }
+  return episodes
 }

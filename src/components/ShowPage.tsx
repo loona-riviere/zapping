@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
 import { computeProgress, epCode, formatDate, formatShortDate, isAired } from '../lib/progress'
 import { href } from '../lib/route'
+import { seasonOverviewsFr, showOverviewFr } from '../lib/tmdb'
 import { getShowWithEpisodes, statusFr, stripHtml, type ShowWithEpisodes, type TvEpisode } from '../lib/tvmaze'
 import { Poster } from './Poster'
 import { Rewatches } from './Rewatches'
@@ -17,12 +18,19 @@ export function ShowPage({ id }: { id: number }) {
   const [refresh, setRefresh] = useState<'idle' | 'busy' | 'done' | 'nochange' | 'failed'>('idle')
   const [openSeasons, setOpenSeasons] = useState<Set<number>>(new Set())
   const [openSummaries, setOpenSummaries] = useState<Set<number>>(new Set())
+  // Résumés en français, via TMDB — absents tant qu'ils n'ont pas fini de
+  // charger ou si TMDB n'a rien pour cette série ; on retombe alors sur
+  // l'anglais de TVmaze.
+  const [frOverview, setFrOverview] = useState<string | null>(null)
+  const [frEpisodes, setFrEpisodes] = useState<Map<number, Map<number, string>>>(new Map())
 
   useEffect(() => {
     let alive = true
     setData(null)
     setError(false)
     setRefresh('idle')
+    setFrOverview(null)
+    setFrEpisodes(new Map())
     getShowWithEpisodes(id)
       .then((d) => alive && setData(d))
       .catch(() => alive && setError(true))
@@ -30,6 +38,20 @@ export function ShowPage({ id }: { id: number }) {
       alive = false
     }
   }, [id])
+
+  useEffect(() => {
+    let alive = true
+    const imdbId = data?.show.externals?.imdb
+    if (!imdbId) return
+    showOverviewFr(imdbId)
+      .then((o) => alive && o && setFrOverview(o))
+      .catch(() => {
+        /* pas de traduction dispo : on garde l'anglais de TVmaze */
+      })
+    return () => {
+      alive = false
+    }
+  }, [data?.show.externals?.imdb])
 
   const watched = watchedFor(id)
   // Pendant un revisionnage, `watched` ne montre que la passe en cours :
@@ -53,7 +75,7 @@ export function ShowPage({ id }: { id: number }) {
   const followed = isTracked(show.id)
   const progress = computeProgress(episodes, watched)
   const channel = show.network?.name ?? show.webChannel?.name
-  const summary = stripHtml(show.summary)
+  const summary = frOverview ?? stripHtml(show.summary)
 
   /** Un jour seul : on horodate à midi pour éviter les sauts de fuseau. */
   const isoAtNoon = (day: string) => `${day}T12:00:00.000Z`
@@ -146,11 +168,19 @@ export function ShowPage({ id }: { id: number }) {
   }
 
   function toggleList(season: number) {
+    const opening = !openSeasons.has(season)
     setOpenSeasons((prev) => {
       const next = new Set(prev)
       next.has(season) ? next.delete(season) : next.add(season)
       return next
     })
+    if (opening && show.externals?.imdb && !frEpisodes.has(season)) {
+      seasonOverviewsFr(show.externals.imdb, season)
+        .then((eps) => eps && setFrEpisodes((prev) => new Map(prev).set(season, eps)))
+        .catch(() => {
+          /* pas de traduction dispo : on garde l'anglais de TVmaze */
+        })
+    }
   }
 
   function toggleSummary(episodeId: number) {
@@ -288,6 +318,7 @@ export function ShowPage({ id }: { id: number }) {
                   const out = isAired(ep)
                   const seenAt = watched.get(ep.id)
                   const editable = watched.has(ep.id) && !isRewatching(show.id)
+                  const epSummary = frEpisodes.get(season)?.get(ep.number) ?? (ep.summary ? stripHtml(ep.summary) : '')
                   return (
                     <li key={ep.id}>
                       <label className={out ? '' : 'is-future'}>
@@ -322,7 +353,7 @@ export function ShowPage({ id }: { id: number }) {
                       ) : (
                         ep.airdate && <span className="eplist__date">{formatDate(ep.airstamp ?? ep.airdate)}</span>
                       )}
-                      {ep.summary && (
+                      {epSummary && (
                         <>
                           <button
                             type="button"
@@ -332,7 +363,7 @@ export function ShowPage({ id }: { id: number }) {
                             {openSummaries.has(ep.id) ? 'Masquer le résumé' : 'Résumé'}
                           </button>
                           {openSummaries.has(ep.id) && (
-                            <p className="eplist__summary muted">{stripHtml(ep.summary)}</p>
+                            <p className="eplist__summary muted">{epSummary}</p>
                           )}
                         </>
                       )}
