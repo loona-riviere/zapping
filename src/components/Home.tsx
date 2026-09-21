@@ -33,11 +33,16 @@ function byActivity(a: Row, b: Row): number {
   return b.addedAt.localeCompare(a.addedAt)
 }
 
+/** Insensible aux accents et à la casse : « chateau » retrouve « Château ». */
+const normalize = (s: string) =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
 export function Home() {
   const { tracked, loading, watchedFor, setWatched, setStatus } = useApp()
   // Dernière série abandonnée, pour proposer d'annuler : un abandon se fait
   // d'un geste depuis la liste, autant qu'il se défasse pareil.
   const [undo, setUndo] = useState<{ id: number; name: string } | null>(null)
+  const [query, setQuery] = useState('')
   const ids = useMemo(() => tracked.map((t) => t.show_id), [tracked])
   const { data: cache, failed } = useShowEpisodes(ids)
 
@@ -90,8 +95,36 @@ export function Home() {
   const later = rows.filter((r) => r.status === 'later')
   const dropped = rows.filter((r) => r.status === 'dropped')
 
+  const q = normalize(query.trim())
+  const results = q ? rows.filter((r) => normalize(r.name).includes(q)).sort((a, b) => a.name.localeCompare(b.name, 'fr')) : []
+
   return (
     <div className="home">
+      <div className="home__search">
+        <label htmlFor="home-q" className="visually-hidden">Chercher dans mes séries</label>
+        <input
+          id="home-q"
+          type="search"
+          className="search__input"
+          placeholder="Chercher dans mes séries…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
+
+      {q ? (
+        results.length ? (
+          <section>
+            <h2 className="section-title">
+              {results.length} résultat{results.length > 1 ? 's' : ''}
+            </h2>
+            <Shelf rows={results} withLabel />
+          </section>
+        ) : (
+          <p className="muted pad">Aucune série ne correspond à « {query.trim()} ».</p>
+        )
+      ) : (
+        <>
       {toWatch.length > 0 && (
         <section>
           <h2 className="section-title">À voir</h2>
@@ -173,6 +206,8 @@ export function Home() {
           <Shelf rows={finished} />
         </section>
       )}
+        </>
+      )}
 
       {undo && (
         <div className="catchup" role="status">
@@ -238,13 +273,14 @@ function Parked({ title, rows }: { title: string; rows: Row[] }) {
   )
 }
 
-function Shelf({ rows }: { rows: Row[] }) {
+function Shelf({ rows, withLabel }: { rows: Row[]; withLabel?: boolean }) {
   return (
     <ul className="shelf">
       {rows.map((r) => (
         <li key={r.id}>
           <a href={href.show(r.id)} title={r.name}>
             <Poster src={r.image} alt={r.name} />
+            {withLabel && <span className="shelf__label">{r.name}</span>}
           </a>
         </li>
       ))}

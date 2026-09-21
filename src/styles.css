@@ -118,6 +118,11 @@ button { font: inherit; color: inherit; }
 
 .shelf { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: .6rem; }
 .shelf .poster--sm { width: 100%; }
+.shelf a { display: block; }
+.shelf__label {
+  display: block; font-size: .78rem; color: var(--muted); margin-top: .3rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 .empty { text-align: center; padding: 3rem 1rem; }
 .empty h2 { font-size: 1.6rem; margin-bottom: .5rem; }
