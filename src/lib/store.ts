@@ -1,5 +1,18 @@
 import { supabase } from './supabase'
+import type { Movie } from './tmdb'
 import type { TvEpisode, TvShow } from './tvmaze'
+
+/** Statut de suivi d'une série. */
+export type ShowStatus = 'watching' | 'paused' | 'later' | 'dropped'
+
+export const STATUS_LABEL: Record<ShowStatus, string> = {
+  watching: 'En cours',
+  paused: 'En pause',
+  later: 'À regarder plus tard',
+  dropped: 'Abandonnée',
+}
+
+export const STATUSES = Object.keys(STATUS_LABEL) as ShowStatus[]
 
 export type TrackedShow = {
   show_id: number
@@ -7,32 +20,44 @@ export type TrackedShow = {
   image_url: string | null
   added_at: string
   last_watched_at: string | null
+  status: ShowStatus
 }
+
+export type WatchedMovie = {
+  movie_id: number
+  title: string
+  poster_url: string | null
+  release_year: number | null
+  watched_at: string
+}
+
+/** Pour chaque série, ses épisodes vus et la date à laquelle ils l'ont été. */
+export type WatchedMap = Map<number, Map<number, string>>
 
 const PAGE = 1000
 
 export async function fetchTracked(): Promise<TrackedShow[]> {
   const { data, error } = await supabase
     .from('tracked_shows')
-    .select('show_id, name, image_url, added_at, last_watched_at')
+    .select('show_id, name, image_url, added_at, last_watched_at, status')
   if (error) throw error
-  return data ?? []
+  return (data ?? []).map((r) => ({ ...r, status: (r.status ?? 'watching') as ShowStatus }))
 }
 
-export async function fetchWatched(): Promise<Map<number, Set<number>>> {
-  const map = new Map<number, Set<number>>()
+export async function fetchWatched(): Promise<WatchedMap> {
+  const map: WatchedMap = new Map()
   // Supabase renvoie 1000 lignes max par requête : on pagine.
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from('watched_episodes')
-      .select('show_id, episode_id')
+      .select('show_id, episode_id, watched_at')
       .order('episode_id')
       .range(from, from + PAGE - 1)
     if (error) throw error
     for (const row of data ?? []) {
-      let set = map.get(row.show_id)
-      if (!set) map.set(row.show_id, (set = new Set()))
-      set.add(row.episode_id)
+      let eps = map.get(row.show_id)
+      if (!eps) map.set(row.show_id, (eps = new Map()))
+      eps.set(row.episode_id, row.watched_at)
     }
     if (!data || data.length < PAGE) break
   }
@@ -50,7 +75,14 @@ export async function trackShow(userId: string, show: TvShow): Promise<TrackedSh
     .from('tracked_shows')
     .upsert(row, { onConflict: 'user_id,show_id', ignoreDuplicates: true })
   if (error) throw error
-  return { show_id: show.id, name: show.name, image_url: row.image_url, added_at: new Date().toISOString(), last_watched_at: null }
+  return {
+    show_id: show.id,
+    name: show.name,
+    image_url: row.image_url,
+    added_at: new Date().toISOString(),
+    last_watched_at: null,
+    status: 'watching',
+  }
 }
 
 export async function untrackShow(showId: number): Promise<void> {
@@ -60,20 +92,36 @@ export async function untrackShow(showId: number): Promise<void> {
   if (b.error) throw b.error
 }
 
+export async function setShowStatus(showId: number, status: ShowStatus): Promise<void> {
+  const { error } = await supabase.from('tracked_shows').update({ status }).eq('show_id', showId)
+  if (error) throw error
+}
+
 function chunks<T>(arr: T[], size: number): T[][] {
   const out: T[][] = []
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
   return out
 }
 
-export async function markWatched(userId: string, showId: number, eps: TvEpisode[]): Promise<void> {
+/**
+ * Coche des épisodes. `dates` permet de fournir la date de visionnage réelle
+ * (import Netflix) ; sans elle, c'est maintenant.
+ */
+export async function markWatched(
+  userId: string,
+  showId: number,
+  eps: TvEpisode[],
+  dates?: Map<number, string>,
+): Promise<void> {
   if (!eps.length) return
+  const now = new Date().toISOString()
   const rows = eps.map((e) => ({
     user_id: userId,
     episode_id: e.id,
     show_id: showId,
     season: e.season,
     number: e.number,
+    watched_at: dates?.get(e.id) ?? now,
   }))
   for (const batch of chunks(rows, 500)) {
     const { error } = await supabase
@@ -81,9 +129,10 @@ export async function markWatched(userId: string, showId: number, eps: TvEpisode
       .upsert(batch, { onConflict: 'user_id,episode_id', ignoreDuplicates: true })
     if (error) throw error
   }
+  const last = rows.reduce((max, r) => (r.watched_at > max ? r.watched_at : max), rows[0].watched_at)
   const { error } = await supabase
     .from('tracked_shows')
-    .update({ last_watched_at: new Date().toISOString() })
+    .update({ last_watched_at: last })
     .eq('show_id', showId)
   if (error) throw error
 }
@@ -93,4 +142,51 @@ export async function markUnwatched(ids: number[]): Promise<void> {
     const { error } = await supabase.from('watched_episodes').delete().in('episode_id', batch)
     if (error) throw error
   }
+}
+
+/* ---------------------------------------------------------------- films --- */
+
+export async function fetchMovies(): Promise<WatchedMovie[]> {
+  const out: WatchedMovie[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('watched_movies')
+      .select('movie_id, title, poster_url, release_year, watched_at')
+      .order('watched_at', { ascending: false })
+      .range(from, from + PAGE - 1)
+    if (error) throw error
+    out.push(...(data ?? []))
+    if (!data || data.length < PAGE) break
+  }
+  return out
+}
+
+export function movieRow(userId: string, movie: Movie, watchedAt: string) {
+  return {
+    user_id: userId,
+    movie_id: movie.id,
+    title: movie.title,
+    poster_url: movie.poster_url,
+    release_year: movie.year,
+    watched_at: watchedAt,
+  }
+}
+
+export async function addMovies(
+  userId: string,
+  items: { movie: Movie; watchedAt: string }[],
+): Promise<void> {
+  if (!items.length) return
+  const rows = items.map((i) => movieRow(userId, i.movie, i.watchedAt))
+  for (const batch of chunks(rows, 500)) {
+    const { error } = await supabase
+      .from('watched_movies')
+      .upsert(batch, { onConflict: 'user_id,movie_id', ignoreDuplicates: true })
+    if (error) throw error
+  }
+}
+
+export async function removeMovie(movieId: number): Promise<void> {
+  const { error } = await supabase.from('watched_movies').delete().eq('movie_id', movieId)
+  if (error) throw error
 }

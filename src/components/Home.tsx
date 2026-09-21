@@ -2,10 +2,20 @@ import { useEffect, useState } from 'react'
 import { useApp } from '../lib/appState'
 import { computeProgress, epCode, formatDate, type Progress } from '../lib/progress'
 import { href } from '../lib/route'
+import { STATUS_LABEL, type ShowStatus } from '../lib/store'
 import { getShowWithEpisodes, type ShowWithEpisodes } from '../lib/tvmaze'
 import { Poster } from './Poster'
+import { StatusPicker } from './StatusPicker'
 
-type Row = { id: number; name: string; image: string | null; sortKey: string; data?: ShowWithEpisodes; progress?: Progress }
+type Row = {
+  id: number
+  name: string
+  image: string | null
+  sortKey: string
+  status: ShowStatus
+  data?: ShowWithEpisodes
+  progress?: Progress
+}
 
 export function Home() {
   const { tracked, loading, watchedFor, setWatched } = useApp()
@@ -40,6 +50,9 @@ export function Home() {
         <h2>Aucune série suivie</h2>
         <p>Cherche une série pour l'ajouter, puis coche les épisodes au fur et à mesure.</p>
         <a className="btn btn--primary" href={href.search}>Chercher une série</a>
+        <p className="muted empty__alt">
+          Tu as un historique Netflix ? <a href={href.import}>Importe-le</a>.
+        </p>
       </section>
     )
   }
@@ -51,15 +64,20 @@ export function Home() {
       name: data?.show.name ?? t.name,
       image: data?.show.image?.medium ?? t.image_url,
       sortKey: t.last_watched_at ?? t.added_at,
+      status: t.status,
       data,
       progress: data ? computeProgress(data.episodes, watchedFor(t.show_id)) : undefined,
     }
   })
   rows.sort((a, b) => b.sortKey.localeCompare(a.sortKey))
 
-  const toWatch = rows.filter((r) => !r.progress || r.progress.next)
-  const upToDate = rows.filter((r) => r.progress && !r.progress.next && r.data!.show.status !== 'Ended')
-  const finished = rows.filter((r) => r.progress && !r.progress.next && r.data!.show.status === 'Ended')
+  const active = rows.filter((r) => r.status === 'watching')
+  const toWatch = active.filter((r) => !r.progress || r.progress.next)
+  const upToDate = active.filter((r) => r.progress && !r.progress.next && r.data!.show.status !== 'Ended')
+  const finished = active.filter((r) => r.progress && !r.progress.next && r.data!.show.status === 'Ended')
+  const paused = rows.filter((r) => r.status === 'paused')
+  const later = rows.filter((r) => r.status === 'later')
+  const dropped = rows.filter((r) => r.status === 'dropped')
 
   return (
     <div className="home">
@@ -123,21 +141,67 @@ export function Home() {
         </section>
       )}
 
+      <Parked title={STATUS_LABEL.paused} rows={paused} />
+      <Parked title={STATUS_LABEL.later} rows={later} />
+
       {finished.length > 0 && (
         <section>
           <h2 className="section-title">Terminées</h2>
-          <ul className="shelf">
-            {finished.map((r) => (
-              <li key={r.id}>
-                <a href={href.show(r.id)} title={r.name}>
-                  <Poster src={r.image} alt={r.name} />
-                </a>
-              </li>
-            ))}
-          </ul>
+          <Shelf rows={finished} />
+        </section>
+      )}
+
+      {dropped.length > 0 && (
+        <section>
+          <h2 className="section-title">{STATUS_LABEL.dropped}</h2>
+          <Shelf rows={dropped} />
         </section>
       )}
     </div>
+  )
+}
+
+/** Séries mises de côté : on garde le compteur et le bouton de statut à portée. */
+function Parked({ title, rows }: { title: string; rows: Row[] }) {
+  if (!rows.length) return null
+  return (
+    <section>
+      <h2 className="section-title">{title}</h2>
+      <ul className="rows">
+        {rows.map((r) => (
+          <li key={r.id} className="row">
+            <a href={href.show(r.id)} className="row__link">
+              <Poster src={r.image} alt={r.name} />
+              <div className="row__body">
+                <h3>{r.name}</h3>
+                <p className="muted">
+                  {r.progress
+                    ? r.progress.next
+                      ? `Reprise à ${epCode(r.progress.next)} — ${r.progress.watched}/${r.progress.aired} vus`
+                      : `${r.progress.watched}/${r.progress.aired} vus`
+                    : 'Chargement…'}
+                </p>
+              </div>
+            </a>
+            <StatusPicker showId={r.id} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function Shelf({ rows }: { rows: Row[] }) {
+  return (
+    <ul className="shelf">
+      {rows.map((r) => (
+        <li key={r.id}>
+          <a href={href.show(r.id)} title={r.name}>
+            <Poster src={r.image} alt={r.name} />
+          </a>
+        </li>
+      ))}
+    </ul>
   )
 }
 

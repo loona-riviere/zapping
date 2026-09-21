@@ -2,7 +2,8 @@
 
 Un suivi de séries façon TVTime : cherche une série, coche les épisodes vus, et l'accueil te dit quoi regarder ensuite.
 
-- **Catalogue** : [API TVmaze](https://www.tvmaze.com/api) (gratuite, sans clé)
+- **Catalogue séries** : [API TVmaze](https://www.tvmaze.com/api) (gratuite, sans clé)
+- **Catalogue films** : [TMDB](https://www.themoviedb.org/) (gratuite, clé requise — facultatif)
 - **Compte et progression** : Supabase (connexion par lien magique, données protégées par RLS)
 - **Front** : Vite, React, TypeScript, sans autre dépendance
 - **Hébergement** : Netlify, déployé automatiquement à chaque push sur `main`
@@ -14,9 +15,15 @@ Un suivi de séries façon TVTime : cherche une série, coche les épisodes vus,
 - Proposition de cocher les épisodes précédents quand tu coches un épisode plus loin
 - Cocher ou décocher une saison entière, liste détaillée des titres et dates de diffusion
 - Accueil trié par activité récente : À voir (avec bouton « Vu » sur le prochain épisode), À jour (avec la date du prochain épisode), Terminées
-- **Reprise** : colle une liste « Breaking Bad S05E08 » (une série par ligne), l'app retrouve
-  chaque série sur TVmaze et coche tout ce qui précède le point indiqué — utile pour repartir
-  d'un ancien suivi sans tout recocher à la main
+- **Statuts** : En cours, En pause, À regarder plus tard, Abandonnée. Seules les séries « en cours »
+  alimentent À voir / À jour ; les autres ont leur propre section sur l'accueil
+- **Dates de visionnage** : chaque épisode coché retient son jour, affiché dans la liste des titres
+- **Films** : recherche TMDB, marquage « vu le … » et liste « Mes films »
+- **Import Netflix** : dépose le `NetflixViewingHistory.csv` de ton profil, l'app regroupe par
+  œuvre, retrouve chaque série et coche les épisodes avec leurs dates réelles
+- **Liste à coller** : une ligne par titre (« Breaking Bad S05E08 »), avec une date facultative
+  (« The Boys S01E08 @ 12/03/2024 »). Un titre inconnu au catalogue séries est cherché parmi les
+  films — c'est la voie pour Prime Video, Disney+ ou Apple TV, qui n'exportent pas d'historique
 - Thème clair et sombre automatique, pensé d'abord pour le mobile
 
 ## Mise en place
@@ -30,7 +37,14 @@ Un suivi de séries façon TVTime : cherche une série, coche les épisodes vus,
    - *Redirect URLs* : ajoute la même URL, plus `http://localhost:5173/` pour le dev.
 4. Dans **Project Settings → API**, récupère l'URL du projet et la clé `anon` publique.
 
-### 2. En local
+### 2. Films (facultatif)
+
+Sans clé TMDB, l'app fonctionne normalement mais l'onglet Films affiche un message et l'import
+Netflix ignore les films. Pour les activer : crée un compte sur
+[themoviedb.org](https://www.themoviedb.org/settings/api), demande une clé API (v3, gratuite et
+immédiate) et renseigne `VITE_TMDB_KEY`.
+
+### 3. En local
 
 ```bash
 cp .env.example .env   # puis remplis les deux valeurs
@@ -38,12 +52,13 @@ npm install
 npm run dev
 ```
 
-### 3. Netlify
+### 4. Netlify
 
 1. Pousse le dépôt sur GitHub.
 2. Sur [netlify.com](https://netlify.com) : **Add new site → Import an existing project**, choisis le dépôt.
    La commande de build et le dossier publié sont lus dans `netlify.toml`, rien à saisir.
-3. **Site configuration → Environment variables** : ajoute `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY`.
+3. **Site configuration → Environment variables** : ajoute `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+   et, si tu veux les films, `VITE_TMDB_KEY`.
 4. Redéploie une fois les variables ajoutées (**Deploys → Trigger deploy**), puis reporte l'URL du site
    dans la configuration Supabase de l'étape 1.
 
@@ -56,4 +71,15 @@ Astuce : sur iPhone ou Android, ajoute la page à l'écran d'accueil pour l'util
 - Le lien de connexion doit être ouvert dans le **même navigateur** que celui où tu l'as demandé (flux PKCE).
 - Les fiches TVmaze sont mises en cache 12 h dans le navigateur ; les résumés sont en anglais.
 - Les épisodes spéciaux (sans numéro) sont ignorés.
-- Données séries fournies par TVmaze.com sous licence CC BY-SA.
+- **Import Netflix** : l'export ne donne que le titre traduit de l'épisode et le jour de
+  visionnage, sans numéro de saison fiable ni identifiant. Quand les titres traduits ne
+  correspondent pas au catalogue (le cas des séries anglophones), l'app coche autant d'épisodes
+  que de lignes vues, dans l'ordre de diffusion, et le signale par l'étiquette « estimé ».
+  L'étiquette « par titre » veut dire que chaque épisode a été reconnu à son nom. L'écran de
+  relecture permet de tout décocher avant d'enregistrer.
+- Une œuvre vue une seule fois et sans mention de saison est proposée comme film ; un bouton
+  permet de la rebasculer en série (et inversement).
+- Le schéma `supabase/schema.sql` est ré-exécutable : relance-le après une mise à jour pour
+  ajouter les nouvelles colonnes et tables.
+- Données séries fournies par TVmaze.com sous licence CC BY-SA. Données films fournies par TMDB
+  (ce produit n'est ni approuvé ni certifié par TMDB).

@@ -1,5 +1,6 @@
 -- Zapping : schéma Supabase
--- À exécuter une fois dans l'éditeur SQL de ton projet Supabase.
+-- À exécuter dans l'éditeur SQL de ton projet Supabase.
+-- Le script est ré-exécutable : tu peux le relancer après une mise à jour.
 
 create table if not exists public.tracked_shows (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
@@ -10,6 +11,15 @@ create table if not exists public.tracked_shows (
   last_watched_at timestamptz,
   primary key (user_id, show_id)
 );
+
+-- Statut de suivi : en cours, en pause, à regarder plus tard, abandonnée.
+alter table public.tracked_shows
+  add column if not exists status text not null default 'watching';
+
+alter table public.tracked_shows drop constraint if exists tracked_shows_status_check;
+alter table public.tracked_shows
+  add constraint tracked_shows_status_check
+  check (status in ('watching', 'paused', 'later', 'dropped'));
 
 create table if not exists public.watched_episodes (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
@@ -24,8 +34,23 @@ create table if not exists public.watched_episodes (
 create index if not exists watched_episodes_user_show_idx
   on public.watched_episodes (user_id, show_id);
 
+-- Films vus (catalogue TMDB).
+create table if not exists public.watched_movies (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  movie_id integer not null,           -- identifiant TMDB
+  title text not null,
+  poster_url text,
+  release_year integer,
+  watched_at timestamptz not null default now(),
+  primary key (user_id, movie_id)
+);
+
+create index if not exists watched_movies_user_date_idx
+  on public.watched_movies (user_id, watched_at desc);
+
 alter table public.tracked_shows enable row level security;
 alter table public.watched_episodes enable row level security;
+alter table public.watched_movies enable row level security;
 
 drop policy if exists "tracked_shows: own rows" on public.tracked_shows;
 create policy "tracked_shows: own rows" on public.tracked_shows
@@ -35,6 +60,12 @@ create policy "tracked_shows: own rows" on public.tracked_shows
 
 drop policy if exists "watched_episodes: own rows" on public.watched_episodes;
 create policy "watched_episodes: own rows" on public.watched_episodes
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
+drop policy if exists "watched_movies: own rows" on public.watched_movies;
+create policy "watched_movies: own rows" on public.watched_movies
   for all to authenticated
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
