@@ -5,7 +5,7 @@ Un suivi de séries façon TVTime : cherche une série, coche les épisodes vus,
 - **Catalogue** : [API TVmaze](https://www.tvmaze.com/api) (gratuite, sans clé)
 - **Compte et progression** : Supabase (connexion par lien magique, données protégées par RLS)
 - **Front** : Vite, React, TypeScript, sans autre dépendance
-- **Hébergement** : GitHub Pages, déployé automatiquement à chaque push sur `main`
+- **Hébergement** : Netlify, déployé automatiquement à chaque push sur `main`
 
 ## Fonctionnalités
 
@@ -23,7 +23,7 @@ Un suivi de séries façon TVTime : cherche une série, coche les épisodes vus,
 1. Crée un projet sur [supabase.com](https://supabase.com) (le plan gratuit suffit).
 2. Dans **SQL Editor**, exécute le contenu de `supabase/schema.sql`.
 3. Dans **Authentication → URL Configuration** :
-   - *Site URL* : `https://<ton-pseudo>.github.io/<nom-du-repo>/`
+   - *Site URL* : l'URL Netlify du site (`https://<nom-du-site>.netlify.app/`)
    - *Redirect URLs* : ajoute la même URL, plus `http://localhost:5173/` pour le dev.
 4. Dans **Project Settings → API**, récupère l'URL du projet et la clé `anon` publique.
 
@@ -35,12 +35,16 @@ npm install
 npm run dev
 ```
 
-### 3. GitHub Pages
+### 3. Netlify
 
 1. Pousse le dépôt sur GitHub.
-2. **Settings → Secrets and variables → Actions** : ajoute `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY`.
-3. **Settings → Pages** : *Source* = **GitHub Actions**.
-4. Pousse sur `main` : le workflow `.github/workflows/deploy.yml` build et publie.
+2. Sur [netlify.com](https://netlify.com) : **Add new site → Import an existing project**, choisis le dépôt.
+   La commande de build et le dossier publié sont lus dans `netlify.toml`, rien à saisir.
+3. **Site configuration → Environment variables** : ajoute `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY`.
+4. Redéploie une fois les variables ajoutées (**Deploys → Trigger deploy**), puis reporte l'URL du site
+   dans la configuration Supabase de l'étape 1.
+
+Ensuite chaque push sur `main` redéploie tout seul.
 
 Astuce : sur iPhone ou Android, ajoute la page à l'écran d'accueil pour l'utiliser comme une app.
 
