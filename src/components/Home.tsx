@@ -12,10 +12,25 @@ type Row = {
   id: number
   name: string
   image: string | null
-  sortKey: string
+  /** Date du dernier épisode réellement coché ; absente si rien n'a jamais été vu. */
+  lastWatchedAt: string | null
+  addedAt: string
   status: ShowStatus
   data?: ShowWithEpisodes
   progress?: Progress
+}
+
+/**
+ * Une série ajoutée à l'instant n'a rien de « récemment regardée » : sans
+ * ce garde-fou, la suivre suffit à la faire passer devant une série qu'on a
+ * vraiment vue une heure plus tôt (son dernier visionnage réel peut être
+ * plus ancien que « maintenant », l'instant de l'ajout).
+ */
+function byActivity(a: Row, b: Row): number {
+  if (a.lastWatchedAt && b.lastWatchedAt) return b.lastWatchedAt.localeCompare(a.lastWatchedAt)
+  if (a.lastWatchedAt) return -1
+  if (b.lastWatchedAt) return 1
+  return b.addedAt.localeCompare(a.addedAt)
 }
 
 export function Home() {
@@ -47,13 +62,14 @@ export function Home() {
       id: t.show_id,
       name: data?.show.name ?? t.name,
       image: data?.show.image?.medium ?? t.image_url,
-      sortKey: t.last_watched_at ?? t.added_at,
+      lastWatchedAt: t.last_watched_at,
+      addedAt: t.added_at,
       status: t.status,
       data,
       progress: data ? computeProgress(data.episodes, watchedFor(t.show_id)) : undefined,
     }
   })
-  rows.sort((a, b) => b.sortKey.localeCompare(a.sortKey))
+  rows.sort(byActivity)
 
   const active = rows.filter((r) => r.status === 'watching')
   const toWatch = active.filter((r) => !r.progress || r.progress.next)
@@ -67,7 +83,7 @@ export function Home() {
       if (da && db) return da.localeCompare(db)
       if (da) return -1
       if (db) return 1
-      return b.sortKey.localeCompare(a.sortKey)
+      return byActivity(a, b)
     })
   const finished = active.filter((r) => r.progress && !r.progress.next && r.data!.show.status === 'Ended')
   const paused = rows.filter((r) => r.status === 'paused')
