@@ -49,9 +49,6 @@ button { font: inherit; color: inherit; }
 .error { color: var(--danger); }
 .pad { padding: 1.5rem 1rem; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-/* Contrairement à .visually-hidden, pas de clip à zéro pixel peint : certains
-   moteurs (Safari) refusent showPicker() sur un champ qu'ils jugent non rendu. */
-.date-picker-host { position: fixed; top: 0; left: 0; opacity: 0; pointer-events: none; width: 1px; height: 1px; border: 0; }
 
 /* Barre du haut */
 .topbar {
@@ -177,11 +174,14 @@ button { font: inherit; color: inherit; }
 .eplist__code { font-weight: 700; font-variant-numeric: tabular-nums; font-size: .9rem; }
 .eplist__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .eplist__date { grid-column: 3; font-size: .8rem; color: var(--muted); }
-.eplist__date--btn {
-  background: none; border: 0; padding: 0; text-align: left; cursor: pointer;
-  font: inherit; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;
-}
 .eplist__date--edit { display: flex; align-items: center; gap: .5rem; }
+.eplist__date--edit input[type='date'] {
+  font: inherit; font-size: .8rem; color: var(--ink); background: var(--surface);
+  border: 1.5px solid var(--line); border-radius: 6px; padding: .15rem .4rem;
+  /* Sans largeur explicite, les navigateurs mobiles (Safari/Chrome iOS)
+     réduisent le champ à la seule icône du calendrier, sans texte visible. */
+  min-width: 9rem; flex: none;
+}
 
 /* Barres flottantes */
 .catchup, .notice {
@@ -430,3 +430,11 @@ button { font: inherit; color: inherit; }
 .row__fixactions { display: flex; flex-direction: column; align-items: flex-end; gap: .3rem; flex: none; font-size: .85rem; }
 .row__stack { display: flex; flex-direction: column; gap: .4rem; flex: 1; }
 .season__dates { font-size: .8rem; color: var(--muted); }
+.season__bulk-date {
+  display: flex; align-items: center; gap: .35rem; font-size: .8rem; color: var(--muted); cursor: pointer;
+}
+.season__bulk-date-input {
+  font: inherit; font-size: .8rem; color: var(--ink); background: var(--surface);
+  border: 1.5px solid var(--line); border-radius: 6px; padding: .15rem .4rem;
+  min-width: 9rem; flex: none;
+}

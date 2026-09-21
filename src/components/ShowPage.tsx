@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
 import { computeProgress, epCode, formatDate, formatShortDate, isAired } from '../lib/progress'
 import { href } from '../lib/route'
@@ -15,13 +15,6 @@ export function ShowPage({ id }: { id: number }) {
   const [catchUp, setCatchUp] = useState<TvEpisode[] | null>(null)
   const [refresh, setRefresh] = useState<'idle' | 'busy' | 'done' | 'nochange' | 'failed'>('idle')
   const [openSeasons, setOpenSeasons] = useState<Set<number>>(new Set())
-  // Épisode ou saison qui recevra la date choisie dans le picker partagé ci-dessous.
-  const [editingDate, setEditingDate] = useState<number | null>(null)
-  const [bulkDateSeason, setBulkDateSeason] = useState<number | null>(null)
-  // Un seul <input type="date"> caché, réutilisé pour toutes les saisons/épisodes :
-  // le rendre à la demande dans chaque ligne cassait le picker natif sur mobile
-  // (voir openDatePicker ci-dessous).
-  const dateInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     let alive = true
@@ -65,12 +58,10 @@ export function ShowPage({ id }: { id: number }) {
    */
   function editDate(ep: TvEpisode, day: string) {
     setWatched(show, [ep], true, new Map([[ep.id, isoAtNoon(day)]]), true, true)
-    setEditingDate(null)
   }
 
   function clearDate(ep: TvEpisode) {
     setWatched(show, [ep], true, new Map([[ep.id, null]]), true, true)
-    setEditingDate(null)
   }
 
   /**
@@ -94,30 +85,6 @@ export function ShowPage({ id }: { id: number }) {
     if (!seen.length) return
     const at = isoAtNoon(day)
     setWatched(show, seen, true, new Map(seen.map((e) => [e.id, at])), true, true)
-    setBulkDateSeason(null)
-  }
-
-  /**
-   * Ouvre le picker de date partagé pour un épisode ou une saison entière.
-   * `showPicker()` doit être appelé de façon synchrone dans le gestionnaire
-   * de clic pour rester rattaché au geste de l'utilisateur — sinon, sur
-   * mobile, iOS et Android referment le calendrier au bout de quelques
-   * secondes (un champ qui vient d'apparaître avec autoFocus arrive trop
-   * tard pour compter comme le même geste).
-   */
-  function openDatePicker(target: number | TvEpisode) {
-    if (typeof target === 'number') setBulkDateSeason(target)
-    else setEditingDate(target.id)
-    const input = dateInputRef.current
-    if (!input) return
-    try {
-      // showPicker() exige un champ « visible » selon certains moteurs (Safari
-      // notamment) : un champ masqué par clip (0 pixel peint) peut s'y refuser
-      // sans erreur exploitable ailleurs que par cet essai/repli.
-      input.showPicker()
-    } catch {
-      input.focus()
-    }
   }
 
   function toggle(ep: TvEpisode) {
@@ -168,28 +135,6 @@ export function ShowPage({ id }: { id: number }) {
 
   return (
     <article className="show">
-      {/* Champ caché unique, ouvert impérativement par openDatePicker() : voir
-          sa documentation pour pourquoi il n'est pas rendu à la demande. */}
-      <input
-        ref={dateInputRef}
-        type="date"
-        className="date-picker-host"
-        max={new Date().toISOString().slice(0, 10)}
-        aria-hidden="true"
-        tabIndex={-1}
-        onChange={(e) => {
-          const day = e.target.value
-          if (!day) return
-          if (bulkDateSeason !== null) {
-            const eps = seasons.find(([s]) => s === bulkDateSeason)?.[1] ?? []
-            dateAllTo(eps, day)
-          } else if (editingDate !== null) {
-            const ep = episodes.find((e) => e.id === editingDate)
-            if (ep) editDate(ep, day)
-          }
-          e.target.value = ''
-        }}
-      />
       <header className="show__head">
         <Poster src={show.image?.original ?? show.image?.medium} alt={show.name} size="lg" />
         <div className="show__meta">
@@ -248,13 +193,15 @@ export function ShowPage({ id }: { id: number }) {
                 </button>
               )}
               {seen > 0 && !isRewatching(show.id) && (
-                <button
-                  className="link-btn season__dates"
-                  onClick={() => openDatePicker(season)}
-                  title="Mettre la même date sur tous les épisodes déjà cochés de cette saison"
-                >
+                <label className="season__bulk-date" title="Mettre la même date sur tous les épisodes déjà cochés de cette saison">
                   Dater tout à…
-                </button>
+                  <input
+                    type="date"
+                    className="season__bulk-date-input"
+                    max={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => e.target.value && dateAllTo(eps, e.target.value)}
+                  />
+                </label>
               )}
             </div>
 
@@ -306,13 +253,12 @@ export function ShowPage({ id }: { id: number }) {
                       {watched.has(ep.id) ? (
                         editable ? (
                           <span className="eplist__date eplist__date--edit">
-                            <button
-                              type="button"
-                              className="eplist__date--seen eplist__date--btn"
-                              onClick={() => openDatePicker(ep)}
-                            >
-                              {seenAt ? `Vu le ${formatShortDate(seenAt)}` : 'Vu'}
-                            </button>
+                            <input
+                              type="date"
+                              value={seenAt ? seenAt.slice(0, 10) : ''}
+                              max={new Date().toISOString().slice(0, 10)}
+                              onChange={(e) => e.target.value && editDate(ep, e.target.value)}
+                            />
                             {seenAt && (
                               <button type="button" className="link-btn" onClick={() => clearDate(ep)}>
                                 oublier
