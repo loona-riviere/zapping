@@ -6,8 +6,8 @@ import {
   lastDate, parseNetflixCsv, resolveGroup,
   type NetflixGroup, type Resolution,
 } from '../lib/netflix'
-import { findShow } from '../lib/lookup'
-import { searchMovies, tmdbConfigured, type Movie } from '../lib/tmdb'
+import { findMovie, findShow } from '../lib/lookup'
+import { tmdbConfigured, type Movie } from '../lib/tmdb'
 import type { TvEpisode, TvShow } from '../lib/tvmaze'
 import { Poster } from './Poster'
 
@@ -283,7 +283,10 @@ function ImportRow({
         <div className="row__body">
           <h3>{title}</h3>
           {item.kind === 'movie' ? (
-            <p className="muted">Film — vu le {when}</p>
+            <p className="muted">
+              Film — vu le {when}
+              {item.via && <span className="row__via">trouvé sous « {item.via} »</span>}
+            </p>
           ) : (
             <p className="muted">
               {item.picks!.picks.length} épisode{plural(item.picks!.picks.length)} sur {lines} ligne
@@ -318,9 +321,9 @@ async function resolveOne(group: NetflixGroup, kind: 'show' | 'movie'): Promise<
   try {
     if (kind === 'movie') {
       if (!tmdbConfigured) return { ...base, state: 'nokey' }
-      const results = await searchMovies(group.title)
-      if (!results.length) return { ...base, state: 'notfound' }
-      return { ...base, state: 'ok', include: true, movie: results[0] }
+      const found = await findMovie(group.title)
+      if (!found) return { ...base, state: 'notfound' }
+      return { ...base, state: 'ok', include: true, movie: found.movie, via: found.via }
     }
     // Le nombre de lignes distinctes borne par le bas la taille attendue de la
     // série : de quoi écarter un homonyme trop court.

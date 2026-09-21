@@ -3,8 +3,8 @@ import { useApp } from '../lib/appState'
 import { describeTarget, episodesUpTo, parseList, type ParsedLine } from '../lib/bulk'
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
-import { searchMovies, tmdbConfigured, type Movie } from '../lib/tmdb'
-import { findShow } from '../lib/lookup'
+import { tmdbConfigured, type Movie } from '../lib/tmdb'
+import { findMovie, findShow } from '../lib/lookup'
 import type { TvEpisode, TvShow } from '../lib/tvmaze'
 import { Poster } from './Poster'
 
@@ -40,9 +40,9 @@ const isoAt = (day: string) => `${day}T12:00:00.000Z`
 async function asMovie(parsed: ParsedLine): Promise<Match> {
   const base = { parsed, kind: 'movie' as const, include: false }
   if (!tmdbConfigured) return { ...base, state: 'nokey' }
-  const films = await searchMovies(parsed.title)
-  if (!films.length) return { ...base, state: 'notfound' }
-  return { ...base, state: 'ok', movie: films[0], include: true }
+  const found = await findMovie(parsed.title)
+  if (!found) return { ...base, state: 'notfound' }
+  return { ...base, state: 'ok', movie: found.movie, via: found.via, include: true }
 }
 
 /**

@@ -1,7 +1,7 @@
 // Trouver une série au catalogue à partir d'un titre d'export (Netflix, liste
 // collée). Isolé ici parce que les deux écrans d'import en ont besoin.
 
-import { originalTitlesFor, tmdbConfigured } from './tmdb'
+import { originalTitlesFor, searchMovies, tmdbConfigured, type Movie } from './tmdb'
 import { getShowWithEpisodes, searchShows, type ShowWithEpisodes, type TvShow } from './tvmaze'
 
 export type FoundShow = ShowWithEpisodes & {
@@ -54,4 +54,27 @@ export async function findShow(
     if (hit && !direct) return { ...hit.data, via: candidate }
   }
   return direct?.data ?? null
+}
+
+export type FoundMovie = { movie: Movie; via?: string }
+
+/**
+ * Netflix accole souvent un sous-titre au titre du film (« Love Again : un peu,
+ * beaucoup, passionnément »), que TMDB n'indexe pas tel quel. Quand la recherche
+ * complète ne donne rien, on réessaie sur la partie avant le deux-points.
+ *
+ * C'est un raccourci qui peut se tromper — « Bureau des cœurs: Amour fruité »
+ * est un épisode de série, pas un film — d'où le `via` renvoyé, que l'écran de
+ * relecture affiche pour rendre le rapprochement visible.
+ */
+export async function findMovie(title: string): Promise<FoundMovie | null> {
+  if (!tmdbConfigured) return null
+
+  const direct = await searchMovies(title)
+  if (direct.length) return { movie: direct[0] }
+
+  const head = title.split(/\s*:\s*/)[0].trim()
+  if (!head || head === title) return null
+  const hits = await searchMovies(head)
+  return hits.length ? { movie: hits[0], via: head } : null
 }
