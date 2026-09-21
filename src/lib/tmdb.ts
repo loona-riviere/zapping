@@ -12,6 +12,8 @@ export type Movie = {
   title: string
   poster_url: string | null
   year: number | null
+  /** Date de sortie complète, pas seulement l'année — sert à savoir si le film est déjà sorti. */
+  release_date: string | null
   overview: string | null
 }
 
@@ -50,6 +52,7 @@ function toMovie(r: RawMovie): Movie {
     title: r.title,
     poster_url: r.poster_path ? IMG + r.poster_path : null,
     year: Number.isFinite(year) ? year : null,
+    release_date: r.release_date || null,
     overview: r.overview || null,
   }
 }

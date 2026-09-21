@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useApp } from '../lib/appState'
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
@@ -8,13 +8,34 @@ import type { WatchedMovie } from '../lib/store'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
+/** Une date connue et future : le film n'est pas encore sorti. Sans date connue, on ne bloque rien. */
+const notYetReleased = (m: WatchedMovie) => !!m.release_date && m.release_date > today()
+
 /** Insensible aux accents et à la casse : « chateau » retrouve « Château ». */
 const normalize = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 export function Movies() {
-  const { movies, moviesReady, loading, markMovieWatched, markMovieUnwatched, removeMovie } = useApp()
+  const { movies, moviesReady, loading, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieMeta } = useApp()
   const [query, setQuery] = useState('')
+
+  // Les films « à voir » ajoutés avant ce champ n'ont pas de date de sortie
+  // connue : on la relève une fois, tranquillement, pour savoir s'ils sont
+  // déjà sortis ou non (sans quoi « Vu » se propose même sur un film pas
+  // encore sorti).
+  useEffect(() => {
+    const missing = movies.filter((m) => m.status === 'later' && !m.release_date)
+    missing.forEach((m) => {
+      movieDetails(m.movie_id)
+        .then((d) => {
+          if (d?.releaseDate) fillMovieMeta(m.movie_id, { release_date: d.releaseDate })
+        })
+        .catch(() => {
+          /* pas de date relevable : on retentera à la prochaine visite */
+        })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movies.filter((m) => m.status === 'later' && !m.release_date).map((m) => m.movie_id).join(',')])
 
   if (!moviesReady) {
     return (
@@ -114,20 +135,28 @@ export function Movies() {
               <Poster src={m.poster_url} alt={m.title} />
               <div className="row__body">
                 <h3>{m.title}</h3>
-                <p className="muted">{m.release_year ?? 'Année inconnue'}</p>
+                <p className="muted">
+                  {notYetReleased(m)
+                    ? `Sort le ${formatShortDate(m.release_date!)}`
+                    : (m.release_year ?? 'Année inconnue')}
+                </p>
               </div>
             </a>
             <div className="row__actions">
-              <button className="btn btn--seen" onClick={() => markMovieWatched(m.movie_id, today())}>
-                Vu
-              </button>
-              <button
-                className="link-btn muted"
-                onClick={() => markWatchedAtRelease(m)}
-                title="Marque le film vu à sa date de sortie plutôt qu'aujourd'hui"
-              >
-                Vu à sa sortie
-              </button>
+              {!notYetReleased(m) && (
+                <>
+                  <button className="btn btn--seen" onClick={() => markMovieWatched(m.movie_id, today())}>
+                    Vu
+                  </button>
+                  <button
+                    className="link-btn muted"
+                    onClick={() => markWatchedAtRelease(m)}
+                    title="Marque le film vu à sa date de sortie plutôt qu'aujourd'hui"
+                  >
+                    Vu à sa sortie
+                  </button>
+                </>
+              )}
               <button
                 className="link-btn muted"
                 onClick={() => confirm(`Retirer ${m.title} de tes films à voir ?`) && removeMovie(m.movie_id)}

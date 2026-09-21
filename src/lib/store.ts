@@ -32,6 +32,8 @@ export type WatchedMovie = {
   title: string
   poster_url: string | null
   release_year: number | null
+  /** Date de sortie complète ; absente pour les films ajoutés avant ce champ. */
+  release_date: string | null
   /** Null quand la date de visionnage est inconnue. */
   watched_at: string | null
   /** Durée en minutes, null tant qu'elle n'a pas été relevée chez TMDB. */
@@ -216,7 +218,7 @@ export async function fetchMovies(): Promise<WatchedMovie[]> {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from('watched_movies')
-      .select('movie_id, title, poster_url, release_year, watched_at, runtime, status')
+      .select('movie_id, title, poster_url, release_year, release_date, watched_at, runtime, status')
       .order('watched_at', { ascending: false, nullsFirst: false })
       .range(from, from + PAGE - 1)
     if (error) {
@@ -239,7 +241,7 @@ async function fetchMoviesLegacy(): Promise<WatchedMovie[]> {
       .order('watched_at', { ascending: false, nullsFirst: false })
       .range(from, from + PAGE - 1)
     if (error) throw error
-    out.push(...(data ?? []).map((r) => ({ ...r, status: 'watched' as const })))
+    out.push(...(data ?? []).map((r) => ({ ...r, release_date: null, status: 'watched' as const })))
     if (!data || data.length < PAGE) break
   }
   return out
@@ -257,6 +259,7 @@ export function movieRow(
     title: movie.title,
     poster_url: movie.poster_url,
     release_year: movie.year,
+    release_date: movie.release_date,
     watched_at: watchedAt,
     runtime,
     status: 'watched' as const,
@@ -285,6 +288,7 @@ export async function addToWatchlist(userId: string, movie: Movie): Promise<void
     title: movie.title,
     poster_url: movie.poster_url,
     release_year: movie.year,
+    release_date: movie.release_date,
     watched_at: null,
     runtime: null,
     status: 'later' as const,
@@ -339,7 +343,7 @@ export async function setMovieRuntimes(
  */
 export async function fillMovieMeta(
   movieId: number,
-  patch: { poster_url?: string; runtime?: number },
+  patch: { poster_url?: string; runtime?: number; release_date?: string },
 ): Promise<void> {
   const { error } = await supabase.from('watched_movies').update(patch).eq('movie_id', movieId)
   if (error) throw error

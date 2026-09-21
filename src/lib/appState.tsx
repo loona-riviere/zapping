@@ -58,7 +58,7 @@ type AppState = {
   /** Relève chez TMDB la durée des films qui n'en ont pas encore. */
   fillMovieRuntimes: (onProgress?: (done: number, total: number) => void) => Promise<void>
   /** Complète l'affiche et/ou la durée d'un film depuis sa fiche détail, si l'un des deux manque. */
-  fillMovieMeta: (movieId: number, patch: { poster_url?: string; runtime?: number }) => Promise<void>
+  fillMovieMeta: (movieId: number, patch: { poster_url?: string; runtime?: number; release_date?: string }) => Promise<void>
   /** Recale `last_watched_at` sur la vraie date, quand le diagnostic en trouve un décalage. */
   fixActivity: (showId: number, actual: string | null) => Promise<void>
 }
@@ -392,6 +392,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
               title: movie.title,
               poster_url: movie.poster_url,
               release_year: movie.year,
+              release_date: movie.release_date,
               watched_at: watchedAt,
               runtime,
               status: 'watched',
@@ -440,7 +441,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
    * détail, quand l'un des deux manque encore (film ajouté sans passer par
    * l'app) — silencieux en cas d'échec, ce n'est qu'un complément.
    */
-  const fillMovieMeta = useCallback(async (movieId: number, patch: { poster_url?: string; runtime?: number }) => {
+  const fillMovieMeta = useCallback(async (movieId: number, patch: { poster_url?: string; runtime?: number; release_date?: string }) => {
     if (!Object.keys(patch).length) return
     setMovies((prev) => prev.map((m) => (m.movie_id === movieId ? { ...m, ...patch } : m)))
     try {
@@ -473,6 +474,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
         title: movie.title,
         poster_url: movie.poster_url,
         release_year: movie.year,
+        release_date: movie.release_date,
         watched_at: null,
         runtime: null,
         status: 'later',

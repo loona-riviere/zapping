@@ -135,6 +135,10 @@ alter table public.watched_movies drop constraint if exists watched_movies_statu
 alter table public.watched_movies
   add constraint watched_movies_status_check check (status in ('watched', 'later'));
 
+-- Date de sortie complète (pas seulement l'année) : sert à ne pas proposer
+-- de marquer vu un film pas encore sorti.
+alter table public.watched_movies add column if not exists release_date date;
+
 alter table public.tracked_shows enable row level security;
 alter table public.watched_episodes enable row level security;
 alter table public.rewatch_progress enable row level security;

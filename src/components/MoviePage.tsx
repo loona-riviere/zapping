@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useApp } from '../lib/appState'
+import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { movieDetails, type MovieDetails } from '../lib/tmdb'
 import { Poster } from './Poster'
@@ -31,16 +32,18 @@ export function MoviePage({ id }: { id: number }) {
     }
   }, [id])
 
-  // Affiche et/ou durée manquantes (film ajouté sans passer par l'app) :
-  // on les complète tranquillement dès que la fiche TMDB a répondu.
+  // Affiche, durée et/ou date de sortie manquantes (film ajouté sans passer
+  // par l'app, ou avant l'ajout de ce champ) : on les complète tranquillement
+  // dès que la fiche TMDB a répondu.
   useEffect(() => {
     if (!details || !movie) return
-    const patch: { poster_url?: string; runtime?: number } = {}
+    const patch: { poster_url?: string; runtime?: number; release_date?: string } = {}
     if (!movie.poster_url && details.posterUrl) patch.poster_url = details.posterUrl
     if (!movie.runtime && details.runtime) patch.runtime = details.runtime
+    if (!movie.release_date && details.releaseDate) patch.release_date = details.releaseDate
     if (Object.keys(patch).length) fillMovieMeta(movie.movie_id, patch)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [details, movie?.movie_id, movie?.poster_url, movie?.runtime])
+  }, [details, movie?.movie_id, movie?.poster_url, movie?.runtime, movie?.release_date])
 
   if (error) {
     return <p className="error pad">Impossible de charger ce film depuis TMDB. <a href={href.search}>Retour</a></p>
@@ -54,7 +57,18 @@ export function MoviePage({ id }: { id: number }) {
   const posterUrl = movie?.poster_url ?? details?.posterUrl ?? null
   const year = movie?.release_year ?? details?.year ?? null
   const runtime = movie?.runtime ?? details?.runtime ?? null
-  const asMovie = details && { id, title, poster_url: posterUrl, year, overview: details.overview }
+  const releaseDate = movie?.release_date ?? details?.releaseDate ?? null
+  // Une date connue et future : le film n'est pas encore sorti, inutile de
+  // proposer de le marquer vu. Sans date connue, on ne bloque rien.
+  const notYetReleased = !!releaseDate && releaseDate > today()
+  const asMovie = details && {
+    id,
+    title,
+    poster_url: posterUrl,
+    year,
+    release_date: details.releaseDate,
+    overview: details.overview,
+  }
 
   return (
     <article className="show">
@@ -89,7 +103,9 @@ export function MoviePage({ id }: { id: number }) {
               )}
             </>
           ) : (
-            <p className="show__count muted">À voir</p>
+            <p className="show__count muted">
+              {notYetReleased ? `Sort le ${formatShortDate(releaseDate!)}` : 'À voir'}
+            </p>
           )}
 
           {movie?.status === 'watched' ? (
@@ -103,15 +119,22 @@ export function MoviePage({ id }: { id: number }) {
               Pas vu
             </button>
           ) : movie ? (
-            <button className="btn btn--primary" onClick={() => markMovieWatched(movie.movie_id, today())}>
-              Vu
-            </button>
+            !notYetReleased && (
+              <button className="btn btn--primary" onClick={() => markMovieWatched(movie.movie_id, today())}>
+                Vu
+              </button>
+            )
           ) : (
             asMovie && (
               <>
-                <button className="btn btn--primary" onClick={() => addMovies([{ movie: asMovie, watchedAt: today() }])}>
-                  Vu
-                </button>
+                {!notYetReleased && (
+                  <button
+                    className="btn btn--primary"
+                    onClick={() => addMovies([{ movie: asMovie, watchedAt: today() }])}
+                  >
+                    Vu
+                  </button>
+                )}
                 <button className="btn btn--ghost" onClick={() => addToWatchlist(asMovie)}>
                   À voir
                 </button>
