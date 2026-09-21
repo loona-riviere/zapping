@@ -24,6 +24,8 @@ Un suivi de séries façon TVTime : cherche une série, coche les épisodes vus,
   viennent de TVmaze ; un épisode sans durée prend la durée médiane de sa série. Chaque graphique
   a son équivalent en tableau
 - **Films** : recherche TMDB, marquage « vu le … » et liste « Mes films »
+- **Où la regarder** : sur la fiche d'une série, les plateformes qui la proposent en abonnement
+  en France (données JustWatch via TMDB, nécessite la clé)
 - **Import Netflix** : dépose le `NetflixViewingHistory.csv` de ton profil, l'app regroupe par
   œuvre, retrouve chaque série et coche les épisodes avec leurs dates réelles
 - **Liste à coller** : une ligne par titre (« Breaking Bad S05E08 »), avec une date facultative
@@ -95,5 +97,8 @@ Astuce : sur iPhone ou Android, ajoute la page à l'écran d'accueil pour l'util
   permet de la rebasculer en série (et inversement).
 - Le schéma `supabase/schema.sql` est ré-exécutable : relance-le après une mise à jour pour
   ajouter les nouvelles colonnes et tables.
-- Données séries fournies par TVmaze.com sous licence CC BY-SA. Données films fournies par TMDB
-  (ce produit n'est ni approuvé ni certifié par TMDB).
+- La disponibilité passe par l'IMDb que TVmaze publie dans `externals`, seul pont fiable vers
+  TMDB. Une série sans identifiant IMDb n'affiche pas de badge, et une absence de badge signifie
+  « pas en abonnement chez les plateformes suivies », pas « indisponible ».
+- Données séries fournies par TVmaze.com sous licence CC BY-SA. Données films et disponibilités
+  fournies par TMDB et JustWatch (ce produit n'est ni approuvé ni certifié par TMDB).

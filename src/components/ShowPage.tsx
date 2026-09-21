@@ -5,6 +5,7 @@ import { href } from '../lib/route'
 import { getShowWithEpisodes, statusFr, stripHtml, type ShowWithEpisodes, type TvEpisode } from '../lib/tvmaze'
 import { Poster } from './Poster'
 import { StatusPicker } from './StatusPicker'
+import { WhereToWatch } from './WhereToWatch'
 
 export function ShowPage({ id }: { id: number }) {
   const { isTracked, track, untrack, watchedFor, setWatched } = useApp()
@@ -121,6 +122,8 @@ export function ShowPage({ id }: { id: number }) {
           )}
         </div>
       </header>
+
+      <WhereToWatch imdbId={show.externals?.imdb} />
 
       {summary && <p className="show__summary">{summary}</p>}
 

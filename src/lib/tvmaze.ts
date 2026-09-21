@@ -11,6 +11,8 @@ export type TvShow = {
   genres: string[]
   network: { name: string } | null
   webChannel: { name: string } | null
+  /** Identifiants externes : l'IMDb sert de pont vers TMDB. */
+  externals: { imdb: string | null } | null
 }
 
 export type TvEpisode = {
@@ -81,6 +83,7 @@ export function getShowWithEpisodes(id: number, force = false): Promise<ShowWith
         id: show.id, name: show.name, image: show.image, premiered: show.premiered,
         status: show.status, summary: show.summary, genres: show.genres,
         network: show.network, webChannel: show.webChannel,
+        externals: show.externals ?? null,
       }
       const data = { show: s, episodes }
       try {

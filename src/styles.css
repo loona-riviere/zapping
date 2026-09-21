@@ -353,3 +353,18 @@ button { font: inherit; color: inherit; }
 .subtabs a { padding: .55rem .75rem; margin-bottom: -1.5px; text-decoration: none; color: var(--muted); font-weight: 600; border-bottom: 3px solid transparent; }
 .subtabs a[aria-current='page'] { color: var(--ink); border-bottom-color: var(--accent); }
 .subtabs__aside { margin-left: auto; font-weight: 500; font-size: .9rem; }
+
+/* Où regarder : badges des plateformes incluses dans l'abonnement. */
+.where { margin-top: 1.5rem; }
+.where__title { font-size: .85rem; font-weight: 600; color: var(--muted); margin-bottom: .5rem; }
+.where__list { display: flex; flex-wrap: wrap; gap: .5rem; }
+.where__link { display: contents; }
+.where__badge {
+  display: inline-flex; align-items: center; gap: .45rem;
+  padding: .3rem .7rem .3rem .3rem; border-radius: 999px;
+  border: 1.5px solid var(--line); background: var(--surface);
+  font-size: .85rem; font-weight: 600; white-space: nowrap;
+}
+.where__badge img { border-radius: 6px; width: 24px; height: 24px; object-fit: cover; }
+.where__link:hover .where__badge { border-color: var(--accent); }
+.where__note { font-size: .75rem; margin: .5rem 0 0; }

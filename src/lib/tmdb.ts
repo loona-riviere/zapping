@@ -123,6 +123,70 @@ export async function movieRuntime(id: number): Promise<number | null> {
 const normalizeTitle = (s: string) =>
   s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 
+export type Provider = { id: number; name: string; logo: string | null }
+export type Availability = { providers: Provider[]; link: string | null }
+
+const LOGO = 'https://image.tmdb.org/t/p/w92'
+const AVAIL_TTL = 7 * 24 * 60 * 60 * 1000 // 7 j : une offre change, mais pas tous les jours
+
+type RawProvider = { provider_id: number; provider_name: string; logo_path: string | null }
+
+/**
+ * Où regarder une série, en abonnement, dans un pays donné.
+ *
+ * On ne suit les séries que par leur identifiant TVmaze : le pont vers TMDB
+ * passe par l'IMDb, que TVmaze publie dans `externals`. Sans IMDb, pas de
+ * disponibilité — on renvoie null plutôt que de deviner sur le titre, qui
+ * rapprocherait des homonymes.
+ *
+ * Les données viennent de JustWatch via TMDB, à créditer comme telles.
+ */
+export async function watchProviders(
+  imdbId: string | null | undefined,
+  region = 'FR',
+): Promise<Availability | null> {
+  if (!KEY || !imdbId) return null
+  const key = `tmdb:where:${region}:${imdbId}`
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw) {
+      const cached = JSON.parse(raw) as { at: number; data: Availability | null }
+      if (Date.now() - cached.at < AVAIL_TTL) return cached.data
+    }
+  } catch {
+    /* cache illisible : on refetch */
+  }
+
+  let data: Availability | null = null
+  const found = await get<{ tv_results: { id: number }[] }>(`/find/${encodeURIComponent(imdbId)}`, {
+    external_source: 'imdb_id',
+  })
+  const tvId = found.tv_results?.[0]?.id
+  if (tvId) {
+    const res = await get<{
+      results: Record<string, { link?: string; flatrate?: RawProvider[] }>
+    }>(`/tv/${tvId}/watch/providers`, {})
+    const here = res.results?.[region]
+    if (here?.flatrate?.length) {
+      data = {
+        providers: here.flatrate.map((p) => ({
+          id: p.provider_id,
+          name: p.provider_name,
+          logo: p.logo_path ? LOGO + p.logo_path : null,
+        })),
+        link: here.link ?? null,
+      }
+    }
+  }
+
+  try {
+    localStorage.setItem(key, JSON.stringify({ at: Date.now(), data }))
+  } catch {
+    /* stockage plein : pas grave */
+  }
+  return data
+}
+
 /** Recherche de films, résultats en français, triés par pertinence TMDB. */
 export async function searchMovies(query: string, year?: number): Promise<Movie[]> {
   const key = `tmdb:search:${year ?? ''}:${query.toLowerCase()}`
