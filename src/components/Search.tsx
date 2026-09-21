@@ -1,14 +1,26 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../lib/appState'
 import { searchShowsWide } from '../lib/lookup'
 import { href } from '../lib/route'
 import { tmdbConfigured } from '../lib/tmdb'
 import type { TvShow } from '../lib/tvmaze'
 import { Poster } from './Poster'
+import { ShowRecommendations } from './Recommendations'
 
 export function Search({ initialQuery }: { initialQuery?: string } = {}) {
-  const { isTracked, track } = useApp()
+  const { tracked, isTracked, track } = useApp()
   const [query, setQuery] = useState(initialQuery ?? '')
+  // Des séries vraiment vues, pas juste ajoutées : sinon une série « à voir »
+  // jamais commencée servirait de base aux suggestions.
+  const seedIds = useMemo(
+    () =>
+      tracked
+        .filter((t) => t.last_watched_at)
+        .sort((a, b) => b.last_watched_at!.localeCompare(a.last_watched_at!))
+        .slice(0, 3)
+        .map((t) => t.show_id),
+    [tracked],
+  )
   const [results, setResults] = useState<TvShow[]>([])
   // Titre original ayant permis de trouver, quand le titre français a échoué.
   const [via, setVia] = useState<string | null>(null)
@@ -73,6 +85,7 @@ export function Search({ initialQuery }: { initialQuery?: string } = {}) {
       {via && (
         <p className="muted">Rien sous « {query.trim()} » — voici les résultats pour « {via} ».</p>
       )}
+      {!query.trim() && <ShowRecommendations showIds={seedIds} />}
       <ul className="rows">
         {results.map((s) => {
           const year = s.premiered?.slice(0, 4)
