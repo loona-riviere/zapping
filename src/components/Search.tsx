@@ -16,8 +16,8 @@ const today = () => new Date().toISOString().slice(0, 10)
  * qu'une recherche cachée dans chaque bibliothèque : le bouton bascule le
  * type cherché, la recherche elle-même reste la même pour les deux.
  */
-export function Search({ initialQuery }: { initialQuery?: string } = {}) {
-  const [kind, setKind] = useState<Kind>('show')
+export function Search({ initialQuery, initialKind }: { initialQuery?: string; initialKind?: Kind } = {}) {
+  const [kind, setKind] = useState<Kind>(initialKind ?? 'show')
   const [query, setQuery] = useState(initialQuery ?? '')
   const input = useRef<HTMLInputElement>(null)
 

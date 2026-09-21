@@ -116,7 +116,10 @@ export function Home() {
             <Shelf rows={results} withLabel />
           </section>
         ) : (
-          <p className="muted pad">Aucune série ne correspond à « {query.trim()} ».</p>
+          <p className="muted pad">
+            Aucune série ne correspond à « {query.trim()} ».{' '}
+            <a href={href.searchFor(query.trim(), 'show')}>La chercher pour la suivre ?</a>
+          </p>
         )
       ) : (
         <>

@@ -76,9 +76,14 @@ export function Movies() {
       {loading && <p className="muted">Chargement…</p>}
       {!loading && !toWatch.length && (
         <p className="muted">
-          {q
-            ? `Aucun film à voir ne correspond à « ${query.trim()} ».`
-            : <>Aucun film en attente pour l'instant. Cherche-en un dans <a href={href.search}>Chercher</a>.</>}
+          {q ? (
+            <>
+              Aucun film à voir ne correspond à « {query.trim()} ».{' '}
+              <a href={href.searchFor(query.trim(), 'movie')}>Le chercher pour l'ajouter ?</a>
+            </>
+          ) : (
+            <>Aucun film en attente pour l'instant. Cherche-en un dans <a href={href.search}>Chercher</a>.</>
+          )}
         </p>
       )}
       <ul className="rows">
@@ -111,10 +116,15 @@ export function Movies() {
       </h2>
       {!loading && !watched.length && (
         <p className="muted">
-          {q
-            ? `Aucun film vu ne correspond à « ${query.trim()} ».`
-            : <>Aucun film vu pour l'instant. Cherche-en un dans <a href={href.search}>Chercher</a>, ou{' '}
-              <a href={href.import}>importe ton historique Netflix</a>.</>}
+          {q ? (
+            <>
+              Aucun film vu ne correspond à « {query.trim()} ».{' '}
+              <a href={href.searchFor(query.trim(), 'movie')}>Le chercher pour l'ajouter ?</a>
+            </>
+          ) : (
+            <>Aucun film vu pour l'instant. Cherche-en un dans <a href={href.search}>Chercher</a>, ou{' '}
+              <a href={href.import}>importe ton historique Netflix</a>.</>
+          )}
         </p>
       )}
       <ul className="rows">
