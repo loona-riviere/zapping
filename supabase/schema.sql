@@ -25,6 +25,11 @@ alter table public.tracked_shows drop constraint if exists tracked_shows_rewatch
 alter table public.tracked_shows
   add constraint tracked_shows_rewatches_check check (rewatches >= 0);
 
+-- Vrai pendant un revisionnage en cours : la progression est alors suivie dans
+-- rewatch_progress, sans toucher à l'historique de watched_episodes.
+alter table public.tracked_shows
+  add column if not exists rewatching boolean not null default false;
+
 alter table public.tracked_shows drop constraint if exists tracked_shows_status_check;
 alter table public.tracked_shows
   add constraint tracked_shows_status_check
@@ -47,6 +52,20 @@ alter table public.watched_episodes alter column watched_at drop not null;
 
 create index if not exists watched_episodes_user_show_idx
   on public.watched_episodes (user_id, show_id);
+
+-- Épisodes revus pendant le visionnage en cours. La table est vidée à la fin
+-- du revisionnage, qui incrémente alors tracked_shows.rewatches : on ne garde
+-- que la passe en cours, pas l'historique de chaque passe.
+create table if not exists public.rewatch_progress (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  show_id integer not null,
+  episode_id integer not null,
+  watched_at timestamptz default now(),
+  primary key (user_id, episode_id)
+);
+
+create index if not exists rewatch_progress_user_show_idx
+  on public.rewatch_progress (user_id, show_id);
 
 -- Films vus (catalogue TMDB).
 create table if not exists public.watched_movies (
@@ -73,6 +92,7 @@ create index if not exists watched_movies_user_date_idx
 
 alter table public.tracked_shows enable row level security;
 alter table public.watched_episodes enable row level security;
+alter table public.rewatch_progress enable row level security;
 alter table public.watched_movies enable row level security;
 
 drop policy if exists "tracked_shows: own rows" on public.tracked_shows;
@@ -83,6 +103,12 @@ create policy "tracked_shows: own rows" on public.tracked_shows
 
 drop policy if exists "watched_episodes: own rows" on public.watched_episodes;
 create policy "watched_episodes: own rows" on public.watched_episodes
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
+drop policy if exists "rewatch_progress: own rows" on public.rewatch_progress;
+create policy "rewatch_progress: own rows" on public.rewatch_progress
   for all to authenticated
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);

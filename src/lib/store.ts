@@ -23,6 +23,8 @@ export type TrackedShow = {
   status: ShowStatus
   /** Nombre de revisionnages complets, en plus du premier. */
   rewatches: number
+  /** Vrai pendant un revisionnage : la progression est suivie à part. */
+  rewatching: boolean
 }
 
 export type WatchedMovie = {
@@ -59,12 +61,15 @@ export function isMissingSchema(error: unknown): boolean {
 const LEGACY_COLUMNS = 'show_id, name, image_url, added_at, last_watched_at'
 
 export async function fetchTracked(): Promise<TrackedShow[]> {
-  const full = await supabase.from('tracked_shows').select(`${LEGACY_COLUMNS}, status, rewatches`)
+  const full = await supabase
+    .from('tracked_shows')
+    .select(`${LEGACY_COLUMNS}, status, rewatches, rewatching`)
   if (!full.error) {
     return (full.data ?? []).map((r) => ({
       ...r,
       status: (r.status ?? 'watching') as ShowStatus,
       rewatches: r.rewatches ?? 0,
+      rewatching: r.rewatching ?? false,
     }))
   }
   if (!isMissingSchema(full.error)) throw full.error
@@ -72,7 +77,12 @@ export async function fetchTracked(): Promise<TrackedShow[]> {
   // Schéma pas encore migré : on lit les colonnes d'origine, tout est « en cours ».
   const legacy = await supabase.from('tracked_shows').select(LEGACY_COLUMNS)
   if (legacy.error) throw legacy.error
-  return (legacy.data ?? []).map((r) => ({ ...r, status: 'watching' as ShowStatus, rewatches: 0 }))
+  return (legacy.data ?? []).map((r) => ({
+    ...r,
+    status: 'watching' as ShowStatus,
+    rewatches: 0,
+    rewatching: false,
+  }))
 }
 
 export async function fetchWatched(): Promise<WatchedMap> {
@@ -114,6 +124,7 @@ export async function trackShow(userId: string, show: TvShow): Promise<TrackedSh
     last_watched_at: null,
     status: 'watching',
     rewatches: 0,
+    rewatching: false,
   }
 }
 
@@ -259,6 +270,72 @@ export async function setMovieRuntimes(
       .from('watched_movies')
       .update({ runtime })
       .eq('movie_id', movie_id)
+    if (error) throw error
+  }
+}
+
+/* --------------------------------------------------- revisionnage en cours -- */
+
+export async function fetchRewatchProgress(): Promise<WatchedMap> {
+  const map: WatchedMap = new Map()
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('rewatch_progress')
+      .select('show_id, episode_id, watched_at')
+      .order('episode_id')
+      .range(from, from + PAGE - 1)
+    if (error) {
+      // Table absente : le schéma n'a pas été migré, on continue sans.
+      if (isMissingSchema(error)) return map
+      throw error
+    }
+    for (const row of data ?? []) {
+      let eps = map.get(row.show_id)
+      if (!eps) map.set(row.show_id, (eps = new Map()))
+      eps.set(row.episode_id, row.watched_at)
+    }
+    if (!data || data.length < PAGE) break
+  }
+  return map
+}
+
+export async function setRewatching(showId: number, rewatching: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('tracked_shows')
+    .update({ rewatching })
+    .eq('show_id', showId)
+  if (error) throw error
+}
+
+export async function clearRewatchProgress(showId: number): Promise<void> {
+  const { error } = await supabase.from('rewatch_progress').delete().eq('show_id', showId)
+  if (error) throw error
+}
+
+export async function markRewatched(
+  userId: string,
+  showId: number,
+  eps: TvEpisode[],
+): Promise<void> {
+  if (!eps.length) return
+  const now = new Date().toISOString()
+  const rows = eps.map((e) => ({
+    user_id: userId,
+    show_id: showId,
+    episode_id: e.id,
+    watched_at: now,
+  }))
+  for (const batch of chunks(rows, 500)) {
+    const { error } = await supabase
+      .from('rewatch_progress')
+      .upsert(batch, { onConflict: 'user_id,episode_id', ignoreDuplicates: true })
+    if (error) throw error
+  }
+}
+
+export async function unmarkRewatched(ids: number[]): Promise<void> {
+  for (const batch of chunks(ids, 300)) {
+    const { error } = await supabase.from('rewatch_progress').delete().in('episode_id', batch)
     if (error) throw error
   }
 }

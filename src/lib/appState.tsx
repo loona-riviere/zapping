@@ -30,6 +30,13 @@ type AppState = {
   /** Nombre de revisionnages complets d'une série, en plus du premier. */
   rewatchesOf: (showId: number) => number
   setRewatches: (showId: number, count: number) => Promise<void>
+  /** Un revisionnage est-il en cours sur cette série ? */
+  isRewatching: (showId: number) => boolean
+  /** Progression historique, indépendante du revisionnage en cours. */
+  historyFor: (showId: number) => WatchedEpisodes
+  startRewatch: (showId: number) => Promise<void>
+  /** `completed` incrémente le compteur ; sinon le revisionnage est abandonné. */
+  endRewatch: (showId: number, completed: boolean) => Promise<void>
   /** `dates` (import) fixe la date de visionnage épisode par épisode. */
   setWatched: (
     show: TvShow,
@@ -51,6 +58,7 @@ const EMPTY: WatchedEpisodes = new Map()
 export function AppProvider({ userId, children }: { userId: string; children: ReactNode }) {
   const [tracked, setTracked] = useState<TrackedShow[]>([])
   const [watched, setWatchedMap] = useState<WatchedMap>(new Map())
+  const [rewatch, setRewatch] = useState<WatchedMap>(new Map())
   const [movies, setMovies] = useState<WatchedMovie[]>([])
   const [moviesReady, setMoviesReady] = useState(true)
   const [loading, setLoading] = useState(true)
@@ -60,11 +68,12 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     let alive = true
     // Les séries sont le cœur de l'app : leur chargement ne doit pas dépendre
     // des films, dont la table peut manquer si le schéma n'a pas été migré.
-    Promise.all([store.fetchTracked(), store.fetchWatched()])
-      .then(([t, w]) => {
+    Promise.all([store.fetchTracked(), store.fetchWatched(), store.fetchRewatchProgress()])
+      .then(([t, w, r]) => {
         if (!alive) return
         setTracked(t)
         setWatchedMap(w)
+        setRewatch(r)
       })
       .catch((e) => alive && setNotice(`Chargement impossible : ${e.message}`))
       .finally(() => alive && setLoading(false))
@@ -83,7 +92,17 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
   }, [userId])
 
   const isTracked = useCallback((id: number) => tracked.some((t) => t.show_id === id), [tracked])
-  const watchedFor = useCallback((id: number) => watched.get(id) ?? EMPTY, [watched])
+  const isRewatching = useCallback(
+    (id: number) => tracked.find((t) => t.show_id === id)?.rewatching ?? false,
+    [tracked],
+  )
+  const historyFor = useCallback((id: number) => watched.get(id) ?? EMPTY, [watched])
+  // Pendant un revisionnage, toute l'interface (grille, prochain épisode,
+  // accueil) doit lire la passe en cours, pas l'historique.
+  const watchedFor = useCallback(
+    (id: number) => (isRewatching(id) ? rewatch.get(id) ?? EMPTY : watched.get(id) ?? EMPTY),
+    [isRewatching, rewatch, watched],
+  )
   const statusOf = useCallback(
     (id: number) => tracked.find((t) => t.show_id === id)?.status ?? 'watching',
     [tracked],
@@ -159,6 +178,52 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     }
   }, [])
 
+  const patchShow = useCallback((showId: number, patch: Partial<TrackedShow>) => {
+    setTracked((prev) => prev.map((t) => (t.show_id === showId ? { ...t, ...patch } : t)))
+  }, [])
+
+  const startRewatch = useCallback(
+    async (showId: number) => {
+      patchShow(showId, { rewatching: true })
+      setRewatch((prev) => {
+        const next = new Map(prev)
+        next.delete(showId)
+        return next
+      })
+      try {
+        // Une passe abandonnée a pu laisser des lignes : on repart de zéro.
+        await store.clearRewatchProgress(showId)
+        await store.setRewatching(showId, true)
+      } catch (e) {
+        patchShow(showId, { rewatching: false })
+        setNotice(`Impossible de démarrer le revisionnage : ${(e as Error).message}`)
+      }
+    },
+    [patchShow],
+  )
+
+  const endRewatch = useCallback(
+    async (showId: number, completed: boolean) => {
+      const before = tracked.find((t) => t.show_id === showId)
+      const next = (before?.rewatches ?? 0) + (completed ? 1 : 0)
+      patchShow(showId, { rewatching: false, rewatches: next })
+      setRewatch((prev) => {
+        const m = new Map(prev)
+        m.delete(showId)
+        return m
+      })
+      try {
+        if (completed) await store.setRewatches(showId, next)
+        await store.setRewatching(showId, false)
+        await store.clearRewatchProgress(showId)
+      } catch (e) {
+        if (before) patchShow(showId, { rewatching: true, rewatches: before.rewatches })
+        setNotice(`Impossible de clore le revisionnage : ${(e as Error).message}`)
+      }
+    },
+    [patchShow, tracked],
+  )
+
   const setWatched = useCallback(
     async (
       show: TvShow,
@@ -170,6 +235,29 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       if (!eps.length) return
       const ids = eps.map((e) => e.id)
       const now = new Date().toISOString()
+
+      // Pendant un revisionnage, on coche dans la passe en cours : l'historique
+      // reste intact, et décocher ne perd rien du premier visionnage.
+      if (isRewatching(show.id)) {
+        const applyRewatch = (on: boolean) =>
+          setRewatch((prev) => {
+            const next = new Map(prev)
+            const eps = new Map(prev.get(show.id) ?? [])
+            ids.forEach((id) => (on ? eps.set(id, now) : eps.delete(id)))
+            next.set(show.id, eps)
+            return next
+          })
+        applyRewatch(value)
+        try {
+          if (value) await store.markRewatched(userId, show.id, eps)
+          else await store.unmarkRewatched(ids)
+        } catch (e) {
+          applyRewatch(!value)
+          setNotice(`Enregistrement impossible : ${(e as Error).message}`)
+        }
+        return
+      }
+
       const apply = (on: boolean) =>
         setWatchedMap((prev) => {
           const next = new Map(prev)
@@ -204,7 +292,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
         setNotice(`Enregistrement impossible : ${(e as Error).message}`)
       }
     },
-    [track, tracked, userId],
+    [isRewatching, track, tracked, userId],
   )
 
   const addMovies = useCallback(
@@ -290,13 +378,14 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     () => ({
       userId, tracked, watched, movies, moviesReady, loading, notice,
       dismissNotice: () => setNotice(null),
-      isTracked, statusOf, watchedFor, rewatchesOf, setRewatches,
+      isTracked, statusOf, watchedFor, historyFor, rewatchesOf, setRewatches,
+      isRewatching, startRewatch, endRewatch,
       track, untrack, setStatus, setWatched,
       addMovies, removeMovie, fillMovieRuntimes,
     }),
-    [userId, tracked, watched, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
-     rewatchesOf, setRewatches, track, untrack, setStatus, setWatched, addMovies, removeMovie,
-     fillMovieRuntimes],
+    [userId, tracked, watched, rewatch, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
+     historyFor, rewatchesOf, setRewatches, isRewatching, startRewatch, endRewatch,
+     track, untrack, setStatus, setWatched, addMovies, removeMovie, fillMovieRuntimes],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

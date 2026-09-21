@@ -9,13 +9,13 @@ import { STATUS_LABEL } from '../lib/store'
 import { useShowEpisodes } from '../lib/useShows'
 
 export function Stats() {
-  const { tracked, movies, loading, watchedFor, fillMovieRuntimes } = useApp()
+  const { tracked, movies, loading, historyFor, fillMovieRuntimes } = useApp()
   const [filling, setFilling] = useState<{ done: number; total: number } | null>(null)
   const ids = useMemo(() => tracked.map((t) => t.show_id), [tracked])
   const { data } = useShowEpisodes(ids)
   const stats = useMemo(
-    () => computeStats(tracked, watchedFor, data, movies),
-    [tracked, watchedFor, data, movies],
+    () => computeStats(tracked, historyFor, data, movies),
+    [tracked, historyFor, data, movies],
   )
   const byStatus = useMemo(() => countByStatus(tracked), [tracked])
 

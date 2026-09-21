@@ -115,7 +115,7 @@ export function ShowPage({ id }: { id: number }) {
           >
             {followed ? 'Retirer de mes séries' : 'Suivre cette série'}
           </button>
-          {followed && <Rewatches showId={show.id} />}
+          {followed && <Rewatches show={show} episodes={episodes} />}
           {followed && (
             <p className="show__status">
               <label htmlFor="show-status">Statut</label>
