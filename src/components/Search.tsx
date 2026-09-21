@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../lib/appState'
 import { searchShowsWide } from '../lib/lookup'
+import { computeProgress, epCode, type Progress } from '../lib/progress'
 import { href } from '../lib/route'
 import { buildEnvNames, searchMovies, tmdbConfigured, type Movie } from '../lib/tmdb'
 import type { TvShow } from '../lib/tvmaze'
+import { useShowEpisodes } from '../lib/useShows'
 import { Poster } from './Poster'
 import { MovieRecommendations, ShowRecommendations } from './Recommendations'
 
 type Kind = 'show' | 'movie'
+type ContinuingRow = { id: number; name: string; image: string | null; next: NonNullable<Progress['next']> }
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -66,7 +69,7 @@ export function Search({ initialQuery, initialKind }: { initialQuery?: string; i
 }
 
 function ShowSearch({ query }: { query: string }) {
-  const { tracked, isTracked, track } = useApp()
+  const { tracked, watchedFor, isTracked, track } = useApp()
   const [results, setResults] = useState<TvShow[]>([])
   // Titre original ayant permis de trouver, quand le titre français a échoué.
   const [via, setVia] = useState<string | null>(null)
@@ -83,6 +86,34 @@ function ShowSearch({ query }: { query: string }) {
         .slice(0, 3)
         .map((t) => t.show_id),
     [tracked],
+  )
+
+  // Avant de proposer de nouvelles séries, on rappelle où on en est dans
+  // celles déjà en cours : ce qu'on regarde déjà passe avant la découverte.
+  const continuingIds = useMemo(
+    () =>
+      tracked
+        .filter((t) => t.status === 'watching')
+        .sort((a, b) => (b.last_watched_at ?? '').localeCompare(a.last_watched_at ?? ''))
+        .slice(0, 5)
+        .map((t) => t.show_id),
+    [tracked],
+  )
+  const { data: continuingCache } = useShowEpisodes(continuingIds)
+  const continuing = useMemo(
+    () =>
+      continuingIds
+        .map((id) => {
+          const data = continuingCache[id]
+          const t = tracked.find((tr) => tr.show_id === id)
+          if (!data || !t) return null
+          const progress = computeProgress(data.episodes, watchedFor(id))
+          return progress.next
+            ? { id, name: data.show.name, image: data.show.image?.medium ?? t.image_url, next: progress.next }
+            : null
+        })
+        .filter((r): r is ContinuingRow => !!r),
+    [continuingIds, continuingCache, tracked, watchedFor],
   )
 
   useEffect(() => {
@@ -128,6 +159,26 @@ function ShowSearch({ query }: { query: string }) {
       )}
       {via && (
         <p className="muted">Rien sous « {query.trim()} » — voici les résultats pour « {via} ».</p>
+      )}
+      {!query.trim() && continuing.length > 0 && (
+        <section>
+          <h2 className="section-title">Reprendre</h2>
+          <ul className="rows">
+            {continuing.map((r) => (
+              <li key={r.id} className="row">
+                <a href={href.show(r.id)} className="row__link">
+                  <Poster src={r.image} alt={r.name} />
+                  <div className="row__body">
+                    <h3>{r.name}</h3>
+                    <p className="row__next">
+                      <strong>{epCode(r.next)}</strong> {r.next.name}
+                    </p>
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
       {!query.trim() && <ShowRecommendations showIds={seedIds} />}
       <ul className="rows">

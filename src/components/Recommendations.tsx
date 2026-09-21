@@ -128,7 +128,13 @@ export function ShowRecommendations({ showIds }: { showIds: number[] }) {
           if (!trackedNames.has(r.name.toLowerCase()) && !byId.has(r.id)) byId.set(r.id, r)
         }
       }
-      const found = [...byId.values()].slice(0, 10)
+      // TMDB propose souvent un cluster de vieilles séries américaines très
+      // similaires (sitcoms 90s-2000s) : on privilégie les plus récentes.
+      const minYear = new Date().getFullYear() - 12
+      const found = [...byId.values()]
+        .filter((r) => r.year === null || r.year >= minYear)
+        .sort((a, b) => (b.year ?? 0) - (a.year ?? 0))
+        .slice(0, 10)
       setRecs(found)
       setStatus(found.length ? 'ready' : 'empty')
     })
