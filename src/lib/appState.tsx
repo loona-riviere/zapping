@@ -1,38 +1,50 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import * as store from './store'
-import type { TrackedShow } from './store'
+import type { ShowStatus, TrackedShow, WatchedMap, WatchedMovie } from './store'
+import type { Movie } from './tmdb'
 import type { TvEpisode, TvShow } from './tvmaze'
+
+/** Épisodes vus d'une série : identifiant → date de visionnage (ISO). */
+export type WatchedEpisodes = ReadonlyMap<number, string>
 
 type AppState = {
   userId: string
   tracked: TrackedShow[]
-  watched: Map<number, Set<number>>
+  watched: WatchedMap
+  movies: WatchedMovie[]
   loading: boolean
   notice: string | null
   dismissNotice: () => void
   isTracked: (showId: number) => boolean
-  watchedFor: (showId: number) => Set<number>
+  statusOf: (showId: number) => ShowStatus
+  watchedFor: (showId: number) => WatchedEpisodes
   track: (show: TvShow) => Promise<void>
   untrack: (showId: number) => Promise<void>
-  setWatched: (show: TvShow, eps: TvEpisode[], value: boolean) => Promise<void>
+  setStatus: (showId: number, status: ShowStatus) => Promise<void>
+  /** `dates` (import) fixe la date de visionnage épisode par épisode. */
+  setWatched: (show: TvShow, eps: TvEpisode[], value: boolean, dates?: Map<number, string>) => Promise<void>
+  addMovies: (items: { movie: Movie; watchedAt: string }[]) => Promise<void>
+  removeMovie: (movieId: number) => Promise<void>
 }
 
 const Ctx = createContext<AppState | null>(null)
-const EMPTY = new Set<number>()
+const EMPTY: WatchedEpisodes = new Map()
 
 export function AppProvider({ userId, children }: { userId: string; children: ReactNode }) {
   const [tracked, setTracked] = useState<TrackedShow[]>([])
-  const [watched, setWatchedMap] = useState<Map<number, Set<number>>>(new Map())
+  const [watched, setWatchedMap] = useState<WatchedMap>(new Map())
+  const [movies, setMovies] = useState<WatchedMovie[]>([])
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
-    Promise.all([store.fetchTracked(), store.fetchWatched()])
-      .then(([t, w]) => {
+    Promise.all([store.fetchTracked(), store.fetchWatched(), store.fetchMovies()])
+      .then(([t, w, m]) => {
         if (!alive) return
         setTracked(t)
         setWatchedMap(w)
+        setMovies(m)
       })
       .catch((e) => alive && setNotice(`Chargement impossible : ${e.message}`))
       .finally(() => alive && setLoading(false))
@@ -43,6 +55,10 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
 
   const isTracked = useCallback((id: number) => tracked.some((t) => t.show_id === id), [tracked])
   const watchedFor = useCallback((id: number) => watched.get(id) ?? EMPTY, [watched])
+  const statusOf = useCallback(
+    (id: number) => tracked.find((t) => t.show_id === id)?.status ?? 'watching',
+    [tracked],
+  )
 
   const track = useCallback(
     async (show: TvShow) => {
@@ -71,29 +87,52 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     }
   }, [])
 
+  const setStatus = useCallback(async (showId: number, status: ShowStatus) => {
+    const before = new Map<number, ShowStatus>()
+    setTracked((prev) =>
+      prev.map((t) => {
+        if (t.show_id !== showId) return t
+        before.set(showId, t.status)
+        return { ...t, status }
+      }),
+    )
+    try {
+      await store.setShowStatus(showId, status)
+    } catch (e) {
+      const old = before.get(showId)
+      if (old) setTracked((prev) => prev.map((t) => (t.show_id === showId ? { ...t, status: old } : t)))
+      setNotice(`Changement de statut impossible : ${(e as Error).message}`)
+    }
+  }, [])
+
   const setWatched = useCallback(
-    async (show: TvShow, eps: TvEpisode[], value: boolean) => {
+    async (show: TvShow, eps: TvEpisode[], value: boolean, dates?: Map<number, string>) => {
       if (!eps.length) return
       const ids = eps.map((e) => e.id)
+      const now = new Date().toISOString()
       const apply = (on: boolean) =>
         setWatchedMap((prev) => {
           const next = new Map(prev)
-          const set = new Set(prev.get(show.id) ?? [])
-          ids.forEach((id) => (on ? set.add(id) : set.delete(id)))
-          next.set(show.id, set)
+          const eps = new Map(prev.get(show.id) ?? [])
+          ids.forEach((id) => (on ? eps.set(id, dates?.get(id) ?? now) : eps.delete(id)))
+          next.set(show.id, eps)
           return next
         })
 
       apply(value) // mise à jour optimiste
       if (value) {
+        const last = ids.reduce<string>((max, id) => {
+          const d = dates?.get(id) ?? now
+          return d > max ? d : max
+        }, dates ? '' : now)
         setTracked((prev) =>
-          prev.map((t) => (t.show_id === show.id ? { ...t, last_watched_at: new Date().toISOString() } : t)),
+          prev.map((t) => (t.show_id === show.id ? { ...t, last_watched_at: last } : t)),
         )
       }
       try {
         if (value) {
           if (!tracked.some((t) => t.show_id === show.id)) await track(show)
-          await store.markWatched(userId, show.id, eps)
+          await store.markWatched(userId, show.id, eps, dates)
         } else {
           await store.markUnwatched(ids)
         }
@@ -105,13 +144,51 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     [track, tracked, userId],
   )
 
+  const addMovies = useCallback(
+    async (items: { movie: Movie; watchedAt: string }[]) => {
+      if (!items.length) return
+      try {
+        await store.addMovies(userId, items)
+        setMovies((prev) => {
+          const byId = new Map(prev.map((m) => [m.movie_id, m]))
+          for (const { movie, watchedAt } of items) {
+            if (byId.has(movie.id)) continue
+            byId.set(movie.id, {
+              movie_id: movie.id,
+              title: movie.title,
+              poster_url: movie.poster_url,
+              release_year: movie.year,
+              watched_at: watchedAt,
+            })
+          }
+          return [...byId.values()].sort((a, b) => b.watched_at.localeCompare(a.watched_at))
+        })
+      } catch (e) {
+        setNotice(`Enregistrement du film impossible : ${(e as Error).message}`)
+      }
+    },
+    [userId],
+  )
+
+  const removeMovie = useCallback(async (movieId: number) => {
+    const snapshot = movies
+    setMovies((prev) => prev.filter((m) => m.movie_id !== movieId))
+    try {
+      await store.removeMovie(movieId)
+    } catch (e) {
+      setMovies(snapshot)
+      setNotice(`Suppression impossible : ${(e as Error).message}`)
+    }
+  }, [movies])
+
   const value = useMemo<AppState>(
     () => ({
-      userId, tracked, watched, loading, notice,
+      userId, tracked, watched, movies, loading, notice,
       dismissNotice: () => setNotice(null),
-      isTracked, watchedFor, track, untrack, setWatched,
+      isTracked, statusOf, watchedFor, track, untrack, setStatus, setWatched, addMovies, removeMovie,
     }),
-    [userId, tracked, watched, loading, notice, isTracked, watchedFor, track, untrack, setWatched],
+    [userId, tracked, watched, movies, loading, notice, isTracked, statusOf, watchedFor,
+     track, untrack, setStatus, setWatched, addMovies, removeMovie],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

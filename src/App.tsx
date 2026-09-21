@@ -3,11 +3,13 @@ import type { Session } from '@supabase/supabase-js'
 import { Auth } from './components/Auth'
 import { Home } from './components/Home'
 import { Import } from './components/Import'
+import { Movies } from './components/Movies'
 import { Search } from './components/Search'
 import { ShowPage } from './components/ShowPage'
 import { AppProvider, useApp } from './lib/appState'
 import { href, useRoute } from './lib/route'
 import { supabase, supabaseConfigured } from './lib/supabase'
+import { tmdbConfigured } from './lib/tmdb'
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
@@ -56,7 +58,8 @@ function Shell() {
         <nav className="topbar__nav">
           <a href={href.home} aria-current={route.name === 'home' ? 'page' : undefined}>Mes séries</a>
           <a href={href.search} aria-current={route.name === 'search' ? 'page' : undefined}>Chercher</a>
-          <a href={href.import} aria-current={route.name === 'import' ? 'page' : undefined}>Reprise</a>
+          <a href={href.movies} aria-current={route.name === 'movies' ? 'page' : undefined}>Films</a>
+          <a href={href.import} aria-current={route.name === 'import' ? 'page' : undefined}>Import</a>
           <button className="link-btn" onClick={() => supabase.auth.signOut()}>Déconnexion</button>
         </nav>
       </header>
@@ -65,6 +68,7 @@ function Shell() {
         {route.name === 'home' && <Home />}
         {route.name === 'search' && <Search />}
         {route.name === 'import' && <Import />}
+        {route.name === 'movies' && <Movies />}
         {route.name === 'show' && <ShowPage id={route.id} />}
       </main>
 
@@ -75,7 +79,9 @@ function Shell() {
         </div>
       )}
 
-      <footer className="footer muted">Données séries : TVmaze.com (CC BY-SA)</footer>
+      <footer className="footer muted">
+        Données séries : TVmaze.com (CC BY-SA){tmdbConfigured && ' — films : TMDB'}
+      </footer>
     </>
   )
 }

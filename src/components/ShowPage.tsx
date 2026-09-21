@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
-import { computeProgress, epCode, formatDate, isAired } from '../lib/progress'
+import { computeProgress, epCode, formatDate, formatShortDate, isAired } from '../lib/progress'
 import { href } from '../lib/route'
 import { getShowWithEpisodes, statusFr, stripHtml, type ShowWithEpisodes, type TvEpisode } from '../lib/tvmaze'
 import { Poster } from './Poster'
+import { StatusPicker } from './StatusPicker'
 
 export function ShowPage({ id }: { id: number }) {
   const { isTracked, track, untrack, watchedFor, setWatched } = useApp()
@@ -93,6 +94,12 @@ export function ShowPage({ id }: { id: number }) {
           >
             {followed ? 'Retirer de mes séries' : 'Suivre cette série'}
           </button>
+          {followed && (
+            <p className="show__status">
+              <label htmlFor="show-status">Statut</label>
+              <StatusPicker showId={show.id} id="show-status" />
+            </p>
+          )}
         </div>
       </header>
 
@@ -126,7 +133,9 @@ export function ShowPage({ id }: { id: number }) {
                     className={`tile${on ? ' tile--on' : ''}${!out ? ' tile--future' : ''}${isNext ? ' tile--next' : ''}`}
                     aria-pressed={on}
                     disabled={!out}
-                    title={`${epCode(ep)} ${ep.name}${out ? '' : `, le ${formatDate(ep.airstamp ?? ep.airdate)}`}`}
+                    title={`${epCode(ep)} ${ep.name}${
+                      on ? `, vu le ${formatShortDate(watched.get(ep.id)!)}` : out ? '' : `, le ${formatDate(ep.airstamp ?? ep.airdate)}`
+                    }`}
                     aria-label={`${epCode(ep)} ${ep.name}${!out ? ', pas encore diffusé' : on ? ', vu' : ''}`}
                     onClick={() => toggle(ep)}
                   >
@@ -143,13 +152,18 @@ export function ShowPage({ id }: { id: number }) {
               <ol className="eplist">
                 {eps.map((ep) => {
                   const out = isAired(ep)
+                  const seenAt = watched.get(ep.id)
                   return (
                     <li key={ep.id}>
                       <label className={out ? '' : 'is-future'}>
                         <input type="checkbox" checked={watched.has(ep.id)} disabled={!out} onChange={() => toggle(ep)} />
                         <span className="eplist__code">{epCode(ep)}</span>
                         <span className="eplist__name">{ep.name}</span>
-                        {ep.airdate && <span className="eplist__date">{formatDate(ep.airstamp ?? ep.airdate)}</span>}
+                        {seenAt ? (
+                          <span className="eplist__date eplist__date--seen">Vu le {formatShortDate(seenAt)}</span>
+                        ) : (
+                          ep.airdate && <span className="eplist__date">{formatDate(ep.airstamp ?? ep.airdate)}</span>
+                        )}
                       </label>
                     </li>
                   )

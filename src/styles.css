@@ -220,3 +220,65 @@ button { font: inherit; color: inherit; }
 .import .row input[type='checkbox'] {
   width: 1.15rem; height: 1.15rem; accent-color: var(--accent); flex: none;
 }
+
+/* Onglets d'import */
+.tabs { display: flex; gap: .25rem; margin: .75rem 0 1.25rem; border-bottom: 1.5px solid var(--line); }
+.tabs__tab {
+  background: none; border: 0; border-bottom: 3px solid transparent;
+  padding: .55rem .75rem; margin-bottom: -1.5px; cursor: pointer;
+  color: var(--muted); font-weight: 600;
+}
+.tabs__tab[aria-selected='true'] { color: var(--ink); border-bottom-color: var(--accent); }
+
+/* Import Netflix */
+.import__file { display: block; margin: 1rem 0; }
+.import__file input {
+  font: inherit; width: 100%; padding: 1.25rem .9rem;
+  border: 1.5px dashed var(--line); border-radius: var(--radius);
+  background: var(--surface); color: var(--muted); cursor: pointer;
+}
+.import__file input:hover { border-color: var(--accent); }
+.import__legend { font-size: .85rem; border-left: 3px solid var(--line); padding-left: .75rem; }
+.import__legend strong { color: var(--ink); }
+.import__done { padding: 1rem 0; }
+.import__done h3 { font-size: 1.2rem; margin-bottom: .4rem; }
+.import__actions--sticky {
+  position: sticky; bottom: env(safe-area-inset-bottom, 0px); z-index: 5;
+  padding: .75rem 0; margin-bottom: 0;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(10px);
+}
+.tag {
+  display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .02em;
+  padding: .1rem .45rem; border-radius: 999px; vertical-align: .05em;
+}
+.tag--exact { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--ink); }
+.tag--approx { background: color-mix(in srgb, var(--amber) 34%, transparent); color: var(--ink); }
+
+/* Statut de suivi */
+.status-picker {
+  font: inherit; font-size: .85rem; font-weight: 600;
+  padding: .35rem 1.6rem .35rem .6rem; flex: none; max-width: 9.5rem;
+  border: 1.5px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--ink); cursor: pointer;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: right .75rem center, right .5rem center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+.status-picker[data-status='paused'] { border-color: var(--amber); }
+.status-picker[data-status='dropped'] { color: var(--muted); }
+.show__status { display: flex; align-items: center; gap: .5rem; font-size: .9rem; color: var(--muted); }
+
+/* Films */
+.movies__add { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+.movies__add .search__input { flex: 1 1 14rem; margin: 0; }
+.movies__date { display: flex; align-items: center; gap: .4rem; font-size: .85rem; color: var(--muted); }
+.movies__date input {
+  font: inherit; font-size: .9rem; padding: .5rem .6rem; color: var(--ink);
+  border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--surface);
+}
+.movies .row__link { cursor: default; }
+.eplist__date--seen { color: var(--accent); font-weight: 600; }
+.empty__alt { margin-top: 1.5rem; font-size: .9rem; }
