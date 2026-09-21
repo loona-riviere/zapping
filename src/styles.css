@@ -200,6 +200,10 @@ button { font: inherit; color: inherit; }
 }
 .auth__form .btn { margin-top: .4rem; padding: .8rem; }
 .auth__sent { font-size: 1.05rem; }
+.auth__code {
+  font-family: var(--display); font-size: 1.8rem; font-weight: 800;
+  letter-spacing: .5rem; text-align: center;
+}
 
 @media (max-width: 620px) {
   /* Six liens ne tiennent plus sur une ligne : la barre passe sur deux, et la

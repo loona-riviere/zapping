@@ -46,10 +46,13 @@ Un suivi de séries façon TVTime : cherche une série, coche les épisodes vus,
 
 1. Crée un projet sur [supabase.com](https://supabase.com) (le plan gratuit suffit).
 2. Dans **SQL Editor**, exécute le contenu de `supabase/schema.sql`.
-3. Dans **Authentication → URL Configuration** :
+3. Dans **Authentication → Email Templates → Magic Link**, ajoute `{{ .Token }}` quelque part dans le
+   corps du message (par exemple : `Ton code : {{ .Token }}`). L'app se connecte par un code à 6
+   chiffres, pas par le lien — sans cette ligne, l'e-mail ne contient aucun code à saisir.
+4. Dans **Authentication → URL Configuration** :
    - *Site URL* : l'URL Netlify du site (`https://<nom-du-site>.netlify.app/`)
    - *Redirect URLs* : ajoute la même URL, plus `http://localhost:5173/` pour le dev.
-4. Dans **Project Settings → API**, récupère l'URL du projet et la clé `anon` publique.
+5. Dans **Project Settings → API**, récupère l'URL du projet et la clé `anon` publique.
 
 ### 2. Films (facultatif)
 
@@ -91,7 +94,13 @@ Astuce : sur iPhone ou Android, ajoute la page à l'écran d'accueil pour l'util
 
 ## Notes
 
-- Le lien de connexion doit être ouvert dans le **même navigateur** que celui où tu l'as demandé (flux PKCE).
+- **Connexion par code** (pas par lien) : un code à 6 chiffres envoyé par e-mail, saisi dans l'app.
+  Choisi pour l'app ajoutée à l'écran d'accueil (mode standalone) : un lien magique s'ouvrirait dans
+  le navigateur plutôt que dans l'app, et le vérificateur PKCE posé au moment de l'envoi ne s'y
+  retrouve pas pour conclure la connexion. Le code se saisit sans changer de contexte.
+  Nécessite `{{ .Token }}` dans le modèle d'e-mail « Magic Link » de Supabase (voir mise en place).
+- **Icône d'écran d'accueil** : un manifeste PWA (`public/manifest.webmanifest`) et les icônes
+  associées permettent d'ajouter Zapping à l'écran d'accueil avec sa propre icône, en plein écran.
 - Les fiches TVmaze sont mises en cache 12 h dans le navigateur ; les résumés sont en anglais.
 - Les épisodes spéciaux (sans numéro) sont ignorés.
 - **Import Netflix** : l'export ne donne que le titre traduit de l'épisode et le jour de
