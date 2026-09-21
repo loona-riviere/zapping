@@ -178,6 +178,8 @@ const normalizeTitle = (s: string) =>
   s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 
 export type MovieDetails = {
+  title: string
+  year: number | null
   overview: string | null
   genres: string[]
   releaseDate: string | null
@@ -188,13 +190,17 @@ export type MovieDetails = {
 const DETAILS_TTL = 30 * 24 * 60 * 60 * 1000 // 30 j : une fiche TMDB ne change presque jamais
 
 /**
- * R\u00e9sum\u00e9, genres, date de sortie, affiche et dur\u00e9e d'un film \u2014 une seule
- * requ\u00eate par film, mise en cache. Sert \u00e0 afficher la fiche film et, quand
- * l'affiche ou la dur\u00e9e manquent encore en base (ajout par script, import\u2026),
- * \u00e0 les compl\u00e9ter au passage sur la fiche.
+ * Fiche compl\u00e8te d'un film \u2014 titre, ann\u00e9e, r\u00e9sum\u00e9, genres, date de sortie,
+ * affiche et dur\u00e9e \u2014 une seule requ\u00eate, mise en cache. Sert \u00e0 afficher la
+ * fiche film que le film soit d\u00e9j\u00e0 suivi ou non (repris depuis un r\u00e9sultat
+ * de recherche), et, quand l'affiche ou la dur\u00e9e manquent encore en base
+ * (ajout par script, import\u2026), \u00e0 les compl\u00e9ter au passage.
  */
 export async function movieDetails(id: number): Promise<MovieDetails | null> {
-  const key = `tmdb:details:${id}`
+  // v2 : la cl\u00e9 change avec la forme des donn\u00e9es mises en cache, pour ne
+  // pas resservir ind\u00e9finiment une fiche mise en cache avant l'ajout d'un
+  // champ (l'affiche est rest\u00e9e manquante pendant 30 jours \u00e0 cause de \u00e7a).
+  const key = `tmdb:details:v2:${id}`
   try {
     const raw = localStorage.getItem(key)
     if (raw) {
@@ -205,6 +211,7 @@ export async function movieDetails(id: number): Promise<MovieDetails | null> {
     /* cache illisible : on refetch */
   }
   const data = await get<{
+    title: string
     overview: string | null
     genres: { name: string }[]
     release_date: string | null
@@ -212,6 +219,8 @@ export async function movieDetails(id: number): Promise<MovieDetails | null> {
     runtime: number | null
   }>(`/movie/${id}`, {})
   const details: MovieDetails = {
+    title: data.title,
+    year: data.release_date ? Number(data.release_date.slice(0, 4)) : null,
     overview: data.overview || null,
     genres: data.genres?.map((g) => g.name) ?? [],
     releaseDate: data.release_date || null,

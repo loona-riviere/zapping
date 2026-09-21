@@ -295,13 +295,13 @@ function MovieSearch({ query }: { query: string }) {
           const existing = byId.get(m.id)
           return (
             <li key={m.id} className="row">
-              <div className="row__link">
+              <a href={href.movie(m.id)} className="row__link">
                 <Poster src={m.poster_url} alt={m.title} />
                 <div className="row__body">
                   <h3>{m.title}</h3>
                   <p className="muted">{m.year ?? 'Année inconnue'}</p>
                 </div>
-              </div>
+              </a>
               <div className="row__actions">
                 <button
                   className={`btn ${existing?.status === 'watched' ? 'btn--ghost' : 'btn--primary'}`}

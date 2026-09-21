@@ -165,14 +165,21 @@ export function Movies() {
             <div className="row__actions">
               <button
                 className="link-btn muted"
-                onClick={() => markMovieUnwatched(m.movie_id)}
-                title="Remettre dans « à voir »"
+                onClick={() =>
+                  confirm(`Marquer ${m.title} comme pas vu ? Sa date de visionnage sera perdue.`) &&
+                  markMovieUnwatched(m.movie_id)
+                }
+                title="Remet le film dans « à voir » (sans le supprimer), sa date de visionnage est perdue"
               >
                 Pas vu
               </button>
               <button
                 className="link-btn muted"
-                onClick={() => confirm(`Retirer ${m.title} de tes films ?`) && removeMovie(m.movie_id)}
+                onClick={() =>
+                  confirm(`Retirer ${m.title} de tes films ? Contrairement à « Pas vu », la fiche est supprimée pour de bon.`) &&
+                  removeMovie(m.movie_id)
+                }
+                title="Supprime le film de ta liste (contrairement à « Pas vu », qui le garde en « à voir »)"
               >
                 Retirer
               </button>
