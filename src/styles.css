@@ -289,3 +289,4 @@ button { font: inherit; color: inherit; }
 .footer p { margin: .15rem 0; }
 .diag { font-size: .85rem; border: 1px solid var(--line); border-radius: var(--radius); padding: .75rem 1rem; }
 .diag code { word-break: break-all; }
+.row__via { display: block; font-size: .78rem; color: var(--accent); }

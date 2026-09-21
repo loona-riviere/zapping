@@ -4,7 +4,8 @@ import { describeTarget, episodesUpTo, parseList, type ParsedLine } from '../lib
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { searchMovies, tmdbConfigured, type Movie } from '../lib/tmdb'
-import { getShowWithEpisodes, searchShows, type TvEpisode, type TvShow } from '../lib/tvmaze'
+import { findShow } from '../lib/lookup'
+import type { TvEpisode, TvShow } from '../lib/tvmaze'
 import { Poster } from './Poster'
 
 // TVmaze tolère ~20 requêtes / 10 s et chaque ligne en consomme deux
@@ -21,6 +22,8 @@ type Match = {
   movie?: Movie
   message?: string
   include: boolean
+  /** Titre original par lequel la série a été retrouvée, si différent. */
+  via?: string
 }
 
 const EXAMPLE = `Breaking Bad S05E08
@@ -55,14 +58,14 @@ async function resolveLine(parsed: ParsedLine, force?: 'show' | 'movie'): Promis
   const base = { parsed, kind: 'show' as const, include: false }
   try {
     if (force === 'movie') return await asMovie(parsed)
-    const results = await searchShows(parsed.title)
-    if (results.length) {
-      const { show, episodes } = await getShowWithEpisodes(results[0].id)
+    const found = await findShow(parsed.title)
+    if (found) {
       return {
         ...base,
         state: 'ok',
-        show,
-        episodes: episodesUpTo(episodes, parsed.season, parsed.number),
+        show: found.show,
+        via: found.via,
+        episodes: episodesUpTo(found.episodes, parsed.season, parsed.number),
         include: true,
       }
     }
@@ -254,6 +257,7 @@ export function ImportList() {
                           ? `${m.episodes.length} épisode${m.episodes.length > 1 ? 's' : ''} — ${describeTarget(m.parsed.season, m.parsed.number)}`
                           : describeTarget(m.parsed.season, m.parsed.number)}
                       {m.parsed.date && ` — vu le ${formatShortDate(`${m.parsed.date}T12:00:00.000Z`)}`}
+                      {m.via && <span className="row__via">trouvée sous « {m.via} »</span>}
                     </p>
                   </div>
                 </>

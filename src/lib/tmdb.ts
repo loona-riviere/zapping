@@ -72,6 +72,35 @@ async function get<T>(path: string, params: Record<string, string>): Promise<T> 
   return res.json() as Promise<T>
 }
 
+type RawTv = { id: number; name: string; original_name: string; first_air_date: string | null }
+
+/**
+ * Titres originaux possibles d'une série cherchée par son titre français.
+ *
+ * Netflix nomme les séries dans la langue du compte (« À l'ombre des
+ * magnolias ») alors que TVmaze n'indexe que le titre d'origine (« Sweet
+ * Magnolias »). TMDB, lui, connaît les deux : on s'en sert de dictionnaire
+ * pour retraduire avant d'interroger TVmaze.
+ */
+export async function originalTitlesFor(query: string): Promise<string[]> {
+  if (!KEY) return []
+  const data = await get<{ results: RawTv[] }>('/search/tv', { query, include_adult: 'false' })
+  const seen = new Set([normalizeTitle(query)])
+  const out: string[] = []
+  for (const r of data.results.slice(0, 5)) {
+    for (const candidate of [r.original_name, r.name]) {
+      const key = normalizeTitle(candidate ?? '')
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      out.push(candidate)
+    }
+  }
+  return out
+}
+
+const normalizeTitle = (s: string) =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+
 /** Recherche de films, résultats en français, triés par pertinence TMDB. */
 export async function searchMovies(query: string, year?: number): Promise<Movie[]> {
   const key = `tmdb:search:${year ?? ''}:${query.toLowerCase()}`

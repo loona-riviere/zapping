@@ -6,8 +6,9 @@ import {
   lastDate, parseNetflixCsv, resolveGroup,
   type NetflixGroup, type Resolution,
 } from '../lib/netflix'
+import { findShow } from '../lib/lookup'
 import { searchMovies, tmdbConfigured, type Movie } from '../lib/tmdb'
-import { getShowWithEpisodes, searchShows, type TvEpisode, type TvShow } from '../lib/tvmaze'
+import type { TvEpisode, TvShow } from '../lib/tvmaze'
 import { Poster } from './Poster'
 
 // TVmaze tolère ~20 requêtes / 10 s et chaque série en consomme deux
@@ -25,6 +26,8 @@ type Item = {
   show?: TvShow
   picks?: Resolution
   movie?: Movie
+  /** Titre original par lequel la série a été retrouvée, si différent. */
+  via?: string
 }
 
 type Phase = 'pick' | 'resolving' | 'review' | 'saving' | 'done'
@@ -289,6 +292,7 @@ function ImportRow({
                 {item.picks!.mode === 'exact' ? 'par titre' : 'estimé'}
               </span>
               {' '}— dernier visionnage le {when}
+              {item.via && <span className="row__via">trouvée sous « {item.via} »</span>}
             </p>
           )}
         </div>
@@ -318,10 +322,18 @@ async function resolveOne(group: NetflixGroup, kind: 'show' | 'movie'): Promise<
       if (!results.length) return { ...base, state: 'notfound' }
       return { ...base, state: 'ok', include: true, movie: results[0] }
     }
-    const results = await searchShows(group.title)
-    if (!results.length) return { ...base, state: 'notfound' }
-    const { show, episodes } = await getShowWithEpisodes(results[0].id)
-    return { ...base, state: 'ok', include: true, show, picks: resolveGroup(group, episodes) }
+    // Le nombre de lignes distinctes borne par le bas la taille attendue de la
+    // série : de quoi écarter un homonyme trop court.
+    const found = await findShow(group.title, { minEpisodes: group.entries.length })
+    if (!found) return { ...base, state: 'notfound' }
+    return {
+      ...base,
+      state: 'ok',
+      include: true,
+      show: found.show,
+      via: found.via,
+      picks: resolveGroup(group, found.episodes),
+    }
   } catch (e) {
     return { ...base, state: 'error', message: `Erreur : ${(e as Error).message}` }
   }
