@@ -5,14 +5,26 @@ import type { WatchedEpisodes } from './appState'
 import type { ShowStatus, TrackedShow, WatchedMovie } from './store'
 import type { ShowWithEpisodes } from './tvmaze'
 
-export type ShowTotal = { id: number; name: string; minutes: number; episodes: number }
+export type ShowTotal = {
+  id: number
+  name: string
+  minutes: number
+  episodes: number
+  /** Revisionnages complets, au-delà du premier. */
+  rewatches: number
+}
 
 export type Stats = {
   /** Séries et films confondus. */
   minutes: number
   showMinutes: number
   movieMinutes: number
+  /** Épisodes distincts cochés, revisionnages non compris. */
   episodes: number
+  /** Épisodes vus au total, revisionnages compris. */
+  episodesWithRewatches: number
+  /** Séries revues au moins une fois en entier. */
+  rewatchedShows: number
   /** Épisodes vus dont TVmaze ignore la durée : exclus du temps total. */
   undatedRuntime: number
   shows: number
@@ -45,6 +57,8 @@ export function computeStats(
 ): Stats {
   let showMinutes = 0
   let episodes = 0
+  let episodesWithRewatches = 0
+  let rewatchedShows = 0
   let undatedRuntime = 0
   let finished = 0
   let pending = 0
@@ -79,7 +93,21 @@ export function computeStats(
       if (!firstWatch || day < firstWatch) firstWatch = day
     }
 
-    if (showEpisodes) totals.push({ id: t.show_id, name: show.show.name, minutes: showTotal, episodes: showEpisodes })
+    // Revoir une série, c'est y avoir vraiment passé ce temps une fois de plus.
+    const passes = 1 + Math.max(0, t.rewatches ?? 0)
+    showMinutes += showTotal * (passes - 1)
+    episodesWithRewatches += showEpisodes * passes
+    if (passes > 1 && showEpisodes) rewatchedShows++
+
+    if (showEpisodes) {
+      totals.push({
+        id: t.show_id,
+        name: show.show.name,
+        minutes: showTotal * passes,
+        episodes: showEpisodes,
+        rewatches: passes - 1,
+      })
+    }
     const aired = show.episodes.length
     if (aired > 0 && showEpisodes >= aired && show.show.status === 'Ended') finished++
   }
@@ -98,6 +126,8 @@ export function computeStats(
     showMinutes,
     movieMinutes,
     episodes,
+    episodesWithRewatches,
+    rewatchedShows,
     undatedRuntime,
     shows: tracked.length,
     finished,

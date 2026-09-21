@@ -27,6 +27,9 @@ type AppState = {
   track: (show: TvShow) => Promise<void>
   untrack: (showId: number) => Promise<void>
   setStatus: (showId: number, status: ShowStatus) => Promise<void>
+  /** Nombre de revisionnages complets d'une série, en plus du premier. */
+  rewatchesOf: (showId: number) => number
+  setRewatches: (showId: number, count: number) => Promise<void>
   /** `dates` (import) fixe la date de visionnage épisode par épisode. */
   setWatched: (
     show: TvShow,
@@ -128,6 +131,31 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       const old = before.get(showId)
       if (old) setTracked((prev) => prev.map((t) => (t.show_id === showId ? { ...t, status: old } : t)))
       setNotice(`Changement de statut impossible : ${(e as Error).message}`)
+    }
+  }, [])
+
+  const rewatchesOf = useCallback(
+    (id: number) => tracked.find((t) => t.show_id === id)?.rewatches ?? 0,
+    [tracked],
+  )
+
+  const setRewatches = useCallback(async (showId: number, count: number) => {
+    const next = Math.max(0, Math.round(count))
+    let previous = 0
+    setTracked((prev) =>
+      prev.map((t) => {
+        if (t.show_id !== showId) return t
+        previous = t.rewatches
+        return { ...t, rewatches: next }
+      }),
+    )
+    try {
+      await store.setRewatches(showId, next)
+    } catch (e) {
+      setTracked((prev) =>
+        prev.map((t) => (t.show_id === showId ? { ...t, rewatches: previous } : t)),
+      )
+      setNotice(`Enregistrement du revisionnage impossible : ${(e as Error).message}`)
     }
   }, [])
 
@@ -262,11 +290,13 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     () => ({
       userId, tracked, watched, movies, moviesReady, loading, notice,
       dismissNotice: () => setNotice(null),
-      isTracked, statusOf, watchedFor, track, untrack, setStatus, setWatched,
+      isTracked, statusOf, watchedFor, rewatchesOf, setRewatches,
+      track, untrack, setStatus, setWatched,
       addMovies, removeMovie, fillMovieRuntimes,
     }),
     [userId, tracked, watched, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
-     track, untrack, setStatus, setWatched, addMovies, removeMovie, fillMovieRuntimes],
+     rewatchesOf, setRewatches, track, untrack, setStatus, setWatched, addMovies, removeMovie,
+     fillMovieRuntimes],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

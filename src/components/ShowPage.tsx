@@ -4,6 +4,7 @@ import { computeProgress, epCode, formatDate, formatShortDate, isAired } from '.
 import { href } from '../lib/route'
 import { getShowWithEpisodes, statusFr, stripHtml, type ShowWithEpisodes, type TvEpisode } from '../lib/tvmaze'
 import { Poster } from './Poster'
+import { Rewatches } from './Rewatches'
 import { StatusPicker } from './StatusPicker'
 import { WhereToWatch } from './WhereToWatch'
 
@@ -114,6 +115,7 @@ export function ShowPage({ id }: { id: number }) {
           >
             {followed ? 'Retirer de mes séries' : 'Suivre cette série'}
           </button>
+          {followed && <Rewatches showId={show.id} />}
           {followed && (
             <p className="show__status">
               <label htmlFor="show-status">Statut</label>

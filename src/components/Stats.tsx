@@ -49,9 +49,13 @@ export function Stats() {
         <p className="hero__value">{total.value}</p>
         <p className="hero__unit">{total.unit} de visionnage</p>
         <p className="muted hero__note">
-          {formatNumber(stats.episodes)} épisode{stats.episodes > 1 ? 's' : ''} et{' '}
-          {formatNumber(stats.movies)} film{stats.movies > 1 ? 's' : ''}
-          {stats.firstWatch && ` depuis ${monthLabel(stats.firstWatch.slice(0, 7))}`}.
+          {formatNumber(stats.episodesWithRewatches)} épisode
+          {stats.episodesWithRewatches > 1 ? 's' : ''} et {formatNumber(stats.movies)} film
+          {stats.movies > 1 ? 's' : ''}
+          {stats.firstWatch && ` depuis ${monthLabel(stats.firstWatch.slice(0, 7))}`}
+          {stats.episodesWithRewatches > stats.episodes &&
+            ` — ${formatNumber(stats.episodes)} épisodes distincts, le reste en revisionnages`}
+          .
         </p>
         <ul className="split">
           <li>
@@ -87,7 +91,7 @@ export function Stats() {
         <Tile label="Séries suivies" value={formatNumber(stats.shows)} />
         <Tile label="Séries terminées" value={formatNumber(stats.finished)} />
         <Tile label="Films vus" value={formatNumber(stats.movies)} />
-        <Tile label="En pause ou abandonnées" value={formatNumber(byStatus.paused + byStatus.dropped)} />
+        <Tile label="Séries revues" value={formatNumber(stats.rewatchedShows)} />
       </ul>
 
       <TopShows shows={stats.topShows} />
@@ -134,7 +138,7 @@ function TopShows({ shows }: { shows: ShowTotal[] }) {
       {table ? (
         <table className="data-table">
           <thead>
-            <tr><th>Série</th><th>Heures</th><th>Épisodes</th></tr>
+            <tr><th>Série</th><th>Heures</th><th>Épisodes</th><th>Fois vue</th></tr>
           </thead>
           <tbody>
             {shows.map((s) => (
@@ -142,6 +146,7 @@ function TopShows({ shows }: { shows: ShowTotal[] }) {
                 <td>{s.name}</td>
                 <td>{formatNumber(Math.round(s.minutes / 60))}</td>
                 <td>{formatNumber(s.episodes)}</td>
+                <td>{formatNumber(s.rewatches + 1)}</td>
               </tr>
             ))}
           </tbody>
@@ -156,7 +161,10 @@ function TopShows({ shows }: { shows: ShowTotal[] }) {
                 <span className="hbars__track">
                   <span className="hbars__bar" style={{ width: `${(s.minutes / peak) * 100}%` }} />
                 </span>
-                <span className="hbars__value">{d.value} {shortUnit(d.unit)}</span>
+                <span className="hbars__value">
+                  {d.value} {shortUnit(d.unit)}
+                  {s.rewatches > 0 && <span className="hbars__times"> ×{s.rewatches + 1}</span>}
+                </span>
               </li>
             )
           })}

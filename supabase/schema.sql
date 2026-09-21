@@ -16,6 +16,15 @@ create table if not exists public.tracked_shows (
 alter table public.tracked_shows
   add column if not exists status text not null default 'watching';
 
+-- Nombre de fois où la série a été revue en entier, en plus du premier
+-- visionnage. Une série vue trois fois porte donc 2.
+alter table public.tracked_shows
+  add column if not exists rewatches integer not null default 0;
+
+alter table public.tracked_shows drop constraint if exists tracked_shows_rewatches_check;
+alter table public.tracked_shows
+  add constraint tracked_shows_rewatches_check check (rewatches >= 0);
+
 alter table public.tracked_shows drop constraint if exists tracked_shows_status_check;
 alter table public.tracked_shows
   add constraint tracked_shows_status_check

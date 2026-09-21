@@ -20,9 +20,11 @@ Un suivi de séries façon TVTime : cherche une série, coche les épisodes vus,
 - **Dates de visionnage** : chaque épisode coché retient son jour, affiché dans la liste des titres.
   La date peut rester inconnue — mieux vaut « vu, sans savoir quand » qu'une date inventée, qui
   ferait un faux pic dans les statistiques
-- **Statistiques** : temps total, activité mois par mois, séries les plus regardées. Les durées
-  viennent de TVmaze ; un épisode sans durée prend la durée médiane de sa série. Chaque graphique
-  a son équivalent en tableau
+- **Revisionnages** : un compteur « vue N fois » par série, qui multiplie son temps dans les
+  statistiques — revoir une série, c'est y avoir vraiment passé ce temps une fois de plus
+- **Statistiques** : temps total, séries les plus regardées. Les durées viennent de
+  TVmaze ; un épisode sans durée prend la durée médiane de sa série. Le graphique a son
+  équivalent en tableau
 - **Films** : recherche TMDB, marquage « vu le … » et liste « Mes films »
 - **Où la regarder** : sur la fiche d'une série, les plateformes qui la proposent en abonnement
   en France (données JustWatch via TMDB, nécessite la clé)

@@ -21,6 +21,8 @@ export type TrackedShow = {
   added_at: string
   last_watched_at: string | null
   status: ShowStatus
+  /** Nombre de revisionnages complets, en plus du premier. */
+  rewatches: number
 }
 
 export type WatchedMovie = {
@@ -57,16 +59,20 @@ export function isMissingSchema(error: unknown): boolean {
 const LEGACY_COLUMNS = 'show_id, name, image_url, added_at, last_watched_at'
 
 export async function fetchTracked(): Promise<TrackedShow[]> {
-  const full = await supabase.from('tracked_shows').select(`${LEGACY_COLUMNS}, status`)
+  const full = await supabase.from('tracked_shows').select(`${LEGACY_COLUMNS}, status, rewatches`)
   if (!full.error) {
-    return (full.data ?? []).map((r) => ({ ...r, status: (r.status ?? 'watching') as ShowStatus }))
+    return (full.data ?? []).map((r) => ({
+      ...r,
+      status: (r.status ?? 'watching') as ShowStatus,
+      rewatches: r.rewatches ?? 0,
+    }))
   }
   if (!isMissingSchema(full.error)) throw full.error
 
   // Schéma pas encore migré : on lit les colonnes d'origine, tout est « en cours ».
   const legacy = await supabase.from('tracked_shows').select(LEGACY_COLUMNS)
   if (legacy.error) throw legacy.error
-  return (legacy.data ?? []).map((r) => ({ ...r, status: 'watching' as ShowStatus }))
+  return (legacy.data ?? []).map((r) => ({ ...r, status: 'watching' as ShowStatus, rewatches: 0 }))
 }
 
 export async function fetchWatched(): Promise<WatchedMap> {
@@ -107,6 +113,7 @@ export async function trackShow(userId: string, show: TvShow): Promise<TrackedSh
     added_at: new Date().toISOString(),
     last_watched_at: null,
     status: 'watching',
+    rewatches: 0,
   }
 }
 
@@ -115,6 +122,14 @@ export async function untrackShow(showId: number): Promise<void> {
   if (a.error) throw a.error
   const b = await supabase.from('tracked_shows').delete().eq('show_id', showId)
   if (b.error) throw b.error
+}
+
+export async function setRewatches(showId: number, rewatches: number): Promise<void> {
+  const { error } = await supabase
+    .from('tracked_shows')
+    .update({ rewatches })
+    .eq('show_id', showId)
+  if (error) throw error
 }
 
 export async function setShowStatus(showId: number, status: ShowStatus): Promise<void> {

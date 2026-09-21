@@ -368,3 +368,16 @@ button { font: inherit; color: inherit; }
 .where__badge img { border-radius: 6px; width: 24px; height: 24px; object-fit: cover; }
 .where__link:hover .where__badge { border-color: var(--accent); }
 .where__note { font-size: .75rem; margin: .5rem 0 0; }
+
+/* Revisionnages */
+.rewatch { display: flex; align-items: center; gap: .6rem; font-size: .9rem; color: var(--muted); }
+.rewatch__label strong { font-family: var(--display); font-size: 1.15rem; color: var(--ink); }
+.rewatch__buttons { display: flex; gap: .25rem; }
+.rewatch__btn {
+  width: 1.9rem; height: 1.9rem; border-radius: 999px; cursor: pointer;
+  border: 1.5px solid var(--line); background: var(--surface);
+  font-size: 1.1rem; line-height: 1; display: grid; place-items: center;
+}
+.rewatch__btn:disabled { opacity: .4; cursor: default; }
+.rewatch__btn:hover:not(:disabled) { border-color: var(--accent); }
+.hbars__times { color: var(--accent); font-weight: 700; }
