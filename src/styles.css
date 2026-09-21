@@ -212,6 +212,11 @@ button { font: inherit; color: inherit; }
 .catchup p, .notice p { margin: 0; }
 .catchup__actions { display: flex; gap: .5rem; }
 .catchup .btn--ghost { border-color: color-mix(in srgb, var(--bg) 40%, transparent); color: var(--bg); }
+.catchup--rec { flex-direction: column; align-items: stretch; gap: .6rem; }
+.catchup__pick { display: flex; align-items: center; gap: .75rem; }
+.catchup__pick .poster { width: 3rem; flex: none; }
+.catchup__title { font-weight: 700; }
+.catchup__close { align-self: center; color: inherit; opacity: .75; }
 .notice { background: var(--danger); color: #fff; }
 .notice .link-btn { color: #fff; }
 @keyframes rise { from { opacity: 0; transform: translate(-50%, 10px); } }
