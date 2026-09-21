@@ -28,11 +28,15 @@ export type WatchedMovie = {
   title: string
   poster_url: string | null
   release_year: number | null
-  watched_at: string
+  /** Null quand la date de visionnage est inconnue. */
+  watched_at: string | null
 }
 
-/** Pour chaque série, ses épisodes vus et la date à laquelle ils l'ont été. */
-export type WatchedMap = Map<number, Map<number, string>>
+/**
+ * Pour chaque série, ses épisodes vus et la date à laquelle ils l'ont été.
+ * La date vaut null quand elle est inconnue (reprise sans date fournie).
+ */
+export type WatchedMap = Map<number, Map<number, string | null>>
 
 const PAGE = 1000
 
@@ -130,9 +134,11 @@ export async function markWatched(
   userId: string,
   showId: number,
   eps: TvEpisode[],
-  dates?: Map<number, string>,
+  dates?: Map<number, string | null>,
 ): Promise<void> {
   if (!eps.length) return
+  // Sans table de dates, c'est un clic dans l'app : la date est maintenant.
+  // Avec une table, une entrée absente ou nulle signifie « date inconnue ».
   const now = new Date().toISOString()
   const rows = eps.map((e) => ({
     user_id: userId,
@@ -140,7 +146,7 @@ export async function markWatched(
     show_id: showId,
     season: e.season,
     number: e.number,
-    watched_at: dates?.get(e.id) ?? now,
+    watched_at: dates ? (dates.get(e.id) ?? null) : now,
   }))
   for (const batch of chunks(rows, 500)) {
     const { error } = await supabase
@@ -148,7 +154,13 @@ export async function markWatched(
       .upsert(batch, { onConflict: 'user_id,episode_id', ignoreDuplicates: true })
     if (error) throw error
   }
-  const last = rows.reduce((max, r) => (r.watched_at > max ? r.watched_at : max), rows[0].watched_at)
+  // Les épisodes sans date ne peuvent pas dater la série : si aucun n'est daté,
+  // on laisse last_watched_at tel quel plutôt que d'inventer.
+  const last = rows.reduce<string | null>(
+    (max, r) => (r.watched_at && (!max || r.watched_at > max) ? r.watched_at : max),
+    null,
+  )
+  if (!last) return
   const { error } = await supabase
     .from('tracked_shows')
     .update({ last_watched_at: last })
@@ -171,7 +183,7 @@ export async function fetchMovies(): Promise<WatchedMovie[]> {
     const { data, error } = await supabase
       .from('watched_movies')
       .select('movie_id, title, poster_url, release_year, watched_at')
-      .order('watched_at', { ascending: false })
+      .order('watched_at', { ascending: false, nullsFirst: false })
       .range(from, from + PAGE - 1)
     if (error) throw error
     out.push(...(data ?? []))
@@ -180,7 +192,7 @@ export async function fetchMovies(): Promise<WatchedMovie[]> {
   return out
 }
 
-export function movieRow(userId: string, movie: Movie, watchedAt: string) {
+export function movieRow(userId: string, movie: Movie, watchedAt: string | null) {
   return {
     user_id: userId,
     movie_id: movie.id,
@@ -193,7 +205,7 @@ export function movieRow(userId: string, movie: Movie, watchedAt: string) {
 
 export async function addMovies(
   userId: string,
-  items: { movie: Movie; watchedAt: string }[],
+  items: { movie: Movie; watchedAt: string | null }[],
 ): Promise<void> {
   if (!items.length) return
   const rows = items.map((i) => movieRow(userId, i.movie, i.watchedAt))

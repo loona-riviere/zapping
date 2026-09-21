@@ -4,8 +4,12 @@ import type { ShowStatus, TrackedShow, WatchedMap, WatchedMovie } from './store'
 import type { Movie } from './tmdb'
 import type { TvEpisode, TvShow } from './tvmaze'
 
-/** Épisodes vus d'une série : identifiant → date de visionnage (ISO). */
-export type WatchedEpisodes = ReadonlyMap<number, string>
+/**
+ * Épisodes vus d'une série : identifiant → date de visionnage (ISO), ou null
+ * quand elle est inconnue. La présence de la clé signifie « vu » ; sa valeur
+ * ne dit que le quand.
+ */
+export type WatchedEpisodes = ReadonlyMap<number, string | null>
 
 type AppState = {
   userId: string
@@ -24,8 +28,13 @@ type AppState = {
   untrack: (showId: number) => Promise<void>
   setStatus: (showId: number, status: ShowStatus) => Promise<void>
   /** `dates` (import) fixe la date de visionnage épisode par épisode. */
-  setWatched: (show: TvShow, eps: TvEpisode[], value: boolean, dates?: Map<number, string>) => Promise<void>
-  addMovies: (items: { movie: Movie; watchedAt: string }[]) => Promise<void>
+  setWatched: (
+    show: TvShow,
+    eps: TvEpisode[],
+    value: boolean,
+    dates?: Map<number, string | null>,
+  ) => Promise<void>
+  addMovies: (items: { movie: Movie; watchedAt: string | null }[]) => Promise<void>
   removeMovie: (movieId: number) => Promise<void>
 }
 
@@ -119,7 +128,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
   }, [])
 
   const setWatched = useCallback(
-    async (show: TvShow, eps: TvEpisode[], value: boolean, dates?: Map<number, string>) => {
+    async (show: TvShow, eps: TvEpisode[], value: boolean, dates?: Map<number, string | null>) => {
       if (!eps.length) return
       const ids = eps.map((e) => e.id)
       const now = new Date().toISOString()
@@ -127,20 +136,23 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
         setWatchedMap((prev) => {
           const next = new Map(prev)
           const eps = new Map(prev.get(show.id) ?? [])
-          ids.forEach((id) => (on ? eps.set(id, dates?.get(id) ?? now) : eps.delete(id)))
+          ids.forEach((id) => (on ? eps.set(id, dates ? (dates.get(id) ?? null) : now) : eps.delete(id)))
           next.set(show.id, eps)
           return next
         })
 
       apply(value) // mise à jour optimiste
       if (value) {
-        const last = ids.reduce<string>((max, id) => {
-          const d = dates?.get(id) ?? now
-          return d > max ? d : max
-        }, dates ? '' : now)
-        setTracked((prev) =>
-          prev.map((t) => (t.show_id === show.id ? { ...t, last_watched_at: last } : t)),
-        )
+        // Une reprise sans date ne remonte pas la série en tête de liste.
+        const last = ids.reduce<string | null>((max, id) => {
+          const d = dates ? dates.get(id) ?? null : now
+          return d && (!max || d > max) ? d : max
+        }, null)
+        if (last) {
+          setTracked((prev) =>
+            prev.map((t) => (t.show_id === show.id ? { ...t, last_watched_at: last } : t)),
+          )
+        }
       }
       try {
         if (value) {
@@ -158,7 +170,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
   )
 
   const addMovies = useCallback(
-    async (items: { movie: Movie; watchedAt: string }[]) => {
+    async (items: { movie: Movie; watchedAt: string | null }[]) => {
       if (!items.length) return
       if (!moviesReady) {
         setNotice("Films indisponibles : relance supabase/schema.sql dans ton projet Supabase.")
@@ -178,7 +190,8 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
               watched_at: watchedAt,
             })
           }
-          return [...byId.values()].sort((a, b) => b.watched_at.localeCompare(a.watched_at))
+          // Les films sans date passent en fin de liste.
+          return [...byId.values()].sort((a, b) => (b.watched_at ?? '').localeCompare(a.watched_at ?? ''))
         })
       } catch (e) {
         setNotice(`Enregistrement du film impossible : ${(e as Error).message}`)

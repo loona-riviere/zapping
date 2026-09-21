@@ -153,7 +153,13 @@ export function ShowPage({ id }: { id: number }) {
                     aria-pressed={on}
                     disabled={!out}
                     title={`${epCode(ep)} ${ep.name}${
-                      on ? `, vu le ${formatShortDate(watched.get(ep.id)!)}` : out ? '' : `, le ${formatDate(ep.airstamp ?? ep.airdate)}`
+                      on
+                        ? watched.get(ep.id)
+                          ? `, vu le ${formatShortDate(watched.get(ep.id)!)}`
+                          : ', vu'
+                        : out
+                          ? ''
+                          : `, le ${formatDate(ep.airstamp ?? ep.airdate)}`
                     }`}
                     aria-label={`${epCode(ep)} ${ep.name}${!out ? ', pas encore diffusé' : on ? ', vu' : ''}`}
                     onClick={() => toggle(ep)}
@@ -178,8 +184,10 @@ export function ShowPage({ id }: { id: number }) {
                         <input type="checkbox" checked={watched.has(ep.id)} disabled={!out} onChange={() => toggle(ep)} />
                         <span className="eplist__code">{epCode(ep)}</span>
                         <span className="eplist__name">{ep.name}</span>
-                        {seenAt ? (
-                          <span className="eplist__date eplist__date--seen">Vu le {formatShortDate(seenAt)}</span>
+                        {watched.has(ep.id) ? (
+                          <span className="eplist__date eplist__date--seen">
+                            {seenAt ? `Vu le ${formatShortDate(seenAt)}` : 'Vu'}
+                          </span>
                         ) : (
                           ep.airdate && <span className="eplist__date">{formatDate(ep.airstamp ?? ep.airdate)}</span>
                         )}

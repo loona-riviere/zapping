@@ -91,6 +91,11 @@ export function Movies() {
         <label className="movies__date">
           Vu le
           <input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} />
+          {date && (
+            <button className="link-btn" onClick={() => setDate('')} title="Je ne sais plus quand">
+              oublier
+            </button>
+          )}
         </label>
       </div>
 
@@ -98,6 +103,12 @@ export function Movies() {
         <p className="error">
           La recherche TMDB a échoué. Vérifie <code>VITE_TMDB_KEY</code> (la clé v3 de 32
           caractères ou le jeton d'accès v4 conviennent), puis redéploie le site.
+        </p>
+      )}
+      {!date && (
+        <p className="muted movies__hint">
+          Sans date, le film est enregistré comme vu sans quand — mieux qu'une date inventée,
+          qui fausserait les statistiques.
         </p>
       )}
       {status === 'idle' && query.trim().length >= 2 && !results.length && (
@@ -118,7 +129,7 @@ export function Movies() {
               <button
                 className={`btn ${seen.has(m.id) ? 'btn--ghost' : 'btn--primary'}`}
                 disabled={seen.has(m.id)}
-                onClick={() => addMovies([{ movie: m, watchedAt: date }])}
+                onClick={() => addMovies([{ movie: m, watchedAt: date || null }])}
               >
                 {seen.has(m.id) ? 'Vu' : 'Marquer vu'}
               </button>
@@ -143,7 +154,12 @@ export function Movies() {
               <div className="row__body">
                 <h3>{m.title}</h3>
                 <p className="muted">
-                  {[m.release_year, `vu le ${formatShortDate(m.watched_at)}`].filter(Boolean).join(' — ')}
+                  {[
+                    m.release_year,
+                    m.watched_at ? `vu le ${formatShortDate(m.watched_at)}` : 'date inconnue',
+                  ]
+                    .filter(Boolean)
+                    .join(' — ')}
                 </p>
               </div>
             </div>

@@ -34,8 +34,6 @@ Severance 2x04
 The Boys S01E08 @ 12/03/2024
 Dark`
 
-const today = () => new Date().toISOString().slice(0, 10)
-
 /** Un jour seul : on horodate à midi pour éviter les sauts de fuseau. */
 const isoAt = (day: string) => `${day}T12:00:00.000Z`
 
@@ -115,15 +113,17 @@ export function ImportList() {
     const keep = matches.filter((m) => m.include && m.state === 'ok')
     const films = keep
       .filter((m) => m.kind === 'movie' && m.movie)
-      .map((m) => ({ movie: m.movie!, watchedAt: m.parsed.date ?? today() }))
+      // Sans « @ date », on n'invente rien : la date reste inconnue.
+      .map((m) => ({ movie: m.movie!, watchedAt: m.parsed.date }))
 
     for (const m of keep.filter((x) => x.kind === 'show' && x.show)) {
       try {
         if (m.episodes?.length) {
           // Une date fournie vaut « à jour à cette date » pour toute la ligne.
-          const dates = m.parsed.date
-            ? new Map(m.episodes.map((e) => [e.id, isoAt(m.parsed.date!)]))
-            : undefined
+          // Sans date, on enregistre « vu, quand on ne sait pas » plutôt que
+          // d'horodater à aujourd'hui une série rattrapée il y a des années.
+          const at = m.parsed.date ? isoAt(m.parsed.date) : null
+          const dates = new Map(m.episodes.map((e) => [e.id, at]))
           await setWatched(m.show!, m.episodes, true, dates)
           episodes += m.episodes.length
         } else {
@@ -198,7 +198,7 @@ export function ImportList() {
           </p>
           <p className="muted">
             Tu peux dater une ligne avec <code>@</code> : <code>The Boys S01E08 @ 12/03/2024</code>.
-            Sans date, c'est aujourd'hui.
+            Sans date, un film est enregistré sans date de visionnage plutôt qu'avec celle du jour.
           </p>
           <textarea
             className="import__input"

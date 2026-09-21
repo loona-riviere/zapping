@@ -31,6 +31,11 @@ create table if not exists public.watched_episodes (
   primary key (user_id, episode_id)
 );
 
+-- La date peut être inconnue : « vu, mais je ne sais plus quand ». Une reprise
+-- en masse sans date ne doit pas inventer celle du jour, qui ferait un faux pic
+-- dans les statistiques.
+alter table public.watched_episodes alter column watched_at drop not null;
+
 create index if not exists watched_episodes_user_show_idx
   on public.watched_episodes (user_id, show_id);
 
@@ -44,6 +49,10 @@ create table if not exists public.watched_movies (
   watched_at timestamptz not null default now(),
   primary key (user_id, movie_id)
 );
+
+-- La date peut être inconnue : « vu, mais je ne sais plus quand ». Mieux vaut
+-- l'absence de date qu'une date inventée, qui fausserait les statistiques.
+alter table public.watched_movies alter column watched_at drop not null;
 
 create index if not exists watched_movies_user_date_idx
   on public.watched_movies (user_id, watched_at desc);
