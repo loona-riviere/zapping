@@ -91,9 +91,9 @@ export function Home() {
   // Une date de retour connue n'a rien à voir avec un renouvellement sans
   // date : la première se planifie, la seconde ne fait qu'attendre.
   const upcoming = upToDateAll
-    .filter((r) => r.progress!.upcoming)
+    .filter((r) => airOf(r))
     .sort((a, b) => airOf(a)!.localeCompare(airOf(b)!))
-  const noDateYet = upToDateAll.filter((r) => !r.progress!.upcoming).sort(byActivity)
+  const noDateYet = upToDateAll.filter((r) => !airOf(r)).sort(byActivity)
   const finished = active.filter((r) => r.progress && !r.progress.next && r.data!.show.status === 'Ended')
   const paused = rows.filter((r) => r.status === 'paused')
   const later = rows.filter((r) => r.status === 'later')
@@ -263,7 +263,12 @@ export function Home() {
 /** Date de diffusion du prochain épisode annoncé, s'il y en a un. */
 function airOf(r: Row): string | null {
   const up = r.progress?.upcoming
-  return up ? up.airstamp ?? up.airdate : null
+  if (!up) return null
+  const at = up.airstamp ?? up.airdate
+  // TVmaze annonce parfois un épisode « prochain » sans date encore connue
+  // (chaîne vide) : ce n'est pas une date invalide à afficher, juste une
+  // vraie date manquante — pas de « Bientôt de retour » sans date à montrer.
+  return at && !Number.isNaN(new Date(at).getTime()) ? at : null
 }
 
 /** Séries mises de côté : on garde le compteur et le bouton de statut à portée. */

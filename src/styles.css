@@ -248,6 +248,9 @@ button { font: inherit; color: inherit; }
      natives ; seule la déconnexion reste dans le header. */
   .topbar__nav > a { display: none; }
   .main { padding-bottom: 5.5rem; }
+  /* Le footer est un frère de .main, pas un enfant : sans son propre espace
+     réservé, la barre du bas fixe le recouvre complètement. */
+  .footer { padding-bottom: 5.5rem; }
   .bottomnav {
     display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
     padding: .35rem .5rem calc(.35rem + env(safe-area-inset-bottom, 0px));
