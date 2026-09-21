@@ -187,16 +187,10 @@ export async function markWatched(
       .upsert(batch, { onConflict: 'user_id,episode_id', ignoreDuplicates: !overwrite })
     if (error) throw error
   }
-  // Les épisodes sans date ne peuvent pas dater la série : si aucun n'est daté,
-  // on laisse last_watched_at tel quel plutôt que d'inventer.
-  const last = rows.reduce<string | null>(
-    (max, r) => (r.watched_at && (!max || r.watched_at > max) ? r.watched_at : max),
-    null,
-  )
-  if (!last) return
-  // bump_last_watched ne fait jamais reculer la date : corriger un vieil
-  // épisode ne doit pas dater la série plus tôt qu'un épisode déjà connu.
-  const { error } = await supabase.rpc('bump_last_watched', { p_show_id: showId, p_at: last })
+  // Recalcule last_watched_at à partir de toutes les dates connues en base,
+  // pas seulement celles de ce lot : une correction en masse (« Dater à la
+  // diffusion ») peut aussi bien avancer que reculer la date la plus récente.
+  const { error } = await supabase.rpc('sync_last_watched', { p_show_id: showId })
   if (error) throw error
 }
 

@@ -82,19 +82,28 @@ alter table public.rewatch_progress
   foreign key (user_id, show_id) references public.tracked_shows (user_id, show_id)
   on delete cascade;
 
--- Avance last_watched_at sans jamais le faire reculer : corriger la date
--- d'un vieil épisode ne doit pas faire passer la série pour « pas revue
--- depuis » alors qu'un épisode plus récent est déjà enregistré ailleurs.
+-- Recalcule last_watched_at à partir de la vraie date la plus récente parmi
+-- les épisodes datés de la série. Un simple « bump » qui ne ferait que monter
+-- se bloquait après un « Dater à la diffusion » ou « Dater tout à… » : ces
+-- corrections en masse peuvent au contraire faire reculer la date la plus
+-- récente (ex. Ted Lasso redaté à sa diffusion d'origine, plus ancienne
+-- qu'un test manuel horodaté à aujourd'hui), ce qu'un simple maximum
+-- empêchait à tort.
 -- security invoker : s'exécute avec les droits de l'appelant, RLS comprise.
-create or replace function public.bump_last_watched(p_show_id integer, p_at timestamptz)
+create or replace function public.sync_last_watched(p_show_id integer)
 returns void
 language sql
 security invoker
 as $$
   update public.tracked_shows
-  set last_watched_at = greatest(coalesce(last_watched_at, p_at), p_at)
+  set last_watched_at = (
+    select max(watched_at) from public.watched_episodes
+    where show_id = p_show_id and user_id = auth.uid()
+  )
   where show_id = p_show_id and user_id = auth.uid();
 $$;
+
+drop function if exists public.bump_last_watched(integer, timestamptz);
 
 -- Films vus (catalogue TMDB).
 create table if not exists public.watched_movies (
