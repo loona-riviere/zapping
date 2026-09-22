@@ -514,7 +514,11 @@ const NETFLIX_PROVIDER_ID = '8'
 
 export async function netflixTopMovies(): Promise<Movie[]> {
   if (!KEY) return []
-  const key = 'tmdb:netflixtop:v1:movie'
+  // v2 : deux requêtes plutôt qu'un simple tri par popularité — un pur tri
+  // popularité laisse passer des titres obscurs mal notés. On mélange les
+  // sorties récentes qui cartonnent avec les classiques toujours regardés
+  // (beaucoup de votes, bien notés) plutôt qu'un seul critère.
+  const key = 'tmdb:netflixtop:v2:movie'
   try {
     const raw = localStorage.getItem(key)
     if (raw) {
@@ -525,12 +529,29 @@ export async function netflixTopMovies(): Promise<Movie[]> {
     /* cache illisible : on refetch */
   }
   try {
-    const data = await get<{ results: RawMovie[] }>('/discover/movie', {
-      with_watch_providers: NETFLIX_PROVIDER_ID,
-      watch_region: 'FR',
-      sort_by: 'popularity.desc',
-    })
-    const movies = data.results.map(toMovie)
+    const cutoff = new Date()
+    cutoff.setFullYear(cutoff.getFullYear() - 5)
+    const cutoffDate = cutoff.toISOString().slice(0, 10)
+    const [recent, classics] = await Promise.all([
+      get<{ results: RawMovie[] }>('/discover/movie', {
+        with_watch_providers: NETFLIX_PROVIDER_ID,
+        watch_region: 'FR',
+        sort_by: 'popularity.desc',
+        'vote_count.gte': '100',
+        'primary_release_date.gte': cutoffDate,
+      }),
+      get<{ results: RawMovie[] }>('/discover/movie', {
+        with_watch_providers: NETFLIX_PROVIDER_ID,
+        watch_region: 'FR',
+        sort_by: 'vote_average.desc',
+        'vote_count.gte': '1000',
+        'primary_release_date.lte': cutoffDate,
+      }),
+    ])
+    const byId = new Map<number, Movie>()
+    for (const r of recent.results) byId.set(r.id, toMovie(r))
+    for (const r of classics.results) if (!byId.has(r.id)) byId.set(r.id, toMovie(r))
+    const movies = [...byId.values()].slice(0, 20)
     try {
       localStorage.setItem(key, JSON.stringify({ at: Date.now(), data: movies }))
     } catch {

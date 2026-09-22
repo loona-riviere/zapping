@@ -37,6 +37,9 @@ body {
   background: var(--bg);
   color: var(--ink);
   font: 400 1rem/1.5 var(--body);
+  /* Désactive le double-tap-pour-zoomer de Safari mobile ; le pinch-to-zoom
+     (accessibilité) reste disponible, seul ce geste précis est coupé. */
+  touch-action: manipulation;
   -webkit-font-smoothing: antialiased;
 }
 a { color: inherit; }
