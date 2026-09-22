@@ -224,15 +224,15 @@ export function ShowPage({ id }: { id: number }) {
               ...show.genres.slice(0, 2),
             ].filter(Boolean).join(' · ')}
           </p>
+          {progress.aired > 0 && (
+            <p className="show__count">
+              <strong>{progress.watched}</strong> sur {progress.aired} épisodes {rewatching ? 'revus' : 'vus'}
+            </p>
+          )}
         </div>
       </header>
 
       <div className="show__controls">
-        {progress.aired > 0 && (
-          <p className="show__count">
-            <strong>{progress.watched}</strong> sur {progress.aired} épisodes vus
-          </p>
-        )}
         {followed ? (
           <button
             type="button"

@@ -80,37 +80,37 @@ export function MoviePage({ id }: { id: number }) {
           <p className="muted">
             {[year, runtime ? fmtRuntime(runtime) : null, details?.genres.join(', ')].filter(Boolean).join(' · ')}
           </p>
+          {movie?.status === 'watched' ? (
+            <>
+              <p className="show__count eplist__date--edit">
+                Vu le
+                <input
+                  type="date"
+                  value={movie.watched_at ? movie.watched_at.slice(0, 10) : ''}
+                  max={today()}
+                  onChange={(e) => e.target.value && markMovieWatched(movie.movie_id, `${e.target.value}T12:00:00.000Z`)}
+                />
+              </p>
+              {details?.releaseDate && (
+                <button
+                  type="button"
+                  className="link-btn season__dates"
+                  onClick={() => markMovieWatched(movie.movie_id, `${details.releaseDate}T12:00:00.000Z`)}
+                  title="Reprend la date de sortie du film"
+                >
+                  Dater à sa sortie
+                </button>
+              )}
+            </>
+          ) : (
+            <p className="show__count muted">
+              {notYetReleased ? `Sort le ${formatShortDate(releaseDate!)}` : 'À voir'}
+            </p>
+          )}
         </div>
       </header>
 
       <div className="show__controls">
-        {movie?.status === 'watched' ? (
-          <>
-            <p className="show__count eplist__date--edit">
-              Vu le
-              <input
-                type="date"
-                value={movie.watched_at ? movie.watched_at.slice(0, 10) : ''}
-                max={today()}
-                onChange={(e) => e.target.value && markMovieWatched(movie.movie_id, `${e.target.value}T12:00:00.000Z`)}
-              />
-            </p>
-            {details?.releaseDate && (
-              <button
-                type="button"
-                className="link-btn season__dates"
-                onClick={() => markMovieWatched(movie.movie_id, `${details.releaseDate}T12:00:00.000Z`)}
-                title="Reprend la date de sortie du film"
-              >
-                Dater à sa sortie
-              </button>
-            )}
-          </>
-        ) : (
-          <p className="show__count muted">
-            {notYetReleased ? `Sort le ${formatShortDate(releaseDate!)}` : 'À voir'}
-          </p>
-        )}
 
         {movie?.status === 'watched' && (
           <RatingPicker rating={movie.rating} onChange={(r) => rateMovie(movie.movie_id, r)} />
