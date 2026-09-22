@@ -1,5 +1,21 @@
 import { useEffect, useState } from 'react'
-import { tmdbConfigured, watchProviders, type Availability } from '../lib/tmdb'
+import { tmdbConfigured, watchProviders, type Availability, type Provider } from '../lib/tmdb'
+
+// Un abonnement Netflix (ou Prime Video, etc.) donne accès au catalogue quel
+// que soit le palier choisi : pas la peine d'afficher « Netflix » et
+// « Netflix Standard with Ads » côte à côte pour la même plateforme — on ne
+// garde qu'un badge par plateforme, en préférant le palier sans pub.
+function dedupeProviders(providers: Provider[]): Provider[] {
+  const byPlatform = new Map<string, Provider>()
+  for (const p of providers) {
+    const key = p.name.replace(/\s*(with ads|w\/ ads).*/i, '').trim().toLowerCase()
+    const existing = byPlatform.get(key)
+    if (!existing || (/ads/i.test(existing.name) && !/ads/i.test(p.name))) {
+      byPlatform.set(key, p)
+    }
+  }
+  return [...byPlatform.values()]
+}
 
 // Identifiants TMDB des plateformes pour lesquelles on connaît un lien de
 // recherche fiable dans l'appli native (universal link, ouvre l'appli si
@@ -40,7 +56,7 @@ export function WhereToWatch({ imdbId, title }: { imdbId: string | null | undefi
     <section className="where">
       <h2 className="where__title">Où la regarder</h2>
       <div className="where__list">
-        {data.providers.map((p) => {
+        {dedupeProviders(data.providers).map((p) => {
           const href = APP_SEARCH[p.id]?.(title) ?? data.link
           const badge = (
             <span className="where__badge">
