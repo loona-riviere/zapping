@@ -213,12 +213,15 @@ export function ShowPage({ id }: { id: number }) {
         <Poster src={show.image?.original ?? show.image?.medium} alt={show.name} size="lg" />
         <div className="show__meta">
           <h1>{frName ?? show.name}</h1>
-          <p className="muted">{[show.premiered?.slice(0, 4), channel, statusFr(show.status)].filter(Boolean).join(', ')}</p>
-          {(show.rating || show.genres.length > 0) && (
-            <p className="muted">
-              {[show.rating ? `★ ${show.rating.toFixed(1)}` : null, ...show.genres].filter(Boolean).join(' · ')}
-            </p>
-          )}
+          <p className="muted">
+            {[
+              show.premiered?.slice(0, 4),
+              channel,
+              statusFr(show.status),
+              show.rating ? `★ ${show.rating.toFixed(1)}` : null,
+              ...show.genres.slice(0, 2),
+            ].filter(Boolean).join(' · ')}
+          </p>
           {progress.aired > 0 && (
             <p className="show__count">
               <strong>{progress.watched}</strong> sur {progress.aired} épisodes vus
