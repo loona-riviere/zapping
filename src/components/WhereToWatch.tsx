@@ -2,18 +2,24 @@ import { useEffect, useState } from 'react'
 import { tmdbConfigured, watchProviders, type Availability, type Provider } from '../lib/tmdb'
 
 // Un abonnement Netflix (ou Prime Video, etc.) donne accès au catalogue quel
-// que soit le palier choisi : pas la peine d'afficher « Netflix » et
-// « Netflix Standard with Ads » côte à côte pour la même plateforme — on ne
-// garde qu'un badge par plateforme, en préférant le palier sans pub.
+// que soit le palier ou le canal d'accès : pas la peine d'afficher « Netflix »
+// et « Netflix Standard with Ads », ou « Apple TV » et « Apple TV Amazon
+// Channel », côte à côte pour la même plateforme — un seul badge, en
+// préférant la version directe (sans pub, sans passer par Amazon Channel).
 function dedupeProviders(providers: Provider[]): Provider[] {
   const byPlatform = new Map<string, Provider>()
   for (const p of providers) {
-    // « Netflix Standard with Ads » : le nom du palier (Standard/Basic/…)
-    // se glisse AVANT « with Ads », donc il faut le retirer lui aussi pour
-    // retomber sur la même clé que « Netflix » tout court.
-    const key = p.name.replace(/\s+(standard|basic|premium)?\s*(with ads|w\/ ads).*/i, '').trim().toLowerCase()
+    // Le nom du palier (Standard/Basic/…) ou « Plus » se glisse AVANT
+    // « with Ads »/« Amazon Channel », donc il faut le retirer lui aussi pour
+    // retomber sur la même clé que la plateforme toute seule.
+    const key = p.name
+      .replace(/\s+(standard|basic|premium)?\s*(with ads|w\/ ads).*/i, '')
+      .replace(/\s+(plus)?\s*amazon channel.*/i, '')
+      .trim()
+      .toLowerCase()
     const existing = byPlatform.get(key)
-    if (!existing || (/ads/i.test(existing.name) && !/ads/i.test(p.name))) {
+    const isBundled = (name: string) => /ads|amazon channel/i.test(name)
+    if (!existing || (isBundled(existing.name) && !isBundled(p.name))) {
       byPlatform.set(key, p)
     }
   }
