@@ -4,6 +4,7 @@ import { href } from '../lib/route'
 import { ratingRank } from '../lib/store'
 import {
   movieRecommendations, netflixTopMovies, netflixTopShows,
+  realNetflixTop10Movies, realNetflixTop10Shows,
   tmdbConfigured, tvRecommendationsByImdb, type Movie, type TvRecommendation,
 } from '../lib/tmdb'
 import { searchShows } from '../lib/tvmaze'
@@ -270,20 +271,32 @@ export function NetflixTopMovies() {
   // chargement soit fini pour éviter un flash de titres pas encore filtrés.
   const [raw, setRaw] = useState<Movie[]>([])
   const [status, setStatus] = useState<Status>('idle')
+  const [isReal, setIsReal] = useState(false)
 
   useEffect(() => {
-    // Le vrai Top 10 (via la fonction Netlify) a renvoyé des titres qui ne
-    // ressemblaient à rien de tendance (vieux films arthouse) — la lecture
-    // du fichier Netflix a un bug quelque part que je ne peux pas déboguer
-    // sans accès réseau direct. Retour à l'approximation TMDB, fiable,
-    // plutôt que d'afficher du faux sous une étiquette « Top 10 ».
+    // Le vrai classement (fonction Netlify, fichier public Netflix) mélangeait
+    // deux sous-classements par langue (English/Non-English) triés par rang
+    // brut plutôt que par volume de vues — d'où des vieux films arthouse
+    // affichés comme s'ils étaient en tête. Corrigé côté fonction (re-classé
+    // par weekly_hours_viewed). On retente le vrai classement, avec repli
+    // sur l'approximation TMDB si le fichier échoue ou change encore de format.
     if (!tmdbConfigured || loading) return
     let alive = true
     setStatus('loading')
-    netflixTopMovies().then((found) => {
+    realNetflixTop10Movies().then((real) => {
       if (!alive) return
-      setRaw(found)
-      setStatus(found.length ? 'ready' : 'empty')
+      if (real?.length) {
+        setRaw(real)
+        setIsReal(true)
+        setStatus('ready')
+        return
+      }
+      netflixTopMovies().then((found) => {
+        if (!alive) return
+        setRaw(found)
+        setIsReal(false)
+        setStatus(found.length ? 'ready' : 'empty')
+      })
     })
     return () => {
       alive = false
@@ -302,7 +315,7 @@ export function NetflixTopMovies() {
 
   return (
     <section>
-      <h2 className="section-title">Populaire sur Netflix</h2>
+      <h2 className="section-title">{isReal ? 'Top 10 Netflix en France' : 'Populaire sur Netflix'}</h2>
       <ul className="shelf shelf--carousel">
         {visible.map((m) => (
           <li key={m.id} className="shelf__item">
@@ -333,6 +346,7 @@ export function NetflixTopShows() {
   // appel TMDB — recalculé à chaque rendu, pas figé dans l'effet.
   const [raw, setRaw] = useState<TvRecommendation[]>([])
   const [status, setStatus] = useState<Status>('idle')
+  const [isReal, setIsReal] = useState(false)
   const [opening, setOpening] = useState<number | null>(null)
   const [notFound, setNotFound] = useState<number | null>(null)
   const trackedNames = useMemo(
@@ -345,16 +359,26 @@ export function NetflixTopShows() {
     // rendu filtre avec un ensemble vide, affiche tout sans distinction,
     // puis fait disparaître d'un coup les titres déjà suivis une fois les
     // vraies données arrivées — un clignotement, pas un vrai comportement.
-    // Le vrai Top 10 (fonction Netlify) a renvoyé des titres qui ne
-    // ressemblaient à rien de tendance : bug de lecture non débogable
-    // sans accès réseau direct. Retour à l'approximation TMDB.
+    // Le vrai classement (fonction Netlify) mélangeait English/Non-English
+    // triés par rang brut au lieu du volume de vues — corrigé côté fonction.
+    // Repli sur l'approximation TMDB si le fichier échoue quand même.
     if (!tmdbConfigured || loading) return
     let alive = true
     setStatus('loading')
-    netflixTopShows().then((found) => {
+    realNetflixTop10Shows().then((real) => {
       if (!alive) return
-      setRaw(found)
-      setStatus(found.length ? 'ready' : 'empty')
+      if (real?.length) {
+        setRaw(real)
+        setIsReal(true)
+        setStatus('ready')
+        return
+      }
+      netflixTopShows().then((found) => {
+        if (!alive) return
+        setRaw(found)
+        setIsReal(false)
+        setStatus(found.length ? 'ready' : 'empty')
+      })
     })
     return () => {
       alive = false
@@ -400,7 +424,7 @@ export function NetflixTopShows() {
 
   return (
     <section>
-      <h2 className="section-title">Populaire sur Netflix</h2>
+      <h2 className="section-title">{isReal ? 'Top 10 Netflix en France' : 'Populaire sur Netflix'}</h2>
       <ul className="shelf shelf--carousel">
         {visible.map((r) => (
           <li key={r.id} className="shelf__item">

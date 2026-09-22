@@ -551,7 +551,10 @@ type Top10Data = { week: string; movies: Top10Row[]; shows: Top10Row[] }
  * classement ; si ça échoue (réseau, format changé), on bascule dessus.
  */
 async function fetchTop10Raw(): Promise<Top10Data | null> {
-  const key = 'zapping:top10:raw'
+  // v2 : la fonction Netlify a changé de logique de classement (fusion
+  // English/Non-English par volume de vues plutôt que par rang brut) — un
+  // ancien cache sous l'ancienne clé contiendrait encore le classement erroné.
+  const key = 'zapping:top10:raw:v2'
   try {
     const raw = localStorage.getItem(key)
     if (raw) {
