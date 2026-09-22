@@ -253,7 +253,11 @@ export function ShowRecommendations({ showIds }: { showIds: number[] }) {
  */
 export function NetflixTopMovies() {
   const { movies, isDismissed, dismissRec } = useApp()
-  const [recs, setRecs] = useState<Movie[]>([])
+  // La liste brute vient d'un seul appel TMDB (indépendant de la bibliothèque),
+  // mais le filtre « déjà vu » doit rester à jour même si la bibliothèque finit
+  // de charger après ce premier appel : recalculé à chaque rendu plutôt que
+  // figé dans l'effet qui, lui, ne tourne qu'une fois.
+  const [raw, setRaw] = useState<Movie[]>([])
   const [status, setStatus] = useState<Status>('idle')
 
   useEffect(() => {
@@ -262,23 +266,21 @@ export function NetflixTopMovies() {
     setStatus('loading')
     netflixTopMovies().then((found) => {
       if (!alive) return
-      const known = new Set(movies.map((m) => m.movie_id))
-      const list = found.filter((m) => !known.has(m.id))
-      setRecs(list)
-      setStatus(list.length ? 'ready' : 'empty')
+      setRaw(found)
+      setStatus(found.length ? 'ready' : 'empty')
     })
     return () => {
       alive = false
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function skip(m: Movie) {
     dismissRec('movie', m.id, m.title, m.poster_url)
-    setRecs((prev) => prev.filter((x) => x.id !== m.id))
+    setRaw((prev) => prev.filter((x) => x.id !== m.id))
   }
 
-  const visible = recs.filter((m) => !isDismissed('movie', m.id))
+  const known = useMemo(() => new Set(movies.map((m) => m.movie_id)), [movies])
+  const visible = raw.filter((m) => !known.has(m.id) && !isDismissed('movie', m.id))
 
   if (status === 'idle' || status === 'empty' || !visible.length) return null
 
@@ -310,7 +312,10 @@ export function NetflixTopMovies() {
 /** Équivalent séries de NetflixTopMovies : même logique, résolution TVmaze au clic. */
 export function NetflixTopShows() {
   const { tracked, isDismissed, dismissRec } = useApp()
-  const [recs, setRecs] = useState<TvRecommendation[]>([])
+  // Même remarque que NetflixTopMovies : le filtre « déjà suivie » doit
+  // rester à jour même si la bibliothèque finit de charger après le premier
+  // appel TMDB — recalculé à chaque rendu, pas figé dans l'effet.
+  const [raw, setRaw] = useState<TvRecommendation[]>([])
   const [status, setStatus] = useState<Status>('idle')
   const [opening, setOpening] = useState<number | null>(null)
   const [notFound, setNotFound] = useState<number | null>(null)
@@ -325,16 +330,12 @@ export function NetflixTopShows() {
     setStatus('loading')
     netflixTopShows().then((found) => {
       if (!alive) return
-      const list = found.filter(
-        (r) => !trackedNames.has(normalizeTitle(r.name)) && !trackedNames.has(normalizeTitle(r.originalName)),
-      )
-      setRecs(list)
-      setStatus(list.length ? 'ready' : 'empty')
+      setRaw(found)
+      setStatus(found.length ? 'ready' : 'empty')
     })
     return () => {
       alive = false
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function open(r: TvRecommendation) {
@@ -362,10 +363,15 @@ export function NetflixTopShows() {
 
   function skip(r: TvRecommendation) {
     dismissRec('show', r.id, r.name, r.poster_url)
-    setRecs((prev) => prev.filter((x) => x.id !== r.id))
+    setRaw((prev) => prev.filter((x) => x.id !== r.id))
   }
 
-  const visible = recs.filter((r) => !isDismissed('show', r.id))
+  const visible = raw.filter(
+    (r) =>
+      !trackedNames.has(normalizeTitle(r.name)) &&
+      !trackedNames.has(normalizeTitle(r.originalName)) &&
+      !isDismissed('show', r.id),
+  )
 
   if (status === 'idle' || status === 'empty' || !visible.length) return null
 
