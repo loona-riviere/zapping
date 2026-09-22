@@ -243,6 +243,14 @@ button { font: inherit; color: inherit; }
 .auth__actions .btn { flex: 1; margin-top: 0; }
 .auth__switch { display: block; margin-top: 1.1rem; font-size: .9rem; color: var(--muted); }
 
+.rating-picker { display: flex; gap: .4rem; margin: .2rem 0; }
+.rating-picker__btn {
+  font-size: 1.3rem; line-height: 1; padding: .4rem .6rem; border-radius: 999px;
+  border: 1.5px solid var(--line); background: var(--surface); cursor: pointer;
+  filter: grayscale(1); opacity: .55;
+}
+.rating-picker__btn--active { filter: none; opacity: 1; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+
 .set-password-wrap { position: relative; display: flex; }
 .set-password {
   position: absolute; top: 100%; right: 0; margin-top: .6rem;

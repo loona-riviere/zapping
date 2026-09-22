@@ -7,10 +7,12 @@ import { getShowWithEpisodes, statusFr, stripHtml, type ShowWithEpisodes, type T
 import { Poster } from './Poster'
 import { Rewatches } from './Rewatches'
 import { StatusPicker } from './StatusPicker'
+import { RatingPicker } from './RatingPicker'
 import { WhereToWatch } from './WhereToWatch'
 
 export function ShowPage({ id }: { id: number }) {
-  const { isTracked, track, untrack, watchedFor, historyFor, setWatched, isRewatching, tracked, renameShow } = useApp()
+  const { isTracked, track, untrack, watchedFor, historyFor, setWatched, isRewatching, tracked, renameShow, rateShow } =
+    useApp()
   const [data, setData] = useState<ShowWithEpisodes | null>(null)
   const [error, setError] = useState(false)
   const [catchUp, setCatchUp] = useState<TvEpisode[] | null>(null)
@@ -242,6 +244,12 @@ export function ShowPage({ id }: { id: number }) {
               <label htmlFor="show-status">Statut</label>
               <StatusPicker showId={show.id} id="show-status" />
             </p>
+          )}
+          {followed && (
+            <RatingPicker
+              rating={tracked.find((t) => t.show_id === show.id)?.rating ?? null}
+              onChange={(r) => rateShow(show.id, r)}
+            />
           )}
         </div>
       </header>

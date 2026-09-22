@@ -4,6 +4,7 @@ import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { movieDetails, type MovieDetails } from '../lib/tmdb'
 import { Poster } from './Poster'
+import { RatingPicker } from './RatingPicker'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -14,7 +15,7 @@ const fmtRuntime = (min: number) => {
 }
 
 export function MoviePage({ id }: { id: number }) {
-  const { movies, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieMeta } =
+  const { movies, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieMeta, rateMovie } =
     useApp()
   const [details, setDetails] = useState<MovieDetails | null>(null)
   const [error, setError] = useState(false)
@@ -106,6 +107,10 @@ export function MoviePage({ id }: { id: number }) {
             <p className="show__count muted">
               {notYetReleased ? `Sort le ${formatShortDate(releaseDate!)}` : 'À voir'}
             </p>
+          )}
+
+          {movie?.status === 'watched' && (
+            <RatingPicker rating={movie.rating} onChange={(r) => rateMovie(movie.movie_id, r)} />
           )}
 
           {movie?.status === 'watched' ? (
