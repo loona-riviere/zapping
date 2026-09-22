@@ -110,7 +110,9 @@ async function get<T>(path: string, params: Record<string, string>): Promise<T> 
 
 /** Identifiant TMDB d'une série à partir de son IMDb ID — le lien ne change jamais, cache long. */
 async function resolveTvId(imdbId: string): Promise<number | null> {
-  const key = `tmdb:tvid:${imdbId}`
+  // v2 : les échecs ne sont plus mis en cache (voir plus bas), donc une
+  // entrée v1 restée bloquée sur « null » doit être abandonnée.
+  const key = `tmdb:tvid:v2:${imdbId}`
   try {
     const raw = localStorage.getItem(key)
     if (raw !== null) return raw === 'null' ? null : Number(raw)
@@ -121,10 +123,15 @@ async function resolveTvId(imdbId: string): Promise<number | null> {
     external_source: 'imdb_id',
   })
   const tvId = found.tv_results?.[0]?.id ?? null
-  try {
-    localStorage.setItem(key, String(tvId))
-  } catch {
-    /* stockage plein : pas grave */
+  // On ne met en cache qu'une résolution réussie : un échec (raté TMDB
+  // passager, série pas encore indexée) ne doit pas bloquer les tentatives
+  // suivantes pour de bon.
+  if (tvId !== null) {
+    try {
+      localStorage.setItem(key, String(tvId))
+    } catch {
+      /* stockage plein : pas grave */
+    }
   }
   return tvId
 }
