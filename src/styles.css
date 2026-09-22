@@ -131,7 +131,7 @@ button { font: inherit; color: inherit; }
   display: flex; flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x proximity;
   margin: 0 -1rem; padding: 0 1rem .3rem; -webkit-overflow-scrolling: touch;
 }
-.shelf--carousel .shelf__item { flex: 0 0 6rem; scroll-snap-align: start; }
+.shelf--carousel .shelf__item { flex: 0 0 6rem; min-width: 0; scroll-snap-align: start; }
 .shelf--carousel .poster--sm { width: 100%; }
 .shelf__item { position: relative; }
 .shelf__dismiss {

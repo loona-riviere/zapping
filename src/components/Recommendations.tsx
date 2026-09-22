@@ -12,6 +12,12 @@ import { Poster } from './Poster'
 
 type Status = 'idle' | 'loading' | 'empty' | 'ready'
 
+// « The Mentalist » (titre original TMDB) vs « Mentalist » (titre suivi,
+// souvent sans article) : sans ça, une série déjà suivie repasse en
+// recommandation simplement parce que l'article de tête diffère.
+const stripArticle = (s: string) => s.replace(/^(the|a|an|le|la|les)\s+/i, '').replace(/^l['’]/i, '')
+const normalizeTitle = (s: string) => stripArticle(s.toLowerCase().trim())
+
 /**
  * Suggestions de films à partir des derniers vus, via les recommandations
  * TMDB. Chaque suggestion ouvre sa fiche (comme un résultat de recherche) :
@@ -117,7 +123,7 @@ export function ShowRecommendations({ showIds }: { showIds: number[] }) {
   // Toutes les séries jamais suivies, pas seulement les 3 servant de base aux
   // suggestions : une série vue puis retirée du suivi ne doit pas revenir.
   const trackedNames = useMemo(
-    () => new Set(tracked.map((t) => t.name.toLowerCase())),
+    () => new Set(tracked.map((t) => normalizeTitle(t.name))),
     [tracked],
   )
 
@@ -145,7 +151,7 @@ export function ShowRecommendations({ showIds }: { showIds: number[] }) {
       for (const list of lists) {
         for (const r of list) {
           const alreadyTracked =
-            trackedNames.has(r.name.toLowerCase()) || trackedNames.has(r.originalName.toLowerCase())
+            trackedNames.has(normalizeTitle(r.name)) || trackedNames.has(normalizeTitle(r.originalName))
           if (!alreadyTracked && !byId.has(r.id)) {
             byId.set(r.id, r)
           }
@@ -171,7 +177,12 @@ export function ShowRecommendations({ showIds }: { showIds: number[] }) {
     setNotFound(null)
     setOpening(r.id)
     try {
-      const results = await searchShows(r.name)
+      // TVmaze indexe (presque) toujours sous le titre original : le titre
+      // TMDB est souvent en français et n'y donne rien.
+      let results = await searchShows(r.name)
+      if (!results.length && r.originalName !== r.name) {
+        results = await searchShows(r.originalName)
+      }
       const match =
         results.find((s) => r.year && s.premiered && Number(s.premiered.slice(0, 4)) === r.year) ??
         results[0]
@@ -304,7 +315,7 @@ export function NetflixTopShows() {
   const [opening, setOpening] = useState<number | null>(null)
   const [notFound, setNotFound] = useState<number | null>(null)
   const trackedNames = useMemo(
-    () => new Set(tracked.map((t) => t.name.toLowerCase())),
+    () => new Set(tracked.map((t) => normalizeTitle(t.name))),
     [tracked],
   )
 
@@ -315,7 +326,7 @@ export function NetflixTopShows() {
     netflixTopShows().then((found) => {
       if (!alive) return
       const list = found.filter(
-        (r) => !trackedNames.has(r.name.toLowerCase()) && !trackedNames.has(r.originalName.toLowerCase()),
+        (r) => !trackedNames.has(normalizeTitle(r.name)) && !trackedNames.has(normalizeTitle(r.originalName)),
       )
       setRecs(list)
       setStatus(list.length ? 'ready' : 'empty')
@@ -330,7 +341,12 @@ export function NetflixTopShows() {
     setNotFound(null)
     setOpening(r.id)
     try {
-      const results = await searchShows(r.name)
+      // TVmaze indexe (presque) toujours sous le titre original : le titre
+      // TMDB est souvent en français et n'y donne rien.
+      let results = await searchShows(r.name)
+      if (!results.length && r.originalName !== r.name) {
+        results = await searchShows(r.originalName)
+      }
       const match =
         results.find((s) => r.year && s.premiered && Number(s.premiered.slice(0, 4)) === r.year) ??
         results[0]
