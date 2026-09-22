@@ -252,16 +252,17 @@ export function ShowRecommendations({ showIds }: { showIds: number[] }) {
  * suggestions personnalisées.
  */
 export function NetflixTopMovies() {
-  const { movies, isDismissed, dismissRec } = useApp()
+  const { movies, isDismissed, dismissRec, loading } = useApp()
   // La liste brute vient d'un seul appel TMDB (indépendant de la bibliothèque),
   // mais le filtre « déjà vu » doit rester à jour même si la bibliothèque finit
   // de charger après ce premier appel : recalculé à chaque rendu plutôt que
-  // figé dans l'effet qui, lui, ne tourne qu'une fois.
+  // figé dans l'effet qui, lui, ne tourne qu'une fois. On attend aussi que le
+  // chargement soit fini pour éviter un flash de titres pas encore filtrés.
   const [raw, setRaw] = useState<Movie[]>([])
   const [status, setStatus] = useState<Status>('idle')
 
   useEffect(() => {
-    if (!tmdbConfigured) return
+    if (!tmdbConfigured || loading) return
     let alive = true
     setStatus('loading')
     netflixTopMovies().then((found) => {
@@ -272,7 +273,7 @@ export function NetflixTopMovies() {
     return () => {
       alive = false
     }
-  }, [])
+  }, [loading])
 
   function skip(m: Movie) {
     dismissRec('movie', m.id, m.title, m.poster_url)
@@ -311,7 +312,7 @@ export function NetflixTopMovies() {
 
 /** Équivalent séries de NetflixTopMovies : même logique, résolution TVmaze au clic. */
 export function NetflixTopShows() {
-  const { tracked, isDismissed, dismissRec } = useApp()
+  const { tracked, isDismissed, dismissRec, loading } = useApp()
   // Même remarque que NetflixTopMovies : le filtre « déjà suivie » doit
   // rester à jour même si la bibliothèque finit de charger après le premier
   // appel TMDB — recalculé à chaque rendu, pas figé dans l'effet.
@@ -325,7 +326,11 @@ export function NetflixTopShows() {
   )
 
   useEffect(() => {
-    if (!tmdbConfigured) return
+    // Attend que la bibliothèque ait fini de charger : sinon le premier
+    // rendu filtre avec un ensemble vide, affiche tout sans distinction,
+    // puis fait disparaître d'un coup les titres déjà suivis une fois les
+    // vraies données arrivées — un clignotement, pas un vrai comportement.
+    if (!tmdbConfigured || loading) return
     let alive = true
     setStatus('loading')
     netflixTopShows().then((found) => {
@@ -336,7 +341,7 @@ export function NetflixTopShows() {
     return () => {
       alive = false
     }
-  }, [])
+  }, [loading])
 
   async function open(r: TvRecommendation) {
     setNotFound(null)

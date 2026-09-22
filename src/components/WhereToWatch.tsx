@@ -34,6 +34,7 @@ function dedupeProviders(providers: Provider[]): Provider[] {
 const APP_SEARCH: Record<number, (title: string) => string> = {
   8: (title) => `https://www.netflix.com/search?q=${encodeURIComponent(title)}`, // Netflix
   350: (title) => `https://tv.apple.com/search?term=${encodeURIComponent(title)}`, // Apple TV+
+  337: (title) => `https://www.disneyplus.com/search?q=${encodeURIComponent(title)}`, // Disney+
 }
 
 /**
