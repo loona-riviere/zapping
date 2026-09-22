@@ -111,7 +111,6 @@ export function MoviePage({ id }: { id: number }) {
       </header>
 
       <div className="show__controls">
-
         {movie?.status === 'watched' && (
           <RatingPicker rating={movie.rating} onChange={(r) => rateMovie(movie.movie_id, r)} />
         )}
@@ -150,20 +149,21 @@ export function MoviePage({ id }: { id: number }) {
               </>
             )
           )}
-
-          {movie && (
-            <button
-              className="link-btn muted"
-              onClick={() =>
-                confirm(
-                  `Retirer ${title} de tes films ? Contrairement à « Pas vu », la fiche est supprimée pour de bon.`,
-                ) && removeMovie(movie.movie_id)
-              }
-            >
-              Retirer
-            </button>
-          )}
         </div>
+
+        {movie && (
+          <button
+            type="button"
+            className="link-btn muted show__untrack"
+            onClick={() =>
+              confirm(
+                `Retirer ${title} de tes films ? Contrairement à « Pas vu », la fiche est supprimée pour de bon.`,
+              ) && removeMovie(movie.movie_id)
+            }
+          >
+            Retirer
+          </button>
+        )}
       </div>
 
       {details?.overview && <p className="show__summary">{details.overview}</p>}
