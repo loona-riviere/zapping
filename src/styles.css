@@ -355,7 +355,7 @@ button { font: inherit; color: inherit; }
 }
 .status-picker[data-status='paused'] { border-color: var(--amber); }
 .status-picker[data-status='dropped'] { color: var(--muted); }
-.show__status { display: flex; align-items: center; gap: .5rem; font-size: .9rem; color: var(--muted); }
+.show__status { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; font-size: .9rem; color: var(--muted); }
 
 /* Films */
 .movies__add { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
