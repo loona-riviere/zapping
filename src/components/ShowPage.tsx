@@ -224,37 +224,40 @@ export function ShowPage({ id }: { id: number }) {
               ...show.genres.slice(0, 2),
             ].filter(Boolean).join(' · ')}
           </p>
-          {progress.aired > 0 && (
-            <p className="show__count">
-              <strong>{progress.watched}</strong> sur {progress.aired} épisodes vus
-            </p>
-          )}
-          {followed ? (
-            <button
-              type="button"
-              className="link-btn muted"
-              onClick={() => confirm(`Retirer ${show.name} et effacer ta progression ?`) && untrack(show.id)}
-            >
-              Retirer de mes séries
-            </button>
-          ) : (
-            <button type="button" className="btn btn--primary" onClick={() => track(show)}>
-              Suivre cette série
-            </button>
-          )}
-          {followed && <Rewatches show={show} episodes={episodes} />}
-          {followed && (
-            <p className="show__status">
-              <label htmlFor="show-status">Statut</label>
-              <StatusPicker showId={show.id} id="show-status" />
-              <RatingPicker
-                rating={tracked.find((t) => t.show_id === show.id)?.rating ?? null}
-                onChange={(r) => rateShow(show.id, r)}
-              />
-            </p>
-          )}
         </div>
       </header>
+
+      <div className="show__controls">
+        {progress.aired > 0 && (
+          <p className="show__count">
+            <strong>{progress.watched}</strong> sur {progress.aired} épisodes vus
+          </p>
+        )}
+        {followed ? (
+          <button
+            type="button"
+            className="link-btn muted"
+            onClick={() => confirm(`Retirer ${show.name} et effacer ta progression ?`) && untrack(show.id)}
+          >
+            Retirer de mes séries
+          </button>
+        ) : (
+          <button type="button" className="btn btn--primary" onClick={() => track(show)}>
+            Suivre cette série
+          </button>
+        )}
+        {followed && <Rewatches show={show} episodes={episodes} />}
+        {followed && (
+          <p className="show__status">
+            <label htmlFor="show-status">Statut</label>
+            <StatusPicker showId={show.id} id="show-status" />
+            <RatingPicker
+              rating={tracked.find((t) => t.show_id === show.id)?.rating ?? null}
+              onChange={(r) => rateShow(show.id, r)}
+            />
+          </p>
+        )}
+      </div>
 
       <WhereToWatch imdbId={show.externals?.imdb} />
 
