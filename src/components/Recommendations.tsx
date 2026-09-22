@@ -129,6 +129,8 @@ type Pooled<T> = { item: T; cand: AiCandidate }
 type AiState<T> = {
   result: AiResult<T> | null
   generating: boolean
+  /** Fini : cache lu et aucune génération en cours ou à venir. Avant ça, on n'affiche pas le classement de secours. */
+  settled: boolean
   error: string | null
   notice: string | null
   refresh: () => void
@@ -146,6 +148,7 @@ function useAiPicks<T extends { id: number }>(
 ): AiState<T> {
   const { tracked, movies, dismissed } = useApp()
   const [result, setResult] = useState<AiResult<T> | null>(null)
+  const [loaded, setLoaded] = useState(false)
   const [stale, setStale] = useState(false)
   const [force, setForce] = useState(0)
   const [generating, setGenerating] = useState(false)
@@ -165,6 +168,7 @@ function useAiPicks<T extends { id: number }>(
         setStale(s || !r)
       })
       .catch((e: Error) => alive && setError(e.message))
+      .finally(() => alive && setLoaded(true))
     return () => {
       alive = false
     }
@@ -180,7 +184,6 @@ function useAiPicks<T extends { id: number }>(
       const pool = await g()
       const r = await generateAiPicks(kind, libraryLines(t, m), dismissedNames(d), pool, force > 0)
       if (!alive) return
-      setStale(false)
       if (r.picks.length) setResult(r)
       setError(r.error ?? null)
       if (force && before && r.generatedAt === before.generatedAt) {
@@ -188,13 +191,18 @@ function useAiPicks<T extends { id: number }>(
       }
     })()
       .catch((e: Error) => alive && setError(e.message))
-      .finally(() => alive && setGenerating(false))
+      .finally(() => {
+        if (!alive) return
+        setGenerating(false)
+        setStale(false)
+      })
     return () => {
       alive = false
     }
   }, [kind, ready, stale, force])
 
-  return { result, generating, error, notice, refresh: () => setForce((n) => n + 1) }
+  const settled = loaded && !generating && !stale
+  return { result, generating, settled, error, notice, refresh: () => setForce((n) => n + 1) }
 }
 
 function RecommendedSection({ ai, children }: { ai: AiState<unknown>; children: ReactNode }) {
@@ -205,7 +213,7 @@ function RecommendedSection({ ai, children }: { ai: AiState<unknown>; children: 
       <p className="muted shelf__caption shelf__caption--after">
         {ai.result?.picks.length
           ? 'Choisies par Gemini d’après tout ce que tu regardes. '
-          : ai.generating
+          : !ai.settled
             ? 'Gemini prépare ta sélection… '
             : ai.error
               ? `Sélection Gemini indisponible (${ai.error}). `
@@ -295,8 +303,9 @@ export function MovieRecommendations() {
   })
 
   const aiVisible = (ai.result?.picks ?? []).filter((p) => !hidden(p.item.id))
-  const fallback = ranked.slice(0, 20)
-  if (!tmdbConfigured || (!aiVisible.length && !fallback.length && !ai.generating)) return null
+  // Le classement local ne sert plus qu'en secours, si Gemini n'a rien donné.
+  const fallback = ai.settled && !aiVisible.length ? ranked.slice(0, 20) : []
+  if (!tmdbConfigured || (ai.settled && !aiVisible.length && !fallback.length)) return null
 
   return (
     <RecommendedSection ai={ai}>
@@ -413,8 +422,9 @@ export function ShowRecommendations() {
   })
 
   const aiVisible = (ai.result?.picks ?? []).filter((p) => !hidden(p.item))
-  const fallback = ranked.slice(0, 20)
-  if (!tmdbConfigured || (!aiVisible.length && !fallback.length && !ai.generating)) return null
+  // Le classement local ne sert plus qu'en secours, si Gemini n'a rien donné.
+  const fallback = ai.settled && !aiVisible.length ? ranked.slice(0, 20) : []
+  if (!tmdbConfigured || (ai.settled && !aiVisible.length && !fallback.length)) return null
 
   return (
     <RecommendedSection ai={ai}>
