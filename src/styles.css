@@ -152,6 +152,17 @@ button { font: inherit; color: inherit; }
   display: block; font-size: .78rem; color: var(--muted); margin-top: .3rem;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.shelf__because {
+  display: block; font-size: .68rem; color: var(--muted); opacity: .8;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Place dans le Top 10, en gros chiffre sur l'affiche, façon Netflix. */
+.shelf__rank {
+  position: absolute; left: .25rem; top: .25rem; min-width: 1.5rem; height: 1.5rem; padding: 0 .3rem;
+  border-radius: 6px; background: var(--accent); color: var(--accent-ink);
+  font-family: var(--display); font-weight: 800; font-size: .85rem; line-height: 1.5rem; text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .4); pointer-events: none;
+}
 
 .empty { text-align: center; padding: 3rem 1rem; }
 .empty h2 { font-size: 1.6rem; margin-bottom: .5rem; }

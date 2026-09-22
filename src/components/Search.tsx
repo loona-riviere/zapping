@@ -3,7 +3,6 @@ import { useApp } from '../lib/appState'
 import { searchShowsWide } from '../lib/lookup'
 import { computeProgress, epCode, type Progress } from '../lib/progress'
 import { href } from '../lib/route'
-import { ratingRank } from '../lib/store'
 import { buildEnvNames, searchMovies, tmdbConfigured, type Movie } from '../lib/tmdb'
 import type { TvShow } from '../lib/tvmaze'
 import { useShowEpisodes } from '../lib/useShows'
@@ -76,20 +75,6 @@ function ShowSearch({ query }: { query: string }) {
   const [via, setVia] = useState<string | null>(null)
   const [tried, setTried] = useState<string[]>([])
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
-
-  // Des séries vraiment vues, pas juste ajoutées : sinon une série « à voir »
-  // jamais commencée servirait de base aux suggestions. Les adorées/aimées
-  // passent devant, à activité égale ; les pas aimées ne servent jamais de
-  // base (mais restent suivies normalement par ailleurs).
-  const seedIds = useMemo(
-    () =>
-      tracked
-        .filter((t) => t.last_watched_at && t.rating !== 'dislike')
-        .sort((a, b) => ratingRank(b.rating) - ratingRank(a.rating) || b.last_watched_at!.localeCompare(a.last_watched_at!))
-        .slice(0, 3)
-        .map((t) => t.show_id),
-    [tracked],
-  )
 
   // Avant de proposer de nouvelles séries, on rappelle où on en est dans
   // celles déjà en cours : ce qu'on regarde déjà passe avant la découverte.
@@ -183,7 +168,7 @@ function ShowSearch({ query }: { query: string }) {
           </ul>
         </section>
       )}
-      {!query.trim() && <ShowRecommendations showIds={seedIds} />}
+      {!query.trim() && <ShowRecommendations />}
       {!query.trim() && <NetflixTopShows />}
       <ul className="rows">
         {results.map((s) => {

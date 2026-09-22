@@ -40,11 +40,24 @@ const CACHE_TTL = 24 * 60 * 60 * 1000 // 24 h
 type RawMovie = {
   id: number
   title: string
+  original_title?: string
   poster_path: string | null
   release_date: string | null
   overview: string | null
   vote_count?: number
+  vote_average?: number
+  popularity?: number
+  genre_ids?: number[]
 }
+
+/** Signaux de qualité et de genre, pour classer les suggestions plutôt que de garder l'ordre brut TMDB. */
+export type RecSignals = { vote: number; voteCount: number; genreIds: number[] }
+
+const signals = (r: { vote_average?: number; vote_count?: number; genre_ids?: number[] }): RecSignals => ({
+  vote: r.vote_average ?? 0,
+  voteCount: r.vote_count ?? 0,
+  genreIds: r.genre_ids ?? [],
+})
 
 function toMovie(r: RawMovie): Movie {
   const year = r.release_date ? Number(r.release_date.slice(0, 4)) : null
@@ -332,34 +345,6 @@ export async function searchMovies(query: string, year?: number): Promise<Movie[
   return movies
 }
 
-/** Recherche de séries chez TMDB (pas TVmaze) — sert à résoudre un titre en poster/année. */
-async function searchTv(query: string): Promise<TvRecommendation[]> {
-  const key = `tmdb:searchtv:${query.toLowerCase()}`
-  try {
-    const raw = sessionStorage.getItem(key)
-    if (raw) {
-      const c = JSON.parse(raw) as { at: number; data: TvRecommendation[] }
-      if (Date.now() - c.at < CACHE_TTL) return c.data
-    }
-  } catch {
-    /* cache illisible : on refetch */
-  }
-  const data = await get<{ results: RawTvRec[] }>('/search/tv', { query, include_adult: 'false' })
-  const shows = data.results.map((r) => ({
-    id: r.id,
-    name: r.name,
-    originalName: r.original_name,
-    poster_url: r.poster_path ? IMG + r.poster_path : null,
-    year: r.first_air_date ? Number(r.first_air_date.slice(0, 4)) : null,
-  }))
-  try {
-    sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), data: shows }))
-  } catch {
-    /* stockage plein : pas grave */
-  }
-  return shows
-}
-
 const SUMMARY_TTL = 7 * 24 * 60 * 60 * 1000 // 7 j
 
 /**
@@ -440,32 +425,45 @@ export async function seasonOverviewsFr(
   return episodes
 }
 
-/**
- * Films recommandés par TMDB à partir d'un film aimé. Sert de base aux
- * suggestions « Recommandé pour toi », construites à partir des derniers
- * films vus plutôt que d'un algorithme maison.
- */
-export async function movieRecommendations(movieId: number): Promise<Movie[]> {
-  if (!KEY) return []
-  const key = `tmdb:movierec:v2:${movieId}`
+function readCache<T>(key: string, ttl: number): T | undefined {
   try {
-    const raw = sessionStorage.getItem(key)
-    if (raw) {
-      const c = JSON.parse(raw) as { at: number; data: Movie[] }
-      if (Date.now() - c.at < CACHE_TTL) return c.data
-    }
+    const raw = localStorage.getItem(key)
+    if (!raw) return undefined
+    const c = JSON.parse(raw) as { at: number; data: T }
+    return Date.now() - c.at < ttl ? c.data : undefined
   } catch {
-    /* cache illisible : on refetch */
+    return undefined
   }
+}
+
+function writeCache(key: string, data: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ at: Date.now(), data }))
+  } catch {
+    /* stockage plein : pas grave */
+  }
+}
+
+export type RecMovie = Movie & RecSignals
+
+/**
+ * Films recommandés par TMDB à partir d'un film vu — une des listes que
+ * l'algorithme de « Recommandé pour toi » croise ensuite (lib/recommend.ts).
+ * En localStorage plutôt que sessionStorage : sur iPhone, chaque ouverture de
+ * l'icône est une nouvelle session, et on repayait toutes les requêtes.
+ */
+export async function movieRecommendations(movieId: number): Promise<RecMovie[]> {
+  if (!KEY) return []
+  const key = `tmdb:movierec:v3:${movieId}`
+  const hit = readCache<RecMovie[]>(key, CACHE_TTL)
+  if (hit) return hit
   try {
     const data = await get<{ results: RawMovie[] }>(`/movie/${movieId}/recommendations`, {})
-    // Même plancher que côté séries : écarte les titres très confidentiels.
-    const movies = data.results.filter((r) => (r.vote_count ?? 0) >= 20).map(toMovie)
-    try {
-      sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), data: movies }))
-    } catch {
-      /* stockage plein : pas grave */
-    }
+    // Plancher de votes : écarte les titres très confidentiels.
+    const movies = data.results
+      .filter((r) => (r.vote_count ?? 0) >= 20)
+      .map((r) => ({ ...toMovie(r), ...signals(r) }))
+    writeCache(key, movies)
     return movies
   } catch {
     // Quota TMDB ou panne : une recommandation manquante n'est pas grave.
@@ -489,7 +487,20 @@ type RawTvRec = {
   poster_path: string | null
   first_air_date: string | null
   vote_count: number
+  vote_average?: number
+  popularity?: number
+  genre_ids?: number[]
 }
+
+const toTvRec = (r: RawTvRec): TvRecommendation => ({
+  id: r.id,
+  name: r.name,
+  originalName: r.original_name,
+  poster_url: r.poster_path ? IMG + r.poster_path : null,
+  year: r.first_air_date ? Number(r.first_air_date.slice(0, 4)) : null,
+})
+
+export type TvRec = TvRecommendation & RecSignals
 
 /**
  * Séries recommandées par TMDB à partir d'une série suivie (résolue via son
@@ -497,138 +508,191 @@ type RawTvRec = {
  * suggestions à chercher ensuite sur TVmaze : TMDB ne connaît pas
  * l'identifiant TVmaze, donc pas de lien direct vers une fiche.
  */
-export async function tvRecommendationsByImdb(
-  imdbId: string | null | undefined,
-): Promise<TvRecommendation[]> {
+export async function tvRecommendationsByImdb(imdbId: string | null | undefined): Promise<TvRec[]> {
   if (!KEY || !imdbId) return []
-  const tvId = await resolveTvId(imdbId)
+  const tvId = await resolveTvId(imdbId).catch(() => null)
   if (!tvId) return []
   // Le numéro de version change avec la forme des données mises en cache
   // (leçon de movieDetails) : à rebumper si le type change encore.
-  const key = `tmdb:tvrec:v3:${tvId}`
-  try {
-    const raw = sessionStorage.getItem(key)
-    if (raw) {
-      const c = JSON.parse(raw) as { at: number; data: TvRecommendation[] }
-      if (Date.now() - c.at < CACHE_TTL) return c.data
-    }
-  } catch {
-    /* cache illisible : on refetch */
-  }
+  const key = `tmdb:tvrec:v4:${tvId}`
+  const hit = readCache<TvRec[]>(key, CACHE_TTL)
+  if (hit) return hit
   try {
     const data = await get<{ results: RawTvRec[] }>(`/tv/${tvId}/recommendations`, {})
-    // TMDB propose parfois des séries très confidentielles (quelques votes
-    // à peine) : un plancher de votes écarte l'inconnu obscur sans changer
-    // le reste de l'algorithme, qui appartient à TMDB.
-    const recs = data.results
-      .filter((r) => r.vote_count >= 20)
-      .map((r) => ({
-        id: r.id,
-        name: r.name,
-        originalName: r.original_name,
-        poster_url: r.poster_path ? IMG + r.poster_path : null,
-        year: r.first_air_date ? Number(r.first_air_date.slice(0, 4)) : null,
-      }))
-    try {
-      sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), data: recs }))
-    } catch {
-      /* stockage plein : pas grave */
-    }
+    // Plancher de votes : écarte les séries très confidentielles.
+    const recs = data.results.filter((r) => r.vote_count >= 20).map((r) => ({ ...toTvRec(r), ...signals(r) }))
+    writeCache(key, recs)
     return recs
   } catch {
     return []
   }
 }
 
-type Top10Row = { title: string; rank: number }
-type Top10Data = { week: string; movies: Top10Row[]; shows: Top10Row[] }
+type Top10Row = { title: string; rank: number; weekRank: number | null; weeks: number }
+type Top10Data = { week: string; weeks: string[]; movies: Top10Row[]; shows: Top10Row[] }
+
+/** Place dans le classement Netflix du mois, et dans celui de la dernière semaine. */
+export type Top10Info = { rank: number; weekRank: number | null; weeks: number }
+export type Top10Movie = Movie & Top10Info
+export type Top10Show = TvRecommendation & Top10Info
 
 /**
- * Le vrai classement Netflix, via le fichier public que Netflix publie
- * lui-même chaque semaine (proxié par une fonction Netlify — CORS interdit
- * probablement de le récupérer directement depuis le navigateur). Rien à
- * voir avec l'approximation TMDB plus bas : si ça marche, c'est le vrai
- * classement ; si ça échoue (réseau, format changé), on bascule dessus.
+ * Le vrai classement Netflix France (4 dernières semaines), via le fichier
+ * public que Netflix publie lui-même, proxié par une fonction Netlify.
  */
 async function fetchTop10Raw(): Promise<Top10Data | null> {
-  // v2 : la fonction Netlify a changé de logique de classement (fusion
-  // English/Non-English par volume de vues plutôt que par rang brut) — un
-  // ancien cache sous l'ancienne clé contiendrait encore le classement erroné.
-  const key = 'zapping:top10:raw:v2'
-  try {
-    const raw = localStorage.getItem(key)
-    if (raw) {
-      const c = JSON.parse(raw) as { at: number; data: Top10Data }
-      if (Date.now() - c.at < 6 * 60 * 60 * 1000) return c.data // 6h : classement hebdomadaire
-    }
-  } catch {
-    /* cache illisible : on refetch */
-  }
+  // v3 : classement mensuel, nouvelle forme de réponse.
+  const key = 'zapping:top10:raw:v3'
+  const hit = readCache<Top10Data>(key, 6 * 60 * 60 * 1000)
+  if (hit) return hit
   try {
     const res = await fetch('/.netlify/functions/netflix-top10')
     if (!res.ok) return null
-    const data = (await res.json()) as (Top10Data & { error?: string }) | { error: string }
-    if ('error' in data) return null
-    try {
-      localStorage.setItem(key, JSON.stringify({ at: Date.now(), data }))
-    } catch {
-      /* stockage plein : pas grave */
-    }
+    const data = (await res.json()) as Top10Data | { error: string }
+    if ('error' in data || !Array.isArray(data.movies)) return null
+    writeCache(key, data)
     return data
   } catch {
     return null
   }
 }
 
+const norm = (s: string) => normalizeTitle(s.replace(/&/g, ' and ')).replace(/^(the|a|an|le|la|les|l) /, '')
+
+type MatchCandidate = { id: number; titles: string[]; year: number | null; popularity: number; voteCount: number }
+
 /**
- * Résolution séquentielle (pas Promise.all) : une dizaine de titres à
- * chercher chez TMDB, en rafale ça a déjà fait sauter la limite de débit
- * une fois — mis en cache par semaine ensuite, donc payé une seule fois.
+ * Choisit la fiche TMDB qui correspond à un titre du classement Netflix.
+ * Prendre le premier résultat de recherche, comme avant, tombait parfois sur
+ * un tout autre film au nom proche (d'où de vieux films d'auteur affichés
+ * dans le « Top 10 ») : on exige ici un titre identique — français, anglais
+ * ou original — et on départage par récence et popularité. Pas de titre
+ * identique → rien, plutôt qu'une fiche fausse.
  */
-export async function realNetflixTop10Movies(): Promise<Movie[] | null> {
-  const raw = await fetchTop10Raw()
-  if (!raw?.movies.length) return null
-  const key = `zapping:top10:resolved:movies:${raw.week}`
-  try {
-    const cached = localStorage.getItem(key)
-    if (cached) return JSON.parse(cached) as Movie[]
-  } catch {
-    /* cache illisible : on refetch */
+function pickMatch(title: string, candidates: MatchCandidate[]): number | null {
+  const target = norm(title)
+  if (!target) return null
+  const thisYear = new Date().getFullYear()
+  let best: { id: number; score: number } | null = null
+  for (const c of candidates) {
+    const names = c.titles.map(norm)
+    const exact = names.includes(target)
+    // Tolère un sous-titre (« Mission: Impossible – Dead Reckoning » vs
+    // « Mission: Impossible »), mais seulement s'il reste un vrai mot commun.
+    // Réservé aux sorties récentes : un vieux film au titre simplement proche
+    // est exactement l'erreur qu'on veut éviter.
+    const age = c.year ? thisYear - c.year : 30
+    const partial =
+      !exact &&
+      age <= 3 &&
+      target.length >= 4 &&
+      names.some((n) => n.startsWith(target + ' ') || target.startsWith(n + ' '))
+    if (!exact && !partial) continue
+    const score =
+      (exact ? 100 : 40) +
+      (age <= 1 ? 25 : age <= 3 ? 15 : age <= 8 ? 5 : 0) +
+      Math.log10(1 + c.popularity) * 10 +
+      (c.voteCount < 10 ? -15 : 0)
+    if (!best || score > best.score) best = { id: c.id, score }
   }
-  const resolved: Movie[] = []
-  for (const row of raw.movies.slice(0, 6)) {
-    const results = await searchMovies(row.title).catch(() => [])
-    if (results[0]) resolved.push(results[0])
-  }
-  try {
-    localStorage.setItem(key, JSON.stringify(resolved))
-  } catch {
-    /* stockage plein : pas grave */
-  }
-  return resolved
+  return best?.id ?? null
 }
 
-export async function realNetflixTop10Shows(): Promise<TvRecommendation[] | null> {
+const MATCH_TTL = 30 * 24 * 60 * 60 * 1000 // 30 j : un titre du classement désigne toujours la même fiche
+// Titre sans correspondance : retenté le lendemain, TMDB ajoute vite les sorties récentes.
+const MISS_TTL = 24 * 60 * 60 * 1000
+
+async function matchTop10Movie(title: string): Promise<Movie | null> {
+  const key = `tmdb:top10match:v1:movie:${norm(title)}`
+  const missKey = `tmdb:top10miss:v1:movie:${norm(title)}`
+  const hit = readCache<Movie>(key, MATCH_TTL)
+  if (hit) return hit
+  if (readCache<true>(missKey, MISS_TTL)) return null
+  // Netflix publie le titre international (souvent anglais) : on cherche en
+  // français ET en anglais pour comparer aux deux, l'affichage reste français.
+  const [fr, en] = await Promise.all([
+    get<{ results: RawMovie[] }>('/search/movie', { query: title, include_adult: 'false' }),
+    get<{ results: RawMovie[] }>('/search/movie', { query: title, include_adult: 'false', language: 'en-US' }),
+  ])
+  const byId = new Map<number, MatchCandidate>()
+  for (const r of [...fr.results, ...en.results]) {
+    const c = byId.get(r.id) ?? {
+      id: r.id,
+      titles: [],
+      year: r.release_date ? Number(r.release_date.slice(0, 4)) : null,
+      popularity: r.popularity ?? 0,
+      voteCount: r.vote_count ?? 0,
+    }
+    c.titles.push(r.title, r.original_title ?? '')
+    byId.set(r.id, c)
+  }
+  const id = pickMatch(title, [...byId.values()])
+  const raw = id === null ? undefined : fr.results.find((r) => r.id === id) ?? en.results.find((r) => r.id === id)
+  const movie = raw ? toMovie(raw) : null
+  if (movie) writeCache(key, movie)
+  else writeCache(missKey, true)
+  return movie
+}
+
+async function matchTop10Show(title: string): Promise<TvRecommendation | null> {
+  const key = `tmdb:top10match:v1:show:${norm(title)}`
+  const missKey = `tmdb:top10miss:v1:show:${norm(title)}`
+  const hit = readCache<TvRecommendation>(key, MATCH_TTL)
+  if (hit) return hit
+  if (readCache<true>(missKey, MISS_TTL)) return null
+  const [fr, en] = await Promise.all([
+    get<{ results: RawTvRec[] }>('/search/tv', { query: title, include_adult: 'false' }),
+    get<{ results: RawTvRec[] }>('/search/tv', { query: title, include_adult: 'false', language: 'en-US' }),
+  ])
+  const byId = new Map<number, MatchCandidate>()
+  for (const r of [...fr.results, ...en.results]) {
+    const c = byId.get(r.id) ?? {
+      id: r.id,
+      titles: [],
+      year: r.first_air_date ? Number(r.first_air_date.slice(0, 4)) : null,
+      popularity: r.popularity ?? 0,
+      voteCount: r.vote_count ?? 0,
+    }
+    c.titles.push(r.name, r.original_name)
+    byId.set(r.id, c)
+  }
+  const id = pickMatch(title, [...byId.values()])
+  const raw = id === null ? undefined : fr.results.find((r) => r.id === id) ?? en.results.find((r) => r.id === id)
+  const show = raw ? toTvRec(raw) : null
+  if (show) writeCache(key, show)
+  else writeCache(missKey, true)
+  return show
+}
+
+/**
+ * Titre par titre, séquentiellement : une rafale de recherches a déjà fait
+ * sauter la limite de débit TMDB. Chaque correspondance est gardée 30 jours,
+ * donc d'une semaine à l'autre seuls les nouveaux entrants coûtent une requête.
+ */
+async function resolveTop10<T>(
+  rows: Top10Row[],
+  match: (title: string) => Promise<T | null>,
+): Promise<(T & Top10Info)[]> {
+  const out: (T & Top10Info)[] = []
+  for (const row of rows) {
+    const found = await match(row.title).catch(() => null)
+    if (found) out.push({ ...found, rank: row.rank, weekRank: row.weekRank, weeks: row.weeks })
+  }
+  return out
+}
+
+export async function realNetflixTop10Movies(): Promise<Top10Movie[] | null> {
+  if (!KEY) return null
+  const raw = await fetchTop10Raw()
+  if (!raw?.movies.length) return null
+  return resolveTop10(raw.movies, matchTop10Movie)
+}
+
+export async function realNetflixTop10Shows(): Promise<Top10Show[] | null> {
+  if (!KEY) return null
   const raw = await fetchTop10Raw()
   if (!raw?.shows.length) return null
-  const key = `zapping:top10:resolved:shows:${raw.week}`
-  try {
-    const cached = localStorage.getItem(key)
-    if (cached) return JSON.parse(cached) as TvRecommendation[]
-  } catch {
-    /* cache illisible : on refetch */
-  }
-  const resolved: TvRecommendation[] = []
-  for (const row of raw.shows.slice(0, 6)) {
-    const results = await searchTv(row.title).catch(() => [])
-    if (results[0]) resolved.push(results[0])
-  }
-  try {
-    localStorage.setItem(key, JSON.stringify(resolved))
-  } catch {
-    /* stockage plein : pas grave */
-  }
-  return resolved
+  return resolveTop10(raw.shows, matchTop10Show)
 }
 
 /**
@@ -693,13 +757,7 @@ export async function netflixTopShows(): Promise<TvRecommendation[]> {
       watch_region: 'FR',
       sort_by: 'popularity.desc',
     })
-    const shows = data.results.map((r) => ({
-      id: r.id,
-      name: r.name,
-      originalName: r.original_name,
-      poster_url: r.poster_path ? IMG + r.poster_path : null,
-      year: r.first_air_date ? Number(r.first_air_date.slice(0, 4)) : null,
-    }))
+    const shows = data.results.map(toTvRec)
     try {
       localStorage.setItem(key, JSON.stringify({ at: Date.now(), data: shows }))
     } catch {
