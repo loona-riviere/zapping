@@ -49,7 +49,7 @@ async function call<T>(body: object): Promise<AiResult<T> & { stale?: boolean; e
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
   if (!token) throw new Error('non connectée')
-  const res = await fetch('/.netlify/functions/ai-recommendations', {
+  const res = await fetch('/api/ai-recommendations', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),

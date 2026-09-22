@@ -122,7 +122,7 @@ d'accueil (jamais depuis un onglet Safari), et demande iOS 16.4 ou plus récent.
 ### 6. Recommandations Gemini (facultatif)
 
 « Recommandé pour toi » est choisi par Gemini (offre gratuite de Google AI Studio), via la fonction
-`netlify/functions/ai-recommendations.mts` : Gemini reçoit la bibliothèque (notes, séries
+`netlify/edge-functions/ai-recommendations.ts` (Edge Function : jusqu'à 40 s pour répondre, là où une fonction classique coupe vers 10 s) : Gemini reçoit la bibliothèque (notes, séries
 abandonnées, revisionnages, suggestions écartées) et choisit parmi de vrais titres récents dispos
 en France (titres proches de ceux aimés, Top 10 Netflix France de la semaine, nouveautés des
 plateformes), avec une raison pour chacun. Il ne propose jamais de titre de mémoire.

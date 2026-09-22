@@ -1,6 +1,8 @@
 // Client minimal pour l'API publique TVmaze (sans clé, CORS ouvert).
 // Doc : https://www.tvmaze.com/api
 
+import { setCacheItem } from './storage'
+
 export type TvShow = {
   id: number
   name: string
@@ -94,11 +96,7 @@ export function getShowWithEpisodes(id: number, force = false): Promise<ShowWith
         externals: show.externals ?? null,
       }
       const data = { show: s, episodes }
-      try {
-        localStorage.setItem(key, JSON.stringify({ at: Date.now(), data }))
-      } catch {
-        /* stockage plein : pas grave */
-      }
+      setCacheItem(key, JSON.stringify({ at: Date.now(), data }))
       return data
     })
     .finally(() => inflight.delete(id))

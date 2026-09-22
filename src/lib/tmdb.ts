@@ -7,6 +7,8 @@
 //     Authorization. C'est celui que TMDB met le plus en avant.
 // Doc : https://developer.themoviedb.org/reference/intro/getting-started
 
+import { setCacheItem } from './storage'
+
 export type Movie = {
   id: number
   title: string
@@ -437,11 +439,7 @@ function readCache<T>(key: string, ttl: number): T | undefined {
 }
 
 function writeCache(key: string, data: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify({ at: Date.now(), data }))
-  } catch {
-    /* stockage plein : pas grave */
-  }
+  setCacheItem(key, JSON.stringify({ at: Date.now(), data }))
 }
 
 export type RecMovie = Movie & RecSignals

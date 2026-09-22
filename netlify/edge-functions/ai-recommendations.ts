@@ -1,6 +1,11 @@
-import { createClient } from '@supabase/supabase-js'
-
 // Recommandations personnalisées par Gemini (offre gratuite Google AI Studio).
+//
+// Edge Function plutôt que fonction classique : Gemini met parfois plus de
+// 10 s à répondre (bibliothèque entière + une centaine de candidats), le
+// délai d'une fonction Netlify classique, qui répondait alors « 502 ». Une
+// Edge Function a jusqu'à 40 s ; le temps passé à attendre Gemini ne compte
+// pas dans sa limite de calcul. Pas de dépendance : Supabase via son API
+// REST, en simple fetch.
 //
 // Gemini ne propose rien « de mémoire » : il choisit parmi des candidats que
 // l'app lui fournit — titres récents dispos en France, Top 10 Netflix,
@@ -50,6 +55,8 @@ const GENRES: Record<number, string> = {
 // Modèle Flash de l'offre gratuite ; l'alias « latest » en secours si le nom
 // exact disparaît un jour.
 const MODELS = ['gemini-2.5-flash', 'gemini-flash-latest']
+
+export const config = { path: '/api/ai-recommendations' }
 
 const clip = (s: string | null | undefined, n: number) => (s ?? '').replace(/\s+/g, ' ').trim().slice(0, n)
 
@@ -155,15 +162,14 @@ export default async (req: Request) => {
   }
 
   // Réservé aux personnes connectées à l'app : sans ça, n'importe qui
-  // pourrait consommer le quota Gemini gratuit.
+  // pourrait consommer le quota Gemini gratuit. Tout passe ensuite avec sa
+  // session (RLS) : chacun ne lit et n'écrit que sa propre sélection.
   const jwt = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '')
   if (!jwt) return Response.json({ error: 'non connecté' }, { status: 401 })
-  const db = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: `Bearer ${jwt}` } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
-  const { data: auth, error: authError } = await db.auth.getUser(jwt)
-  if (authError || !auth.user) return Response.json({ error: 'session invalide' }, { status: 401 })
+  const headers = { apikey: anonKey, Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' }
+  const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, { headers })
+  const user = userRes.ok ? ((await userRes.json()) as { id?: string }) : null
+  if (!user?.id) return Response.json({ error: 'session invalide' }, { status: 401 })
 
   let body: Body
   try {
@@ -175,12 +181,9 @@ export default async (req: Request) => {
     return Response.json({ error: 'requête incomplète' }, { status: 400 })
   }
 
-  const { data: row } = await db
-    .from('ai_recommendations')
-    .select('picks, created_at')
-    .eq('user_id', auth.user.id)
-    .eq('kind', body.kind)
-    .maybeSingle()
+  const table = `${supabaseUrl}/rest/v1/ai_recommendations`
+  const rowRes = await fetch(`${table}?select=picks,created_at&user_id=eq.${user.id}&kind=eq.${body.kind}`, { headers })
+  const row = rowRes.ok ? (((await rowRes.json()) as { picks: Pick[]; created_at: string }[])[0] ?? null) : null
   const age = row ? Date.now() - new Date(row.created_at).getTime() : Infinity
   const cached = row ? { picks: row.picks as Pick[], generatedAt: row.created_at as string, cached: true } : null
 
@@ -211,9 +214,11 @@ export default async (req: Request) => {
       })
     const generatedAt = new Date().toISOString()
     if (clean.length) {
-      await db
-        .from('ai_recommendations')
-        .upsert({ user_id: auth.user.id, kind: body.kind, picks: clean, created_at: generatedAt })
+      await fetch(table, {
+        method: 'POST',
+        headers: { ...headers, Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({ user_id: user.id, kind: body.kind, picks: clean, created_at: generatedAt }),
+      })
     }
     return Response.json({ picks: clean, generatedAt, cached: false })
   } catch (e) {
