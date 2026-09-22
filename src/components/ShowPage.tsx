@@ -234,15 +234,7 @@ export function ShowPage({ id }: { id: number }) {
       </header>
 
       <div className="show__controls">
-        {followed ? (
-          <button
-            type="button"
-            className="link-btn muted"
-            onClick={() => confirm(`Retirer ${show.name} et effacer ta progression ?`) && untrack(show.id)}
-          >
-            Retirer de mes séries
-          </button>
-        ) : (
+        {!followed && (
           <button type="button" className="btn btn--primary" onClick={() => track(show)}>
             Suivre cette série
           </button>
@@ -256,6 +248,15 @@ export function ShowPage({ id }: { id: number }) {
               onChange={(r) => rateShow(show.id, r)}
             />
           </p>
+        )}
+        {followed && (
+          <button
+            type="button"
+            className="link-btn muted show__untrack"
+            onClick={() => confirm(`Retirer ${show.name} et effacer ta progression ?`) && untrack(show.id)}
+          >
+            Retirer de mes séries
+          </button>
         )}
       </div>
 
