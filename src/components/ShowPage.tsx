@@ -229,15 +229,19 @@ export function ShowPage({ id }: { id: number }) {
               <strong>{progress.watched}</strong> sur {progress.aired} épisodes vus
             </p>
           )}
-          <button
-            className={`btn ${followed ? 'btn--ghost' : 'btn--primary'}`}
-            onClick={() => {
-              if (!followed) track(show)
-              else if (confirm(`Retirer ${show.name} et effacer ta progression ?`)) untrack(show.id)
-            }}
-          >
-            {followed ? 'Retirer de mes séries' : 'Suivre cette série'}
-          </button>
+          {followed ? (
+            <button
+              type="button"
+              className="link-btn muted"
+              onClick={() => confirm(`Retirer ${show.name} et effacer ta progression ?`) && untrack(show.id)}
+            >
+              Retirer de mes séries
+            </button>
+          ) : (
+            <button type="button" className="btn btn--primary" onClick={() => track(show)}>
+              Suivre cette série
+            </button>
+          )}
           {followed && <Rewatches show={show} episodes={episodes} />}
           {followed && (
             <p className="show__status">
