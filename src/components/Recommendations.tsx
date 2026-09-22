@@ -218,9 +218,9 @@ function RecommendedSection({ ai, children }: { ai: AiState<unknown>; children: 
             : ai.error
               ? `Sélection Gemini indisponible (${ai.error}). `
               : ''}
-        {ai.result?.picks.length && !ai.generating ? (
+        {ai.settled && (ai.result?.picks.length || ai.error) ? (
           <button type="button" className="link-btn" onClick={ai.refresh}>
-            Actualiser
+            {ai.result?.picks.length ? 'Actualiser' : 'Réessayer'}
           </button>
         ) : null}
         {ai.notice && ` ${ai.notice}`}

@@ -52,9 +52,10 @@ const GENRES: Record<number, string> = {
   10764: 'téléréalité', 10765: 'SF & fantastique', 10766: 'soap', 10767: 'talk-show', 10768: 'guerre & politique',
 }
 
-// Modèle Flash de l'offre gratuite ; l'alias « latest » en secours si le nom
-// exact disparaît un jour.
-const MODELS = ['gemini-2.5-flash', 'gemini-flash-latest']
+// Modèles Flash de l'offre gratuite, dans l'ordre de préférence. Chacun a sa
+// propre charge et son propre quota : si l'un est saturé (503) ou a épuisé
+// son quota du jour (429), on passe au suivant plutôt que d'échouer.
+const MODELS = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-flash-lite-latest']
 
 export const config = { path: '/api/ai-recommendations' }
 
@@ -135,6 +136,7 @@ export function parsePicks(text: string): { id: number; reason: string }[] {
 }
 
 async function askGemini(key: string, prompt: string) {
+  const failures: number[] = []
   let lastError = ''
   for (const model of MODELS) {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
@@ -151,15 +153,16 @@ async function askGemini(key: string, prompt: string) {
           // cette réflexion est décomptée de la même limite — à 2048, la
           // réponse arrivait coupée au milieu de la liste.
           maxOutputTokens: 8192,
-          ...(model === 'gemini-2.5-flash' ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+          ...(model.startsWith('gemini-2.5-') ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
         },
       }),
     })
-    if (res.status === 404) {
-      lastError = `modèle ${model} introuvable`
+    // Modèle inconnu, saturé, quota épuisé ou panne passagère : modèle suivant.
+    if ([404, 429, 500, 503].includes(res.status)) {
+      failures.push(res.status)
+      lastError = `${model} : ${res.status}`
       continue
     }
-    if (res.status === 429) throw new Error('quota Gemini atteint pour aujourd’hui')
     if (!res.ok) throw new Error(`Gemini a répondu ${res.status} : ${clip(await res.text(), 200)}`)
     const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[] }
     const text = (data.candidates?.[0]?.content?.parts ?? [])
@@ -168,6 +171,10 @@ async function askGemini(key: string, prompt: string) {
       .join('')
     return { picks: parsePicks(text) }
   }
+  if (failures.includes(503) || failures.includes(500)) {
+    throw new Error('Gemini est surchargé en ce moment, réessaie dans quelques minutes')
+  }
+  if (failures.includes(429)) throw new Error('quota Gemini gratuit atteint pour aujourd’hui')
   throw new Error(lastError || 'aucun modèle Gemini disponible')
 }
 
