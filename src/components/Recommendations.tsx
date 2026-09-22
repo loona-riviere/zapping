@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
 import { dismiss, isDismissed } from '../lib/dismissed'
+import { href } from '../lib/route'
 import {
   movieRecommendations, tmdbConfigured, tvRecommendationsByImdb,
   type Movie, type TvRecommendation,
@@ -12,53 +13,15 @@ import { Poster } from './Poster'
 type Status = 'idle' | 'loading' | 'empty' | 'ready'
 
 /**
- * Modale « Intéressé·e ? » commune aux deux types de suggestion : oui ajoute
- * à la liste à voir, non l'écarte pour de bon (persisté via `dismissed.ts`).
- */
-function RecModal({
-  title, image, year, onYes, onNo, onClose, busy, error,
-}: {
-  title: string
-  image: string | null
-  year: number | null
-  onYes: () => void
-  onNo: () => void
-  onClose: () => void
-  busy?: boolean
-  error?: string
-}) {
-  return (
-    <div className="catchup catchup--rec" role="dialog" aria-modal="true">
-      <div className="catchup__pick">
-        <Poster src={image} alt={title} />
-        <div>
-          <p className="catchup__title">{title}</p>
-          {year && <p className="muted">{year}</p>}
-        </div>
-      </div>
-      <p>Intéressé·e ?</p>
-      {error && <p className="error">{error}</p>}
-      <div className="catchup__actions">
-        <button className="btn btn--ghost" onClick={onNo} disabled={busy}>Non, ne plus proposer</button>
-        <button className="btn btn--primary" onClick={onYes} disabled={busy}>
-          {busy ? 'Ajout…' : 'Oui, à voir'}
-        </button>
-      </div>
-      <button type="button" className="link-btn catchup__close" onClick={onClose}>Fermer</button>
-    </div>
-  )
-}
-
-/**
  * Suggestions de films à partir des derniers vus, via les recommandations
- * TMDB. Cliquer ouvre une modale : oui ajoute à « à voir », non écarte la
- * suggestion pour de bon.
+ * TMDB. Chaque suggestion ouvre sa fiche (comme un résultat de recherche) :
+ * vu, à voir ou rien — tout se décide là-bas plutôt que dans une modale à
+ * choix limité. La croix écarte la suggestion pour de bon, sans y entrer.
  */
 export function MovieRecommendations() {
-  const { movies, addToWatchlist } = useApp()
+  const { movies } = useApp()
   const [recs, setRecs] = useState<Movie[]>([])
   const [status, setStatus] = useState<Status>('idle')
-  const [picked, setPicked] = useState<Movie | null>(null)
 
   const seeds = useMemo(
     () =>
@@ -96,18 +59,9 @@ export function MovieRecommendations() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seeds])
 
-  function confirmYes() {
-    if (!picked) return
-    addToWatchlist(picked)
-    setRecs((prev) => prev.filter((m) => m.id !== picked.id))
-    setPicked(null)
-  }
-
-  function confirmNo() {
-    if (!picked) return
-    dismiss('movie', picked.id)
-    setRecs((prev) => prev.filter((m) => m.id !== picked.id))
-    setPicked(null)
+  function skip(m: Movie) {
+    dismiss('movie', m.id)
+    setRecs((prev) => prev.filter((x) => x.id !== m.id))
   }
 
   if (status === 'idle') return null
@@ -122,24 +76,22 @@ export function MovieRecommendations() {
       {status === 'ready' && (
         <ul className="shelf">
           {recs.map((m) => (
-            <li key={m.id}>
-              <button type="button" className="shelf__pick" onClick={() => setPicked(m)} title={m.title}>
+            <li key={m.id} className="shelf__item">
+              <a href={href.movie(m.id)} title={m.title}>
                 <Poster src={m.poster_url} alt={m.title} />
                 <span className="shelf__label">{m.title}</span>
+              </a>
+              <button
+                type="button"
+                className="shelf__dismiss"
+                onClick={() => skip(m)}
+                aria-label={`Ne plus recommander ${m.title}`}
+              >
+                ✕
               </button>
             </li>
           ))}
         </ul>
-      )}
-      {picked && (
-        <RecModal
-          title={picked.title}
-          image={picked.poster_url}
-          year={picked.year}
-          onYes={confirmYes}
-          onNo={confirmNo}
-          onClose={() => setPicked(null)}
-        />
       )}
     </section>
   )
@@ -147,18 +99,17 @@ export function MovieRecommendations() {
 
 /**
  * Suggestions de séries à partir des séries suivies les plus actives. TMDB
- * ne connaît pas les identifiants TVmaze : sur « oui », on cherche le titre
- * chez TVmaze (le meilleur résultat, ou celui dont l'année colle) pour la
- * suivre directement — sans résultat, on prévient plutôt que de deviner.
+ * ne connaît pas les identifiants TVmaze : au clic, on cherche le titre chez
+ * TVmaze (le meilleur résultat, ou celui dont l'année colle) et on ouvre sa
+ * fiche directement — sans résultat, on le dit plutôt que de deviner.
  */
 export function ShowRecommendations({ showIds }: { showIds: number[] }) {
-  const { tracked, track } = useApp()
+  const { tracked } = useApp()
   const { data } = useShowEpisodes(showIds)
   const [recs, setRecs] = useState<TvRecommendation[]>([])
   const [status, setStatus] = useState<Status>('idle')
-  const [picked, setPicked] = useState<TvRecommendation | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [notFound, setNotFound] = useState(false)
+  const [opening, setOpening] = useState<number | null>(null)
+  const [notFound, setNotFound] = useState<number | null>(null)
   // Toutes les séries jamais suivies, pas seulement les 3 servant de base aux
   // suggestions : une série vue puis retirée du suivi ne doit pas revenir.
   const trackedNames = useMemo(
@@ -189,7 +140,9 @@ export function ShowRecommendations({ showIds }: { showIds: number[] }) {
       const byId = new Map<number, TvRecommendation>()
       for (const list of lists) {
         for (const r of list) {
-          if (!trackedNames.has(r.name.toLowerCase()) && !isDismissed('show', r.id) && !byId.has(r.id)) {
+          const alreadyTracked =
+            trackedNames.has(r.name.toLowerCase()) || trackedNames.has(r.originalName.toLowerCase())
+          if (!alreadyTracked && !isDismissed('show', r.id) && !byId.has(r.id)) {
             byId.set(r.id, r)
           }
         }
@@ -210,37 +163,27 @@ export function ShowRecommendations({ showIds }: { showIds: number[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imdbIds, stillResolving])
 
-  function pick(r: TvRecommendation) {
-    setNotFound(false)
-    setPicked(r)
-  }
-
-  async function confirmYes() {
-    if (!picked) return
-    setBusy(true)
-    setNotFound(false)
+  async function open(r: TvRecommendation) {
+    setNotFound(null)
+    setOpening(r.id)
     try {
-      const results = await searchShows(picked.name)
+      const results = await searchShows(r.name)
       const match =
-        results.find((s) => picked.year && s.premiered && Number(s.premiered.slice(0, 4)) === picked.year) ??
+        results.find((s) => r.year && s.premiered && Number(s.premiered.slice(0, 4)) === r.year) ??
         results[0]
       if (!match) {
-        setNotFound(true)
+        setNotFound(r.id)
         return
       }
-      await track(match)
-      setRecs((prev) => prev.filter((r) => r.id !== picked.id))
-      setPicked(null)
+      window.location.hash = href.show(match.id)
     } finally {
-      setBusy(false)
+      setOpening(null)
     }
   }
 
-  function confirmNo() {
-    if (!picked) return
-    dismiss('show', picked.id)
-    setRecs((prev) => prev.filter((r) => r.id !== picked.id))
-    setPicked(null)
+  function skip(r: TvRecommendation) {
+    dismiss('show', r.id)
+    setRecs((prev) => prev.filter((x) => x.id !== r.id))
   }
 
   if (status === 'idle') return null
@@ -255,26 +198,31 @@ export function ShowRecommendations({ showIds }: { showIds: number[] }) {
       {status === 'ready' && (
         <ul className="shelf">
           {recs.map((r) => (
-            <li key={r.id}>
-              <button type="button" className="shelf__pick" onClick={() => pick(r)} title={r.name}>
+            <li key={r.id} className="shelf__item">
+              <button
+                type="button"
+                className="shelf__pick"
+                onClick={() => open(r)}
+                disabled={opening === r.id}
+                title={r.name}
+              >
                 <Poster src={r.poster_url} alt={r.name} />
-                <span className="shelf__label">{r.name}</span>
+                <span className="shelf__label">{opening === r.id ? 'Ouverture…' : r.name}</span>
+                {notFound === r.id && (
+                  <span className="error shelf__label">Introuvable chez TVmaze</span>
+                )}
+              </button>
+              <button
+                type="button"
+                className="shelf__dismiss"
+                onClick={() => skip(r)}
+                aria-label={`Ne plus recommander ${r.name}`}
+              >
+                ✕
               </button>
             </li>
           ))}
         </ul>
-      )}
-      {picked && (
-        <RecModal
-          title={picked.name}
-          image={picked.poster_url}
-          year={picked.year}
-          onYes={confirmYes}
-          onNo={confirmNo}
-          onClose={() => setPicked(null)}
-          busy={busy}
-          error={notFound ? "Introuvable chez TVmaze sous ce titre — cherche-la à la main." : undefined}
-        />
       )}
     </section>
   )

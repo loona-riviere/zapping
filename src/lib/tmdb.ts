@@ -427,9 +427,22 @@ export async function movieRecommendations(movieId: number): Promise<Movie[]> {
   }
 }
 
-export type TvRecommendation = { id: number; name: string; poster_url: string | null; year: number | null }
+export type TvRecommendation = {
+  id: number
+  name: string
+  /** Titre original (souvent l'anglais) : TVmaze suit les séries sous ce nom-là, pas le titre français de TMDB. */
+  originalName: string
+  poster_url: string | null
+  year: number | null
+}
 
-type RawTvRec = { id: number; name: string; poster_path: string | null; first_air_date: string | null }
+type RawTvRec = {
+  id: number
+  name: string
+  original_name: string
+  poster_path: string | null
+  first_air_date: string | null
+}
 
 /**
  * Séries recommandées par TMDB à partir d'une série suivie (résolue via son
@@ -443,7 +456,9 @@ export async function tvRecommendationsByImdb(
   if (!KEY || !imdbId) return []
   const tvId = await resolveTvId(imdbId)
   if (!tvId) return []
-  const key = `tmdb:tvrec:${tvId}`
+  // Le numéro de version change avec la forme des données mises en cache
+  // (leçon de movieDetails) : à rebumper si le type change encore.
+  const key = `tmdb:tvrec:v2:${tvId}`
   try {
     const raw = sessionStorage.getItem(key)
     if (raw) {
@@ -458,6 +473,7 @@ export async function tvRecommendationsByImdb(
     const recs = data.results.map((r) => ({
       id: r.id,
       name: r.name,
+      originalName: r.original_name,
       poster_url: r.poster_path ? IMG + r.poster_path : null,
       year: r.first_air_date ? Number(r.first_air_date.slice(0, 4)) : null,
     }))

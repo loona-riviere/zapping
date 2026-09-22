@@ -123,6 +123,14 @@ button { font: inherit; color: inherit; }
 .shelf { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: .6rem; }
 .shelf .poster--sm { width: 100%; }
 .shelf a { display: block; }
+.shelf__item { position: relative; }
+.shelf__dismiss {
+  position: absolute; top: -.3rem; right: -.3rem; width: 1.4rem; height: 1.4rem;
+  border-radius: 50%; border: 0; background: var(--surface); color: var(--muted);
+  font-size: .7rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .4);
+}
+.shelf__dismiss:hover { color: var(--danger); }
 .shelf__pick {
   display: block; width: 100%; background: none; border: 0; padding: 0;
   font: inherit; text-align: left; cursor: pointer; color: inherit;
@@ -212,11 +220,6 @@ button { font: inherit; color: inherit; }
 .catchup p, .notice p { margin: 0; }
 .catchup__actions { display: flex; gap: .5rem; }
 .catchup .btn--ghost { border-color: color-mix(in srgb, var(--bg) 40%, transparent); color: var(--bg); }
-.catchup--rec { flex-direction: column; align-items: stretch; gap: .6rem; }
-.catchup__pick { display: flex; align-items: center; gap: .75rem; }
-.catchup__pick .poster { width: 3rem; flex: none; }
-.catchup__title { font-weight: 700; }
-.catchup__close { align-self: center; color: inherit; opacity: .75; }
 .notice { background: var(--danger); color: #fff; }
 .notice .link-btn { color: #fff; }
 @keyframes rise { from { opacity: 0; transform: translate(-50%, 10px); } }
