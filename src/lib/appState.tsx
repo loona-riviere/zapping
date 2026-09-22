@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import * as store from './store'
-import type { ShowStatus, TrackedShow, WatchedMap, WatchedMovie } from './store'
+import type { Rating, ShowStatus, TrackedShow, WatchedMap, WatchedMovie } from './store'
 import { movieRuntime, type Movie } from './tmdb'
 import type { TvEpisode, TvShow } from './tvmaze'
 
@@ -63,6 +63,8 @@ type AppState = {
   fixActivity: (showId: number, actual: string | null) => Promise<void>
   /** Pose le titre français d'une série une fois trouvé chez TMDB. */
   renameShow: (showId: number, name: string) => Promise<void>
+  rateShow: (showId: number, rating: Rating | null) => Promise<void>
+  rateMovie: (movieId: number, rating: Rating | null) => Promise<void>
 }
 
 const Ctx = createContext<AppState | null>(null)
@@ -398,6 +400,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
               watched_at: watchedAt,
               runtime,
               status: 'watched',
+              rating: null,
             })
           }
           // Les films sans date passent en fin de liste.
@@ -463,6 +466,28 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     }
   }, [patchShow])
 
+  const rateShow = useCallback(async (showId: number, rating: Rating | null) => {
+    const before = tracked.find((t) => t.show_id === showId)?.rating ?? null
+    patchShow(showId, { rating })
+    try {
+      await store.rateShow(showId, rating)
+    } catch (e) {
+      patchShow(showId, { rating: before })
+      setNotice(`Note impossible à enregistrer : ${(e as Error).message}`)
+    }
+  }, [tracked, patchShow])
+
+  const rateMovie = useCallback(async (movieId: number, rating: Rating | null) => {
+    const before = movies.find((m) => m.movie_id === movieId)?.rating ?? null
+    setMovies((prev) => prev.map((m) => (m.movie_id === movieId ? { ...m, rating } : m)))
+    try {
+      await store.rateMovie(movieId, rating)
+    } catch (e) {
+      setMovies((prev) => prev.map((m) => (m.movie_id === movieId ? { ...m, rating: before } : m)))
+      setNotice(`Note impossible à enregistrer : ${(e as Error).message}`)
+    }
+  }, [movies])
+
   const fixActivity = useCallback(async (showId: number, actual: string | null) => {
     const before = tracked.find((t) => t.show_id === showId)?.last_watched_at ?? null
     patchShow(showId, { last_watched_at: actual })
@@ -490,6 +515,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
         watched_at: null,
         runtime: null,
         status: 'later',
+        rating: null,
       }
       setMovies((prev) => [row, ...prev])
       try {
@@ -552,11 +578,11 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       isTracked, statusOf, watchedFor, historyFor, rewatchesOf, setRewatches,
       isRewatching, startRewatch, endRewatch,
       track, untrack, setStatus, setWatched,
-      addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow,
+      addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
     }),
     [userId, tracked, watched, rewatch, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
      historyFor, rewatchesOf, setRewatches, isRewatching, startRewatch, endRewatch,
-     track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow],
+     track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

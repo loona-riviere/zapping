@@ -14,6 +14,14 @@ export const STATUS_LABEL: Record<ShowStatus, string> = {
 
 export const STATUSES = Object.keys(STATUS_LABEL) as ShowStatus[]
 
+/** Notation façon Netflix : sert surtout à choisir de meilleures graines de recommandation. */
+export type Rating = 'dislike' | 'like' | 'love'
+
+/** Pour trier « ce qu'on a adoré » en premier : plus haut = à privilégier comme graine. */
+export function ratingRank(r: Rating | null | undefined): number {
+  return r === 'love' ? 2 : r === 'like' ? 1 : r === 'dislike' ? -1 : 0
+}
+
 export type TrackedShow = {
   show_id: number
   name: string
@@ -25,6 +33,7 @@ export type TrackedShow = {
   rewatches: number
   /** Vrai pendant un revisionnage : la progression est suivie à part. */
   rewatching: boolean
+  rating: Rating | null
 }
 
 export type WatchedMovie = {
@@ -40,6 +49,7 @@ export type WatchedMovie = {
   runtime: number | null
   /** « later » : ajouté à voir, pas encore vu. */
   status: 'watched' | 'later'
+  rating: Rating | null
 }
 
 /**
@@ -67,13 +77,14 @@ const LEGACY_COLUMNS = 'show_id, name, image_url, added_at, last_watched_at'
 export async function fetchTracked(): Promise<TrackedShow[]> {
   const full = await supabase
     .from('tracked_shows')
-    .select(`${LEGACY_COLUMNS}, status, rewatches, rewatching`)
+    .select(`${LEGACY_COLUMNS}, status, rewatches, rewatching, rating`)
   if (!full.error) {
     return (full.data ?? []).map((r) => ({
       ...r,
       status: (r.status ?? 'watching') as ShowStatus,
       rewatches: r.rewatches ?? 0,
       rewatching: r.rewatching ?? false,
+      rating: (r.rating ?? null) as Rating | null,
     }))
   }
   if (!isMissingSchema(full.error)) throw full.error
@@ -86,6 +97,7 @@ export async function fetchTracked(): Promise<TrackedShow[]> {
     status: 'watching' as ShowStatus,
     rewatches: 0,
     rewatching: false,
+    rating: null,
   }))
 }
 
@@ -132,6 +144,7 @@ export async function trackShow(userId: string, show: TvShow): Promise<TrackedSh
     status: 'later',
     rewatches: 0,
     rewatching: false,
+    rating: null,
   }
 }
 
@@ -152,6 +165,12 @@ export async function setRewatches(showId: number, rewatches: number): Promise<v
 
 export async function setShowStatus(showId: number, status: ShowStatus): Promise<void> {
   const { error } = await supabase.from('tracked_shows').update({ status }).eq('show_id', showId)
+  if (error) throw error
+}
+
+/** Note une série suivie ; `null` retire la note. */
+export async function rateShow(showId: number, rating: Rating | null): Promise<void> {
+  const { error } = await supabase.from('tracked_shows').update({ rating }).eq('show_id', showId)
   if (error) throw error
 }
 
@@ -218,14 +237,14 @@ export async function fetchMovies(): Promise<WatchedMovie[]> {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from('watched_movies')
-      .select('movie_id, title, poster_url, release_year, release_date, watched_at, runtime, status')
+      .select('movie_id, title, poster_url, release_year, release_date, watched_at, runtime, status, rating')
       .order('watched_at', { ascending: false, nullsFirst: false })
       .range(from, from + PAGE - 1)
     if (error) {
       if (!isMissingSchema(error)) throw error
       return fetchMoviesLegacy()
     }
-    out.push(...(data ?? []).map((r) => ({ ...r, status: r.status ?? 'watched' }) as WatchedMovie))
+    out.push(...(data ?? []).map((r) => ({ ...r, status: r.status ?? 'watched', rating: r.rating ?? null }) as WatchedMovie))
     if (!data || data.length < PAGE) break
   }
   return out
@@ -241,7 +260,7 @@ async function fetchMoviesLegacy(): Promise<WatchedMovie[]> {
       .order('watched_at', { ascending: false, nullsFirst: false })
       .range(from, from + PAGE - 1)
     if (error) throw error
-    out.push(...(data ?? []).map((r) => ({ ...r, release_date: null, status: 'watched' as const })))
+    out.push(...(data ?? []).map((r) => ({ ...r, release_date: null, status: 'watched' as const, rating: null })))
     if (!data || data.length < PAGE) break
   }
   return out
@@ -319,6 +338,12 @@ export async function markMovieUnwatched(movieId: number): Promise<void> {
 
 export async function removeMovie(movieId: number): Promise<void> {
   const { error } = await supabase.from('watched_movies').delete().eq('movie_id', movieId)
+  if (error) throw error
+}
+
+/** Note un film vu ; `null` retire la note. */
+export async function rateMovie(movieId: number, rating: Rating | null): Promise<void> {
+  const { error } = await supabase.from('watched_movies').update({ rating }).eq('movie_id', movieId)
   if (error) throw error
 }
 
