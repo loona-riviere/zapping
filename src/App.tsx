@@ -8,6 +8,7 @@ import { Import } from './components/Import'
 import { Library, isLibrary } from './components/Library'
 import { MoviePage } from './components/MoviePage'
 import { Search } from './components/Search'
+import { SetPassword } from './components/SetPassword'
 import { ShowPage } from './components/ShowPage'
 import { Stats } from './components/Stats'
 import { AppProvider, useApp } from './lib/appState'
@@ -65,6 +66,7 @@ function Shell() {
           <a href={href.search} aria-current={route.name === 'search' ? 'page' : undefined}>Chercher</a>
           <a href={href.import} aria-current={route.name === 'import' ? 'page' : undefined}>Import</a>
           <a href={href.stats} aria-current={route.name === 'stats' ? 'page' : undefined}>Statistiques</a>
+          <SetPassword />
           <button className="link-btn" onClick={() => supabase.auth.signOut()}>Déconnexion</button>
         </nav>
       </header>
