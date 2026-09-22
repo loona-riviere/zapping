@@ -243,13 +243,11 @@ export function ShowPage({ id }: { id: number }) {
             <p className="show__status">
               <label htmlFor="show-status">Statut</label>
               <StatusPicker showId={show.id} id="show-status" />
+              <RatingPicker
+                rating={tracked.find((t) => t.show_id === show.id)?.rating ?? null}
+                onChange={(r) => rateShow(show.id, r)}
+              />
             </p>
-          )}
-          {followed && (
-            <RatingPicker
-              rating={tracked.find((t) => t.show_id === show.id)?.rating ?? null}
-              onChange={(r) => rateShow(show.id, r)}
-            />
           )}
         </div>
       </header>

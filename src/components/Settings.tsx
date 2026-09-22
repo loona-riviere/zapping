@@ -8,7 +8,8 @@ import { SetPassword } from './SetPassword'
 export function Settings() {
   const { tracked, movies, rateShow, rateMovie, dismissed, undismissRec } = useApp()
 
-  const unratedShows = tracked.filter((t) => !t.rating)
+  // Rien à noter pour une série jamais commencée ou abandonnée en route.
+  const unratedShows = tracked.filter((t) => !t.rating && t.status !== 'later' && t.status !== 'dropped')
   const unratedMovies = movies.filter((m) => m.status === 'watched' && !m.rating)
 
   return (

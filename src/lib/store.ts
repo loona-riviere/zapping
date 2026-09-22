@@ -6,7 +6,7 @@ import type { TvEpisode, TvShow } from './tvmaze'
 export type ShowStatus = 'watching' | 'paused' | 'later' | 'dropped'
 
 export const STATUS_LABEL: Record<ShowStatus, string> = {
-  watching: 'En cours',
+  watching: 'Suivie',
   paused: 'En pause',
   later: 'À regarder plus tard',
   dropped: 'Abandonnée',
