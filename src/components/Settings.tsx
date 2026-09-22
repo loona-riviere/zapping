@@ -1,6 +1,7 @@
 import { useApp } from '../lib/appState'
 import { href } from '../lib/route'
 import { supabase } from '../lib/supabase'
+import { Notifications } from './Notifications'
 import { Poster } from './Poster'
 import { RatingPicker } from './RatingPicker'
 import { SetPassword } from './SetPassword'
@@ -22,6 +23,8 @@ export function Settings() {
           Déconnexion
         </button>
       </section>
+
+      <Notifications />
 
       <section>
         <h2 className="section-title">Import</h2>

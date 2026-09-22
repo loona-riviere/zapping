@@ -99,6 +99,22 @@ npm run dev
 
 Ensuite chaque push sur `main` redéploie tout seul.
 
+### 5. Notifications de nouveaux épisodes (facultatif)
+
+Une tâche planifiée (`netlify/functions/check-new-episodes.mts`, une fois par jour) envoie une
+notification push quand un épisode suivi vient de sortir. Variables à ajouter sur Netlify :
+
+- `VITE_VAPID_PUBLIC_KEY` et `VAPID_PUBLIC_KEY` (même valeur) et `VAPID_PRIVATE_KEY` : générées
+  avec `npx web-push generate-vapid-keys`.
+- `VAPID_SUBJECT` : `mailto:ton-adresse@exemple.com` (contact requis par le protocole Web Push).
+- `SUPABASE_URL` : l'URL du projet (étape 1).
+- `SUPABASE_SERVICE_ROLE_KEY` : **Project Settings → API → Project API keys → `service_role`**
+  (secrète — jamais dans `VITE_*`, uniquement lue côté fonction).
+
+Sans ces variables, l'app fonctionne normalement ; la section Notifications des Paramètres
+affiche juste « indisponible ». Sur iPhone, ça ne marche que depuis l'icône ajoutée à l'écran
+d'accueil (jamais depuis un onglet Safari), et demande iOS 16.4 ou plus récent.
+
 Astuce : sur iPhone ou Android, ajoute la page à l'écran d'accueil pour l'utiliser comme une app.
 
 ## Notes

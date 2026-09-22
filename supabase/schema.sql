@@ -201,3 +201,40 @@ create policy "watched_movies: own rows" on public.watched_movies
   for all to authenticated
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
+
+-- Abonnements aux notifications push (Web Push), un par appareil/navigateur.
+create table if not exists public.push_subscriptions (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  endpoint text not null,
+  p256dh text not null,
+  auth_key text not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, endpoint)
+);
+
+alter table public.push_subscriptions enable row level security;
+
+drop policy if exists "push_subscriptions: own rows" on public.push_subscriptions;
+create policy "push_subscriptions: own rows" on public.push_subscriptions
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
+-- Évite de renvoyer deux fois la même notif de nouvel épisode : une ligne par
+-- épisode déjà notifié à un utilisateur. Écrite uniquement par la tâche
+-- planifiée (clé service_role, hors RLS) ; en lecture pour l'utilisateur au
+-- cas où on voudrait l'exposer un jour.
+create table if not exists public.episode_notifications (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  show_id integer not null,
+  episode_id integer not null,
+  notified_at timestamptz not null default now(),
+  primary key (user_id, episode_id)
+);
+
+alter table public.episode_notifications enable row level security;
+
+drop policy if exists "episode_notifications: own rows" on public.episode_notifications;
+create policy "episode_notifications: own rows" on public.episode_notifications
+  for select to authenticated
+  using ((select auth.uid()) = user_id);
