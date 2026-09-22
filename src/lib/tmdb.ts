@@ -332,6 +332,34 @@ export async function searchMovies(query: string, year?: number): Promise<Movie[
   return movies
 }
 
+/** Recherche de séries chez TMDB (pas TVmaze) — sert à résoudre un titre en poster/année. */
+async function searchTv(query: string): Promise<TvRecommendation[]> {
+  const key = `tmdb:searchtv:${query.toLowerCase()}`
+  try {
+    const raw = sessionStorage.getItem(key)
+    if (raw) {
+      const c = JSON.parse(raw) as { at: number; data: TvRecommendation[] }
+      if (Date.now() - c.at < CACHE_TTL) return c.data
+    }
+  } catch {
+    /* cache illisible : on refetch */
+  }
+  const data = await get<{ results: RawTvRec[] }>('/search/tv', { query, include_adult: 'false' })
+  const shows = data.results.map((r) => ({
+    id: r.id,
+    name: r.name,
+    originalName: r.original_name,
+    poster_url: r.poster_path ? IMG + r.poster_path : null,
+    year: r.first_air_date ? Number(r.first_air_date.slice(0, 4)) : null,
+  }))
+  try {
+    sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), data: shows }))
+  } catch {
+    /* stockage plein : pas grave */
+  }
+  return shows
+}
+
 const SUMMARY_TTL = 7 * 24 * 60 * 60 * 1000 // 7 j
 
 /**
@@ -512,11 +540,98 @@ export async function tvRecommendationsByImdb(
   }
 }
 
+type Top10Row = { title: string; rank: number }
+type Top10Data = { week: string; movies: Top10Row[]; shows: Top10Row[] }
+
 /**
- * Populaire sur Netflix en ce moment, en France. TMDB n'a pas le vrai
- * Top 10 officiel de Netflix (pas d'API publique pour ça) : on approxime
- * avec son propre classement de popularité, filtré aux titres disponibles
- * en abonnement chez Netflix. L'identifiant 8 est celui de Netflix chez TMDB.
+ * Le vrai classement Netflix, via le fichier public que Netflix publie
+ * lui-même chaque semaine (proxié par une fonction Netlify — CORS interdit
+ * probablement de le récupérer directement depuis le navigateur). Rien à
+ * voir avec l'approximation TMDB plus bas : si ça marche, c'est le vrai
+ * classement ; si ça échoue (réseau, format changé), on bascule dessus.
+ */
+async function fetchTop10Raw(): Promise<Top10Data | null> {
+  const key = 'zapping:top10:raw'
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw) {
+      const c = JSON.parse(raw) as { at: number; data: Top10Data }
+      if (Date.now() - c.at < 6 * 60 * 60 * 1000) return c.data // 6h : classement hebdomadaire
+    }
+  } catch {
+    /* cache illisible : on refetch */
+  }
+  try {
+    const res = await fetch('/.netlify/functions/netflix-top10')
+    if (!res.ok) return null
+    const data = (await res.json()) as (Top10Data & { error?: string }) | { error: string }
+    if ('error' in data) return null
+    try {
+      localStorage.setItem(key, JSON.stringify({ at: Date.now(), data }))
+    } catch {
+      /* stockage plein : pas grave */
+    }
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Résolution séquentielle (pas Promise.all) : une dizaine de titres à
+ * chercher chez TMDB, en rafale ça a déjà fait sauter la limite de débit
+ * une fois — mis en cache par semaine ensuite, donc payé une seule fois.
+ */
+export async function realNetflixTop10Movies(): Promise<Movie[] | null> {
+  const raw = await fetchTop10Raw()
+  if (!raw?.movies.length) return null
+  const key = `zapping:top10:resolved:movies:${raw.week}`
+  try {
+    const cached = localStorage.getItem(key)
+    if (cached) return JSON.parse(cached) as Movie[]
+  } catch {
+    /* cache illisible : on refetch */
+  }
+  const resolved: Movie[] = []
+  for (const row of raw.movies) {
+    const results = await searchMovies(row.title).catch(() => [])
+    if (results[0]) resolved.push(results[0])
+  }
+  try {
+    localStorage.setItem(key, JSON.stringify(resolved))
+  } catch {
+    /* stockage plein : pas grave */
+  }
+  return resolved
+}
+
+export async function realNetflixTop10Shows(): Promise<TvRecommendation[] | null> {
+  const raw = await fetchTop10Raw()
+  if (!raw?.shows.length) return null
+  const key = `zapping:top10:resolved:shows:${raw.week}`
+  try {
+    const cached = localStorage.getItem(key)
+    if (cached) return JSON.parse(cached) as TvRecommendation[]
+  } catch {
+    /* cache illisible : on refetch */
+  }
+  const resolved: TvRecommendation[] = []
+  for (const row of raw.shows) {
+    const results = await searchTv(row.title).catch(() => [])
+    if (results[0]) resolved.push(results[0])
+  }
+  try {
+    localStorage.setItem(key, JSON.stringify(resolved))
+  } catch {
+    /* stockage plein : pas grave */
+  }
+  return resolved
+}
+
+/**
+ * Repli si le vrai classement échoue : propre approximation TMDB, filtrée
+ * aux titres disponibles en abonnement chez Netflix. L'identifiant 8 est
+ * celui de Netflix chez TMDB.
  */
 const NETFLIX_PROVIDER_ID = '8'
 

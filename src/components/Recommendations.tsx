@@ -3,8 +3,8 @@ import { useApp } from '../lib/appState'
 import { href } from '../lib/route'
 import { ratingRank } from '../lib/store'
 import {
-  movieRecommendations, netflixTopMovies, netflixTopShows, tmdbConfigured, tvRecommendationsByImdb,
-  type Movie, type TvRecommendation,
+  movieRecommendations, netflixTopMovies, netflixTopShows, realNetflixTop10Movies, realNetflixTop10Shows,
+  tmdbConfigured, tvRecommendationsByImdb, type Movie, type TvRecommendation,
 } from '../lib/tmdb'
 import { searchShows } from '../lib/tvmaze'
 import { useShowEpisodes } from '../lib/useShows'
@@ -260,14 +260,19 @@ export function NetflixTopMovies() {
   // chargement soit fini pour éviter un flash de titres pas encore filtrés.
   const [raw, setRaw] = useState<Movie[]>([])
   const [status, setStatus] = useState<Status>('idle')
+  const [isReal, setIsReal] = useState(false)
 
   useEffect(() => {
     if (!tmdbConfigured || loading) return
     let alive = true
     setStatus('loading')
-    netflixTopMovies().then((found) => {
+    realNetflixTop10Movies().then((real) => {
+      if (real?.length) return { found: real, isReal: true }
+      return netflixTopMovies().then((found) => ({ found, isReal: false }))
+    }).then(({ found, isReal }) => {
       if (!alive) return
       setRaw(found)
+      setIsReal(isReal)
       setStatus(found.length ? 'ready' : 'empty')
     })
     return () => {
@@ -287,7 +292,7 @@ export function NetflixTopMovies() {
 
   return (
     <section>
-      <h2 className="section-title">Populaire sur Netflix</h2>
+      <h2 className="section-title">{isReal ? 'Top 10 Netflix (films)' : 'Populaire sur Netflix'}</h2>
       <ul className="shelf shelf--carousel">
         {visible.map((m) => (
           <li key={m.id} className="shelf__item">
@@ -318,6 +323,7 @@ export function NetflixTopShows() {
   // appel TMDB — recalculé à chaque rendu, pas figé dans l'effet.
   const [raw, setRaw] = useState<TvRecommendation[]>([])
   const [status, setStatus] = useState<Status>('idle')
+  const [isReal, setIsReal] = useState(false)
   const [opening, setOpening] = useState<number | null>(null)
   const [notFound, setNotFound] = useState<number | null>(null)
   const trackedNames = useMemo(
@@ -333,9 +339,13 @@ export function NetflixTopShows() {
     if (!tmdbConfigured || loading) return
     let alive = true
     setStatus('loading')
-    netflixTopShows().then((found) => {
+    realNetflixTop10Shows().then((real) => {
+      if (real?.length) return { found: real, isReal: true }
+      return netflixTopShows().then((found) => ({ found, isReal: false }))
+    }).then(({ found, isReal }) => {
       if (!alive) return
       setRaw(found)
+      setIsReal(isReal)
       setStatus(found.length ? 'ready' : 'empty')
     })
     return () => {
@@ -382,7 +392,7 @@ export function NetflixTopShows() {
 
   return (
     <section>
-      <h2 className="section-title">Populaire sur Netflix</h2>
+      <h2 className="section-title">{isReal ? 'Top 10 Netflix (séries)' : 'Populaire sur Netflix'}</h2>
       <ul className="shelf shelf--carousel">
         {visible.map((r) => (
           <li key={r.id} className="shelf__item">
