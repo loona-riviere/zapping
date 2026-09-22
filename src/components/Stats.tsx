@@ -5,8 +5,8 @@ import { findActivityIssues, findSeasonIssues, type ActivityIssue, type SeasonIs
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import {
-  computeStats, countByStatus, formatNumber, humanBreakdown, humanDuration, monthLabel, shortUnit,
-  totalHours, type ShowTotal,
+  computeStats, computeTimeline, countByStatus, formatNumber, humanBreakdown, humanDuration, monthLabel,
+  shortUnit, totalHours, type ShowTotal, type TimeBucket,
 } from '../lib/stats'
 import { STATUS_LABEL } from '../lib/store'
 import { useShowEpisodes } from '../lib/useShows'
@@ -21,6 +21,10 @@ export function Stats() {
     [tracked, historyFor, data, movies],
   )
   const byStatus = useMemo(() => countByStatus(tracked), [tracked])
+  const timeline = useMemo(
+    () => computeTimeline(tracked, historyFor, data, movies),
+    [tracked, historyFor, data, movies],
+  )
   const [report, setReport] = useState<{ activity: ActivityIssue[]; season: SeasonIssue[] } | null>(null)
   const [fixingAll, setFixingAll] = useState(false)
 
@@ -102,6 +106,8 @@ export function Stats() {
       </ul>
 
       <TopShows shows={stats.topShows} />
+
+      <Timeline months={timeline.months} years={timeline.years} />
 
       <section className="diag">
         <div className="diag__head">
@@ -227,6 +233,57 @@ function Tile({ label, value }: { label: string; value: string }) {
       <p className="tile-stat__label">{label}</p>
       <p className="tile-stat__value">{value}</p>
     </li>
+  )
+}
+
+/* ------------------------------------------------------------ mois / année -- */
+
+const RECENT_MONTHS = 12
+
+function Timeline({ months, years }: { months: TimeBucket[]; years: TimeBucket[] }) {
+  const [unit, setUnit] = useState<'month' | 'year'>('year')
+  if (!months.length) return null
+
+  const buckets = unit === 'year' ? years : months.slice(0, RECENT_MONTHS)
+  const peak = buckets.reduce((m, b) => Math.max(m, b.minutes), 0) || 1
+
+  return (
+    <section className="chart">
+      <div className="chart__head">
+        <h3 className="chart__title">Par mois et par année</h3>
+      </div>
+      <div className="subtabs" role="tablist">
+        <button role="tab" aria-selected={unit === 'year'} onClick={() => setUnit('year')}>
+          Années
+        </button>
+        <button role="tab" aria-selected={unit === 'month'} onClick={() => setUnit('month')}>
+          Mois
+        </button>
+      </div>
+      {unit === 'month' && months.length > RECENT_MONTHS && (
+        <p className="muted" style={{ fontSize: '.85rem', marginTop: '-.25rem' }}>
+          Les {RECENT_MONTHS} derniers mois avec au moins un visionnage.
+        </p>
+      )}
+      <ul className="hbars">
+        {buckets.map((b) => {
+          const d = humanDuration(b.minutes)
+          const count = b.episodes + b.movies
+          return (
+            <li key={b.key} className="hbars__row">
+              <span className="hbars__name">{unit === 'year' ? b.key : monthLabel(b.key)}</span>
+              <span className="hbars__track">
+                <span className="hbars__bar" style={{ width: `${(b.minutes / peak) * 100}%` }} />
+              </span>
+              <span className="hbars__value">
+                {d.value} {shortUnit(d.unit)}
+                <span className="muted"> · {formatNumber(count)}</span>
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 

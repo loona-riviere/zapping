@@ -140,6 +140,62 @@ export function computeStats(
   }
 }
 
+export type TimeBucket = {
+  /** « 2026-09 » pour un mois, « 2026 » pour une année. */
+  key: string
+  minutes: number
+  episodes: number
+  movies: number
+}
+
+function addToBucket(map: Map<string, TimeBucket>, key: string, minutes: number, isMovie: boolean) {
+  let b = map.get(key)
+  if (!b) {
+    b = { key, minutes: 0, episodes: 0, movies: 0 }
+    map.set(key, b)
+  }
+  b.minutes += minutes
+  if (isMovie) b.movies++
+  else b.episodes++
+}
+
+/** Répartit le temps de visionnage par mois et par année, séries et films confondus. */
+export function computeTimeline(
+  tracked: TrackedShow[],
+  watchedFor: (showId: number) => WatchedEpisodes,
+  data: Record<number, ShowWithEpisodes>,
+  movies: WatchedMovie[],
+): { months: TimeBucket[]; years: TimeBucket[] } {
+  const byMonth = new Map<string, TimeBucket>()
+  const byYear = new Map<string, TimeBucket>()
+
+  for (const t of tracked) {
+    const show = data[t.show_id]
+    if (!show) continue
+    const seen = watchedFor(t.show_id)
+    const fallback = medianRuntime(show)
+    for (const ep of show.episodes) {
+      const at = seen.get(ep.id)
+      if (!at) continue
+      const runtime = (typeof ep.runtime === 'number' && ep.runtime > 0 ? ep.runtime : fallback) ?? 0
+      addToBucket(byMonth, at.slice(0, 7), runtime, false)
+      addToBucket(byYear, at.slice(0, 4), runtime, false)
+    }
+  }
+
+  for (const m of movies) {
+    if (!m.watched_at) continue
+    const runtime = m.runtime ?? 0
+    addToBucket(byMonth, m.watched_at.slice(0, 7), runtime, true)
+    addToBucket(byYear, m.watched_at.slice(0, 4), runtime, true)
+  }
+
+  return {
+    months: [...byMonth.values()].sort((a, b) => b.key.localeCompare(a.key)),
+    years: [...byYear.values()].sort((a, b) => b.key.localeCompare(a.key)),
+  }
+}
+
 /** Compte les séries par statut, pour la répartition affichée sous les compteurs. */
 export function countByStatus(tracked: TrackedShow[]): Record<ShowStatus, number> {
   const out = { watching: 0, paused: 0, later: 0, dropped: 0 }
