@@ -88,16 +88,6 @@ export function Movies() {
       return a.title.localeCompare(b.title, 'fr')
     })
 
-  /**
-   * « Je l'ai vu à sa sortie » : plutôt que la date du jour, reprend la date
-   * de sortie connue chez TMDB (une requête, non mise en cache par ailleurs
-   * dans la liste — seulement demandée au clic).
-   */
-  async function markWatchedAtRelease(m: WatchedMovie) {
-    const details = await movieDetails(m.movie_id).catch(() => null)
-    markMovieWatched(m.movie_id, details?.releaseDate ? `${details.releaseDate}T12:00:00.000Z` : today())
-  }
-
   return (
     <div className="movies">
       <div className="home__search">
@@ -144,21 +134,12 @@ export function Movies() {
             </a>
             <div className="row__actions">
               {!notYetReleased(m) && (
-                <>
-                  <button className="btn btn--seen" onClick={() => markMovieWatched(m.movie_id, today())}>
-                    Vu
-                  </button>
-                  <button
-                    className="link-btn muted"
-                    onClick={() => markWatchedAtRelease(m)}
-                    title="Marque le film vu à sa date de sortie plutôt qu'aujourd'hui"
-                  >
-                    Vu à sa sortie
-                  </button>
-                </>
+                <button className="btn btn--seen" onClick={() => markMovieWatched(m.movie_id, today())}>
+                  Vu
+                </button>
               )}
               <button
-                className="link-btn muted"
+                className="link-btn muted row__drop"
                 onClick={() => confirm(`Retirer ${m.title} de tes films à voir ?`) && removeMovie(m.movie_id)}
               >
                 Retirer
