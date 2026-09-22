@@ -528,21 +528,21 @@ export async function tvRecommendationsByImdb(imdbId: string | null | undefined)
   }
 }
 
-type Top10Row = { title: string; rank: number; weekRank: number | null; weeks: number }
-type Top10Data = { week: string; weeks: string[]; movies: Top10Row[]; shows: Top10Row[] }
-
-/** Place dans le classement Netflix du mois, et dans celui de la dernière semaine. */
-export type Top10Info = { rank: number; weekRank: number | null; weeks: number }
-export type Top10Movie = Movie & Top10Info
-export type Top10Show = TvRecommendation & Top10Info
+type Top10Row = { title: string; rank: number; weeks: number }
+type Top10Data = { week: string; movies: Top10Row[]; shows: Top10Row[] }
 
 /**
- * Le vrai classement Netflix France (4 dernières semaines), via le fichier
- * public que Netflix publie lui-même, proxié par une fonction Netlify.
+ * Une ligne du classement officiel. `match` est la fiche TMDB trouvée pour
+ * ce titre, ou null si aucune ne correspond avec certitude : la ligne reste
+ * affichée (un Top 10 à trous n'a pas l'air d'un Top 10), sans affiche.
  */
+export type Top10Entry<T> = { title: string; rank: number; weeks: number; match: T | null }
+export type Top10<T> = { week: string; entries: Top10Entry<T>[] }
+
+/** Classement officiel Netflix France de la dernière semaine, via une fonction Netlify. */
 async function fetchTop10Raw(): Promise<Top10Data | null> {
-  // v3 : classement mensuel, nouvelle forme de réponse.
-  const key = 'zapping:top10:raw:v3'
+  // v4 : dernière semaine seule (v3 cumulait le mois).
+  const key = 'zapping:top10:raw:v4'
   const hit = readCache<Top10Data>(key, 6 * 60 * 60 * 1000)
   if (hit) return hit
   try {
@@ -669,30 +669,26 @@ async function matchTop10Show(title: string): Promise<TvRecommendation | null> {
  * sauter la limite de débit TMDB. Chaque correspondance est gardée 30 jours,
  * donc d'une semaine à l'autre seuls les nouveaux entrants coûtent une requête.
  */
-async function resolveTop10<T>(
-  rows: Top10Row[],
-  match: (title: string) => Promise<T | null>,
-): Promise<(T & Top10Info)[]> {
-  const out: (T & Top10Info)[] = []
+async function resolveTop10<T>(rows: Top10Row[], match: (title: string) => Promise<T | null>) {
+  const out: Top10Entry<T>[] = []
   for (const row of rows) {
-    const found = await match(row.title).catch(() => null)
-    if (found) out.push({ ...found, rank: row.rank, weekRank: row.weekRank, weeks: row.weeks })
+    out.push({ ...row, match: await match(row.title).catch(() => null) })
   }
   return out
 }
 
-export async function realNetflixTop10Movies(): Promise<Top10Movie[] | null> {
+export async function realNetflixTop10Movies(): Promise<Top10<Movie> | null> {
   if (!KEY) return null
   const raw = await fetchTop10Raw()
   if (!raw?.movies.length) return null
-  return resolveTop10(raw.movies, matchTop10Movie)
+  return { week: raw.week, entries: await resolveTop10(raw.movies, matchTop10Movie) }
 }
 
-export async function realNetflixTop10Shows(): Promise<Top10Show[] | null> {
+export async function realNetflixTop10Shows(): Promise<Top10<TvRecommendation> | null> {
   if (!KEY) return null
   const raw = await fetchTop10Raw()
   if (!raw?.shows.length) return null
-  return resolveTop10(raw.shows, matchTop10Show)
+  return { week: raw.week, entries: await resolveTop10(raw.shows, matchTop10Show) }
 }
 
 /**

@@ -5,7 +5,7 @@ import { href } from '../lib/route'
 import {
   movieRecommendations, netflixTopMovies, netflixTopShows, realNetflixTop10Movies, realNetflixTop10Shows,
   tmdbConfigured, tvRecommendationsByImdb,
-  type Movie, type RecMovie, type Top10Info, type TvRec, type TvRecommendation,
+  type Movie, type RecMovie, type Top10, type TvRec, type TvRecommendation,
 } from '../lib/tmdb'
 import { searchShows } from '../lib/tvmaze'
 import { useShowEpisodes } from '../lib/useShows'
@@ -61,34 +61,32 @@ function useOpenShow() {
   return { opening, notFound, open }
 }
 
-function MovieTile({ m, note, rank, onSkip }: { m: Movie; note?: string; rank?: number; onSkip: () => void }) {
+type TileProps = { note?: string; rank?: number; seen?: boolean; onSkip?: () => void }
+
+function MovieTile({ m, note, rank, seen, onSkip }: TileProps & { m: Movie }) {
   return (
-    <li className="shelf__item">
+    <li className={seen ? 'shelf__item shelf__item--seen' : 'shelf__item'}>
       <a href={href.movie(m.id)} title={note ? `${m.title} — ${note}` : m.title}>
         <Poster src={m.poster_url} alt={m.title} />
         <span className="shelf__label">{m.title}</span>
         {note && <span className="shelf__because">{note}</span>}
       </a>
       {rank !== undefined && <span className="shelf__rank" aria-label={`Numéro ${rank}`}>{rank}</span>}
-      <button type="button" className="shelf__dismiss" onClick={onSkip} aria-label={`Ne plus recommander ${m.title}`}>
-        ✕
-      </button>
+      {onSkip && (
+        <button type="button" className="shelf__dismiss" onClick={onSkip} aria-label={`Ne plus recommander ${m.title}`}>
+          ✕
+        </button>
+      )}
     </li>
   )
 }
 
 function ShowTile({
-  r, note, rank, opener, onSkip,
-}: {
-  r: TvRecommendation
-  note?: string
-  rank?: number
-  opener: ReturnType<typeof useOpenShow>
-  onSkip: () => void
-}) {
+  r, note, rank, seen, opener, onSkip,
+}: TileProps & { r: TvRecommendation; opener: ReturnType<typeof useOpenShow> }) {
   const opening = opener.opening === r.id
   return (
-    <li className="shelf__item">
+    <li className={seen ? 'shelf__item shelf__item--seen' : 'shelf__item'}>
       <button
         type="button"
         className="shelf__pick"
@@ -102,9 +100,11 @@ function ShowTile({
         {opener.notFound === r.id && <span className="error shelf__label">Introuvable chez TVmaze</span>}
       </button>
       {rank !== undefined && <span className="shelf__rank" aria-label={`Numéro ${rank}`}>{rank}</span>}
-      <button type="button" className="shelf__dismiss" onClick={onSkip} aria-label={`Ne plus recommander ${r.name}`}>
-        ✕
-      </button>
+      {onSkip && (
+        <button type="button" className="shelf__dismiss" onClick={onSkip} aria-label={`Ne plus recommander ${r.name}`}>
+          ✕
+        </button>
+      )}
     </li>
   )
 }
@@ -250,7 +250,10 @@ export function ShowRecommendations() {
   }, [fetchKey])
 
   const ranked: Ranked<TvRec>[] = useMemo(
-    () => (lists ? rankRecommendations(lists, (r) => isTracked(trackedNames, r) || isDismissed('show', r.id)) : []),
+    () =>
+      lists
+        ? rankRecommendations(lists, (r) => isTracked(trackedNames, r) || isDismissed('show', r.id), { maxAge: 12 })
+        : [],
     [lists, trackedNames, isDismissed],
   )
 
@@ -271,91 +274,127 @@ export function ShowRecommendations() {
 }
 
 /**
- * Le vrai Top 10 Netflix France du mois (fichier public Netflix, 4 dernières
- * semaines) ; à défaut, une approximation TMDB « populaire sur Netflix ».
- * On attend la fin du chargement de la bibliothèque (`loading`) pour ne pas
- * afficher puis retirer d'un coup les titres déjà vus.
+ * Le classement officiel Netflix France de la dernière semaine publiée ; à
+ * défaut (fichier Netflix injoignable), une approximation TMDB « populaire
+ * sur Netflix ». On attend la fin du chargement de la bibliothèque
+ * (`loading`) pour que les marques « déjà vu » soient justes d'emblée.
  */
-function useNetflixTop<T>(real: () => Promise<(T & Top10Info)[] | null>, approx: () => Promise<T[]>) {
-  type Item = T & Partial<Top10Info>
+function useNetflixTop<T>(real: () => Promise<Top10<T> | null>, approx: () => Promise<T[]>) {
   const { loading } = useApp()
-  const [items, setItems] = useState<Item[] | null>(null)
-  const [isReal, setIsReal] = useState(false)
+  const [top, setTop] = useState<Top10<T> | null>(null)
+  const [fallback, setFallback] = useState<T[] | null>(null)
 
   useEffect(() => {
     if (!tmdbConfigured || loading) return
     let alive = true
-    const load = async (): Promise<{ list: Item[]; real: boolean }> => {
-      const top = await real().catch(() => null)
-      if (top?.length) return { list: top, real: true }
-      return { list: (await approx()) as Item[], real: false }
-    }
-    load().then(({ list, real: r }) => {
+    ;(async () => {
+      const found = await real().catch(() => null)
       if (!alive) return
-      setItems(list)
-      setIsReal(r)
-    })
+      if (found?.entries.length) return setTop(found)
+      const list = await approx()
+      if (alive) setFallback(list)
+    })()
     return () => {
       alive = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading])
 
-  return { items, isReal }
+  return { top, fallback }
 }
 
-function TopSection({ isReal, children }: { isReal: boolean; children: ReactNode }) {
+/** « 2026-09-20 » (dimanche de fin de semaine chez Netflix) → « 14 – 20 sept. » */
+function weekLabel(end: string) {
+  const to = new Date(`${end}T12:00:00`)
+  if (Number.isNaN(to.getTime())) return ''
+  const from = new Date(to.getTime() - 6 * 86_400_000)
+  const fmt = (d: Date) => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+  return `${from.getMonth() === to.getMonth() ? from.getDate() : fmt(from)} – ${fmt(to)}`
+}
+
+const weeksNote = (weeks: number) => (weeks <= 1 ? 'Nouveau' : `${weeks}e semaine`)
+
+function TopSection({ week, children }: { week?: string; children: ReactNode }) {
   return (
     <section>
-      <h2 className="section-title">{isReal ? 'Top 10 Netflix France du mois' : 'Populaire sur Netflix'}</h2>
+      <h2 className="section-title">{week ? 'Top 10 Netflix France' : 'Populaire sur Netflix'}</h2>
+      {week && <p className="muted shelf__caption">Classement officiel Netflix, semaine du {weekLabel(week)}</p>}
       <ul className="shelf shelf--carousel">{children}</ul>
     </section>
   )
 }
 
-const weeksNote = (w: number | undefined) => (w && w > 1 ? `${w} semaines dans le top` : undefined)
+/** Titre du classement sans fiche TMDB certaine : affiché quand même, et renvoie vers la recherche. */
+function UnmatchedTile({ title, rank, weeks, kind }: { title: string; rank: number; weeks: number; kind: 'show' | 'movie' }) {
+  return (
+    <li className="shelf__item">
+      <a href={href.searchFor(title, kind)} title={title}>
+        <Poster src={null} alt={title} />
+        <span className="shelf__label">{title}</span>
+        <span className="shelf__because">{weeksNote(weeks)}</span>
+      </a>
+      <span className="shelf__rank" aria-label={`Numéro ${rank}`}>{rank}</span>
+    </li>
+  )
+}
 
 export function NetflixTopMovies() {
   const { movies, isDismissed, dismissRec } = useApp()
-  const { items, isReal } = useNetflixTop<Movie>(realNetflixTop10Movies, netflixTopMovies)
-  const known = useMemo(() => new Set(movies.map((m) => m.movie_id)), [movies])
-  const visible = (items ?? []).filter((m) => !known.has(m.id) && !isDismissed('movie', m.id))
-  if (!visible.length) return null
+  const { top, fallback } = useNetflixTop<Movie>(realNetflixTop10Movies, netflixTopMovies)
+  const mine = useMemo(() => new Map(movies.map((m) => [m.movie_id, m])), [movies])
 
+  if (top) {
+    return (
+      <TopSection week={top.week}>
+        {top.entries.map((e) => {
+          if (!e.match) return <UnmatchedTile key={`u${e.rank}`} title={e.title} rank={e.rank} weeks={e.weeks} kind="movie" />
+          const own = mine.get(e.match.id)
+          const note = own ? (own.status === 'watched' ? 'Déjà vu' : 'Dans ta liste') : weeksNote(e.weeks)
+          return <MovieTile key={e.match.id} m={e.match} rank={e.rank} note={note} seen={own?.status === 'watched'} />
+        })}
+      </TopSection>
+    )
+  }
+
+  // Repli : une simple sélection populaire, où masquer le déjà-vu a du sens.
+  const visible = (fallback ?? []).filter((m) => !mine.has(m.id) && !isDismissed('movie', m.id))
+  if (!visible.length) return null
   return (
-    <TopSection isReal={isReal}>
+    <TopSection>
       {visible.map((m) => (
-        <MovieTile
-          key={m.id}
-          m={m}
-          rank={m.rank}
-          note={weeksNote(m.weeks)}
-          onSkip={() => dismissRec('movie', m.id, m.title, m.poster_url)}
-        />
+        <MovieTile key={m.id} m={m} onSkip={() => dismissRec('movie', m.id, m.title, m.poster_url)} />
       ))}
     </TopSection>
   )
 }
 
 export function NetflixTopShows() {
-  const { isDismissed, dismissRec } = useApp()
+  const { tracked, isDismissed, dismissRec } = useApp()
   const trackedNames = useTrackedNames()
   const opener = useOpenShow()
-  const { items, isReal } = useNetflixTop<TvRecommendation>(realNetflixTop10Shows, netflixTopShows)
-  const visible = (items ?? []).filter((r) => !isTracked(trackedNames, r) && !isDismissed('show', r.id))
-  if (!visible.length) return null
+  const { top, fallback } = useNetflixTop<TvRecommendation>(realNetflixTop10Shows, netflixTopShows)
+  const byName = useMemo(() => new Map(tracked.map((t) => [normalizeTitle(t.name), t])), [tracked])
 
+  if (top) {
+    return (
+      <TopSection week={top.week}>
+        {top.entries.map((e) => {
+          if (!e.match) return <UnmatchedTile key={`u${e.rank}`} title={e.title} rank={e.rank} weeks={e.weeks} kind="show" />
+          const r = e.match
+          const own = byName.get(normalizeTitle(r.name)) ?? byName.get(normalizeTitle(r.originalName))
+          const note = own ? (own.status === 'later' ? 'Dans ta liste' : 'Suivie') : weeksNote(e.weeks)
+          return <ShowTile key={r.id} r={r} rank={e.rank} note={note} seen={!!own && own.status !== 'later'} opener={opener} />
+        })}
+      </TopSection>
+    )
+  }
+
+  const visible = (fallback ?? []).filter((r) => !isTracked(trackedNames, r) && !isDismissed('show', r.id))
+  if (!visible.length) return null
   return (
-    <TopSection isReal={isReal}>
+    <TopSection>
       {visible.map((r) => (
-        <ShowTile
-          key={r.id}
-          r={r}
-          rank={r.rank}
-          note={weeksNote(r.weeks)}
-          opener={opener}
-          onSkip={() => dismissRec('show', r.id, r.name, r.poster_url)}
-        />
+        <ShowTile key={r.id} r={r} opener={opener} onSkip={() => dismissRec('show', r.id, r.name, r.poster_url)} />
       ))}
     </TopSection>
   )

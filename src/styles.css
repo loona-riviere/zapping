@@ -156,6 +156,9 @@ button { font: inherit; color: inherit; }
   display: block; font-size: .68rem; color: var(--muted); opacity: .8;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* Déjà vu / suivi : reste dans le Top 10 (c'est un classement), mais en retrait. */
+.shelf__item--seen .poster--sm { opacity: .5; }
+.shelf__caption { margin: -.4rem 0 .6rem; font-size: .8rem; }
 /* Place dans le Top 10, en gros chiffre sur l'affiche, façon Netflix. */
 .shelf__rank {
   position: absolute; left: .25rem; top: .25rem; min-width: 1.5rem; height: 1.5rem; padding: 0 .3rem;

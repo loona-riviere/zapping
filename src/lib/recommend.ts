@@ -20,13 +20,14 @@ const thisYear = () => new Date().getFullYear()
  * - un titre proche de ce qu'on n'a pas aimé recule, voire disparaît ;
  * - les genres récurrents chez ce qu'on aime comptent un peu, ceux de ce
  *   qu'on n'aime pas pénalisent un peu ;
- * - la note TMDB et la récence départagent, sans exclure les classiques ;
+ * - la note TMDB, le nombre de votes et la récence pèsent en proportion ;
+ * - au-delà de `maxAge` ans, un titre est écarté d'office ;
  * - pas plus de quelques titres d'affilée tirés du même film/série de base.
  */
 export function rankRecommendations<T extends RecSignals & { id: number; year: number | null }>(
   seeds: SeedList<T>[],
   exclude: (item: T) => boolean,
-  limit = 20,
+  { limit = 20, maxAge = Infinity }: { limit?: number; maxAge?: number } = {},
 ): Ranked<T>[] {
   const acc = new Map<number, Acc<T>>()
   const posGenres = new Map<number, number>()
@@ -70,14 +71,18 @@ export function rankRecommendations<T extends RecSignals & { id: number; year: n
   const scored = [...acc.values()]
     // Jamais suggéré par un titre aimé → pas une suggestion, même au score net positif.
     .filter((a) => a.mainContribution > 0 && !exclude(a.item))
+    // Filtre dur, pas une pénalité : TMDB rapproche volontiers une sitcom
+    // adorée de sitcoms des années 80-90, et le poids d'un « adoré »
+    // l'emportait sur toute pénalité raisonnable.
+    .filter((a) => !a.item.year || now - a.item.year <= maxAge)
     .map((a) => {
       const { vote, voteCount, year } = a.item
-      const quality = Math.max(-0.6, Math.min(0.6, (vote - 6.8) * 0.4)) + (voteCount < 100 ? -0.3 : 0)
       const age = year ? now - year : 10
-      // Léger, pas un filtre : TMDB ressort volontiers des grappes de vieilles
-      // sitcoms américaines, mais un classique peut rester s'il est très suggéré.
-      const recency = age <= 2 ? 0.35 : age <= 6 ? 0.15 : age >= 25 ? -0.4 : age >= 15 ? -0.2 : 0
-      return { ...a, score: a.score + genreAffinity(a.item.genreIds) + quality + recency }
+      // Multiplicateurs plutôt que bonus : un titre mal noté, confidentiel ou
+      // ancien recule en proportion, quel que soit le poids de sa série de base.
+      const quality = Math.max(0.5, Math.min(1.3, 1 + (vote - 7) * 0.2)) * (voteCount < 150 ? 0.6 : 1)
+      const recency = age <= 2 ? 1.3 : age <= 5 ? 1.15 : age <= 10 ? 1 : age <= 20 ? 0.75 : 0.5
+      return { ...a, score: (a.score + genreAffinity(a.item.genreIds)) * quality * recency }
     })
     .filter((a) => a.score > 0)
 
