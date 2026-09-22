@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
-import { findOnThisDay } from '../lib/onThisDay'
 import { computeProgress, epCode, formatDate, type Progress } from '../lib/progress'
 import { href } from '../lib/route'
 import { STATUS_LABEL, type ShowStatus } from '../lib/store'
@@ -39,17 +38,13 @@ const normalize = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 export function Home() {
-  const { tracked, movies, loading, watchedFor, historyFor, setWatched, setStatus } = useApp()
+  const { tracked, loading, watchedFor, setWatched, setStatus } = useApp()
   // Dernière série abandonnée, pour proposer d'annuler : un abandon se fait
   // d'un geste depuis la liste, autant qu'il se défasse pareil.
   const [undo, setUndo] = useState<{ id: number; name: string } | null>(null)
   const [query, setQuery] = useState('')
   const ids = useMemo(() => tracked.map((t) => t.show_id), [tracked])
   const { data: cache, failed } = useShowEpisodes(ids)
-  const onThisDay = useMemo(
-    () => findOnThisDay(tracked, historyFor, cache, movies),
-    [tracked, historyFor, cache, movies],
-  )
 
   if (loading) return <p className="muted pad">Chargement de tes séries…</p>
 
@@ -111,28 +106,6 @@ export function Home() {
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
-
-      {!q && onThisDay.length > 0 && (
-        <section>
-          <h2 className="section-title">Ce jour-là</h2>
-          <ul className="rows">
-            {onThisDay.map((e) => (
-              <li key={e.key} className="row">
-                <a href={e.kind === 'movie' ? href.movie(e.id) : href.show(e.id)} className="row__link">
-                  <Poster src={e.image} alt={e.title} />
-                  <div className="row__body">
-                    <h3>{e.title}</h3>
-                    {e.subtitle && <p className="muted row__next">{e.subtitle}</p>}
-                  </div>
-                </a>
-                <span className="muted row__years">
-                  il y a {e.yearsAgo} an{e.yearsAgo > 1 ? 's' : ''}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
 
       {q ? (
         results.length ? (
