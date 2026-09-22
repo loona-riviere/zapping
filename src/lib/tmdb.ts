@@ -528,7 +528,7 @@ export async function netflixTopMovies(): Promise<Movie[]> {
   // Un plancher de votes suffit à écarter l'obscur sans requête en plus :
   // un classique culte a accumulé des votes avec le temps, un titre oublié
   // n'en a jamais eu beaucoup — le tri popularité fait le reste.
-  const key = 'tmdb:netflixtop:v3:movie'
+  const key = 'tmdb:netflixtop:v4:movie'
   try {
     const raw = localStorage.getItem(key)
     if (raw) {
@@ -543,7 +543,7 @@ export async function netflixTopMovies(): Promise<Movie[]> {
       with_watch_providers: NETFLIX_PROVIDER_ID,
       watch_region: 'FR',
       sort_by: 'popularity.desc',
-      'vote_count.gte': '300',
+      'vote_count.gte': '80',
     })
     const movies = data.results.map(toMovie).slice(0, 20)
     try {
