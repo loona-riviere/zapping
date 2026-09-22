@@ -229,7 +229,6 @@ export function ShowPage({ id }: { id: number }) {
               <strong>{progress.watched}</strong> sur {progress.aired} épisodes {rewatching ? 'revus' : 'vus'}
             </p>
           )}
-          {followed && <Rewatches show={show} episodes={episodes} />}
         </div>
       </header>
 
@@ -239,6 +238,7 @@ export function ShowPage({ id }: { id: number }) {
             Suivre cette série
           </button>
         )}
+        {followed && <Rewatches show={show} episodes={episodes} />}
         {followed && (
           <p className="show__status">
             <label htmlFor="show-status">Statut</label>
