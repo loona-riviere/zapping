@@ -115,6 +115,23 @@ Sans ces variables, l'app fonctionne normalement ; la section Notifications des 
 affiche juste « indisponible ». Sur iPhone, ça ne marche que depuis l'icône ajoutée à l'écran
 d'accueil (jamais depuis un onglet Safari), et demande iOS 16.4 ou plus récent.
 
+### 6. Recommandations Gemini (facultatif)
+
+« Recommandé pour toi » est choisi par Gemini (offre gratuite de Google AI Studio), via la fonction
+`netlify/functions/ai-recommendations.mts` : Gemini reçoit la bibliothèque (notes, séries
+abandonnées, revisionnages, suggestions écartées) et choisit parmi de vrais titres récents dispos
+en France (titres proches de ceux aimés, Top 10 Netflix France de la semaine, nouveautés des
+plateformes), avec une raison pour chacun. Il ne propose jamais de titre de mémoire.
+
+- `GEMINI_API_KEY` : clé créée sur [aistudio.google.com](https://aistudio.google.com) → *Get API key*.
+- Utilise aussi `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY` (section 5) : la fonction n'accepte
+  que les personnes connectées et garde la sélection en base (table `ai_recommendations`).
+
+Cache : 6 h sur l'appareil, 24 h en base, régénéré seulement à l'ouverture de l'app ; « Actualiser »
+au plus toutes les 6 h. Sans clé, l'app affiche les suggestions classées localement
+(`src/lib/recommend.ts`). Sur l'offre gratuite, Google peut utiliser les requêtes pour améliorer
+ses modèles.
+
 Astuce : sur iPhone ou Android, ajoute la page à l'écran d'accueil pour l'utiliser comme une app.
 
 ## Notes

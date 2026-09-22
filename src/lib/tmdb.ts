@@ -478,6 +478,8 @@ export type TvRecommendation = {
   originalName: string
   poster_url: string | null
   year: number | null
+  /** Résumé TMDB, quand on l'a : sert à Gemini pour juger un titre qu'il connaît mal (sorties récentes). */
+  overview?: string | null
 }
 
 type RawTvRec = {
@@ -486,6 +488,7 @@ type RawTvRec = {
   original_name: string
   poster_path: string | null
   first_air_date: string | null
+  overview?: string | null
   vote_count: number
   vote_average?: number
   popularity?: number
@@ -498,6 +501,7 @@ const toTvRec = (r: RawTvRec): TvRecommendation => ({
   originalName: r.original_name,
   poster_url: r.poster_path ? IMG + r.poster_path : null,
   year: r.first_air_date ? Number(r.first_air_date.slice(0, 4)) : null,
+  overview: r.overview || null,
 })
 
 export type TvRec = TvRecommendation & RecSignals
@@ -514,7 +518,7 @@ export async function tvRecommendationsByImdb(imdbId: string | null | undefined)
   if (!tvId) return []
   // Le numéro de version change avec la forme des données mises en cache
   // (leçon de movieDetails) : à rebumper si le type change encore.
-  const key = `tmdb:tvrec:v4:${tvId}`
+  const key = `tmdb:tvrec:v5:${tvId}`
   const hit = readCache<TvRec[]>(key, CACHE_TTL)
   if (hit) return hit
   try {
@@ -692,74 +696,67 @@ export async function realNetflixTop10Shows(): Promise<Top10<TvRecommendation> |
 }
 
 /**
- * Repli si le vrai classement échoue : propre approximation TMDB, filtrée
- * aux titres disponibles en abonnement chez Netflix. L'identifiant 8 est
- * celui de Netflix chez TMDB.
+ * Plateformes par abonnement en France (identifiants TMDB) : Netflix, Prime
+ * Video, Disney+, Apple TV+, Canal+, Max, Paramount+. Sert à ne proposer que
+ * des titres réellement regardables, pas juste « populaires quelque part ».
  */
-const NETFLIX_PROVIDER_ID = '8'
+const FR_PROVIDERS = '8|119|337|350|381|1899|531'
 
-export async function netflixTopMovies(): Promise<Movie[]> {
+/**
+ * Titres récents (3 ans) dispos en abonnement en France : les plus populaires
+ * et les mieux notés. Candidats « dans l'air du temps » pour Gemini, en plus
+ * des titres proches de la bibliothèque et du Top 10.
+ */
+export async function discoverRecentShows(): Promise<TvRec[]> {
   if (!KEY) return []
-  // v3 : une seule requête (v2 en envoyait deux en parallèle, en plus des
-  // autres carrousels de la même page — cumulés, ça a fait sauter la limite
-  // de requêtes TMDB, coupant tout « Populaire » pendant plusieurs minutes).
-  // Un plancher de votes suffit à écarter l'obscur sans requête en plus :
-  // un classique culte a accumulé des votes avec le temps, un titre oublié
-  // n'en a jamais eu beaucoup — le tri popularité fait le reste.
-  const key = 'tmdb:netflixtop:v4:movie'
-  try {
-    const raw = localStorage.getItem(key)
-    if (raw) {
-      const c = JSON.parse(raw) as { at: number; data: Movie[] }
-      if (Date.now() - c.at < CACHE_TTL) return c.data
-    }
-  } catch {
-    /* cache illisible : on refetch */
+  const key = 'tmdb:discover:v1:tv'
+  const hit = readCache<TvRec[]>(key, CACHE_TTL)
+  if (hit) return hit
+  const since = `${new Date().getFullYear() - 3}-01-01`
+  const base = {
+    with_watch_providers: FR_PROVIDERS,
+    watch_region: 'FR',
+    with_watch_monetization_types: 'flatrate',
+    'first_air_date.gte': since,
+    // Pas de journaux, talk-shows, soaps ni programmes jeunesse.
+    without_genres: '10763,10767,10766,10762',
   }
   try {
-    const data = await get<{ results: RawMovie[] }>('/discover/movie', {
-      with_watch_providers: NETFLIX_PROVIDER_ID,
-      watch_region: 'FR',
-      sort_by: 'popularity.desc',
-      'vote_count.gte': '80',
-    })
-    const movies = data.results.map(toMovie).slice(0, 20)
-    try {
-      localStorage.setItem(key, JSON.stringify({ at: Date.now(), data: movies }))
-    } catch {
-      /* stockage plein : pas grave */
-    }
-    return movies
+    const [popular, acclaimed] = await Promise.all([
+      get<{ results: RawTvRec[] }>('/discover/tv', { ...base, sort_by: 'popularity.desc', 'vote_count.gte': '100' }),
+      get<{ results: RawTvRec[] }>('/discover/tv', { ...base, sort_by: 'vote_average.desc', 'vote_count.gte': '300' }),
+    ])
+    const byId = new Map<number, TvRec>()
+    for (const r of [...popular.results, ...acclaimed.results]) byId.set(r.id, { ...toTvRec(r), ...signals(r) })
+    const shows = [...byId.values()]
+    writeCache(key, shows)
+    return shows
   } catch {
     return []
   }
 }
 
-export async function netflixTopShows(): Promise<TvRecommendation[]> {
+export async function discoverRecentMovies(): Promise<RecMovie[]> {
   if (!KEY) return []
-  const key = 'tmdb:netflixtop:v1:show'
-  try {
-    const raw = localStorage.getItem(key)
-    if (raw) {
-      const c = JSON.parse(raw) as { at: number; data: TvRecommendation[] }
-      if (Date.now() - c.at < CACHE_TTL) return c.data
-    }
-  } catch {
-    /* cache illisible : on refetch */
+  const key = 'tmdb:discover:v1:movie'
+  const hit = readCache<RecMovie[]>(key, CACHE_TTL)
+  if (hit) return hit
+  const base = {
+    with_watch_providers: FR_PROVIDERS,
+    watch_region: 'FR',
+    with_watch_monetization_types: 'flatrate',
+    'primary_release_date.gte': `${new Date().getFullYear() - 3}-01-01`,
   }
   try {
-    const data = await get<{ results: RawTvRec[] }>('/discover/tv', {
-      with_watch_providers: NETFLIX_PROVIDER_ID,
-      watch_region: 'FR',
-      sort_by: 'popularity.desc',
-    })
-    const shows = data.results.map(toTvRec)
-    try {
-      localStorage.setItem(key, JSON.stringify({ at: Date.now(), data: shows }))
-    } catch {
-      /* stockage plein : pas grave */
-    }
-    return shows
+    const [popular, acclaimed] = await Promise.all([
+      get<{ results: RawMovie[] }>('/discover/movie', { ...base, sort_by: 'popularity.desc', 'vote_count.gte': '200' }),
+      get<{ results: RawMovie[] }>('/discover/movie', { ...base, sort_by: 'vote_average.desc', 'vote_count.gte': '500' }),
+    ])
+    const byId = new Map<number, RecMovie>()
+    for (const r of [...popular.results, ...acclaimed.results]) byId.set(r.id, { ...toMovie(r), ...signals(r) })
+    const movies = [...byId.values()]
+    writeCache(key, movies)
+    return movies
   } catch {
     return []
   }

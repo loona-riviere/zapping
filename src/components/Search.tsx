@@ -7,7 +7,7 @@ import { buildEnvNames, searchMovies, tmdbConfigured, type Movie } from '../lib/
 import type { TvShow } from '../lib/tvmaze'
 import { useShowEpisodes } from '../lib/useShows'
 import { Poster } from './Poster'
-import { MovieRecommendations, NetflixTopMovies, NetflixTopShows, ShowRecommendations } from './Recommendations'
+import { MovieRecommendations, ShowRecommendations } from './Recommendations'
 
 type Kind = 'show' | 'movie'
 type ContinuingRow = { id: number; name: string; image: string | null; next: NonNullable<Progress['next']> }
@@ -169,7 +169,6 @@ function ShowSearch({ query }: { query: string }) {
         </section>
       )}
       {!query.trim() && <ShowRecommendations />}
-      {!query.trim() && <NetflixTopShows />}
       <ul className="rows">
         {results.map((s) => {
           const year = s.premiered?.slice(0, 4)
@@ -278,7 +277,6 @@ function MovieSearch({ query }: { query: string }) {
         <p className="muted">Aucun film trouvé pour « {query.trim()} ».</p>
       )}
       {!query.trim() && <MovieRecommendations />}
-      {!query.trim() && <NetflixTopMovies />}
 
       <ul className="rows">
         {results.slice(0, 10).map((m) => {

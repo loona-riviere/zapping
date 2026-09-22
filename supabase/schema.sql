@@ -238,3 +238,21 @@ drop policy if exists "episode_notifications: own rows" on public.episode_notifi
 create policy "episode_notifications: own rows" on public.episode_notifications
   for select to authenticated
   using ((select auth.uid()) = user_id);
+
+-- Dernière sélection Gemini par personne et par type, pour ne pas réinterroger
+-- Gemini à chaque visite ni d'un appareil à l'autre. Écrite uniquement par la
+-- fonction Netlify (clé service_role) ; lisible par son propriétaire.
+create table if not exists public.ai_recommendations (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  kind text not null check (kind in ('show', 'movie')),
+  picks jsonb not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, kind)
+);
+
+alter table public.ai_recommendations enable row level security;
+
+drop policy if exists "ai_recommendations: own rows" on public.ai_recommendations;
+create policy "ai_recommendations: own rows" on public.ai_recommendations
+  for select to authenticated
+  using ((select auth.uid()) = user_id);

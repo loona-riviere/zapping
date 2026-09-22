@@ -156,15 +156,30 @@ button { font: inherit; color: inherit; }
   display: block; font-size: .68rem; color: var(--muted); opacity: .8;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-/* Déjà vu / suivi : reste dans le Top 10 (c'est un classement), mais en retrait. */
-.shelf__item--seen .poster--sm { opacity: .5; }
 .shelf__caption { margin: -.4rem 0 .6rem; font-size: .8rem; }
-/* Place dans le Top 10, en gros chiffre sur l'affiche, façon Netflix. */
-.shelf__rank {
-  position: absolute; left: .25rem; top: .25rem; min-width: 1.5rem; height: 1.5rem; padding: 0 .3rem;
-  border-radius: 6px; background: var(--accent); color: var(--accent-ink);
-  font-family: var(--display); font-weight: 800; font-size: .85rem; line-height: 1.5rem; text-align: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .4); pointer-events: none;
+.shelf__caption--after { margin: .4rem 0 0; }
+
+/* Cartes de la sélection Gemini : plus larges qu'une vignette, pour la raison. */
+.shelf--carousel.shelf--cards .shelf__item { flex: 0 0 17rem; }
+/* .shelf--cards devant : sinon « .shelf a { display: block } » l'emporte sur les cartes-liens (films). */
+.shelf--cards .aicard {
+  display: flex; gap: .7rem; align-items: flex-start; width: 100%; height: 100%;
+  padding: .6rem; border: 0; border-radius: var(--radius); background: var(--surface);
+  color: inherit; font: inherit; text-align: left; text-decoration: none; cursor: pointer;
+}
+.shelf--cards .aicard .poster--sm { width: 4.5rem; flex: none; }
+.aicard__body { display: block; min-width: 0; flex: 1; }
+.aicard__title {
+  display: block; font-weight: 700; font-size: .92rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.aicard__tag {
+  display: inline-block; margin: .25rem 0 0; padding: 0 .35rem; border-radius: 4px;
+  background: var(--accent); color: var(--accent-ink); font-size: .68rem; font-weight: 700;
+}
+.aicard__reason {
+  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
+  margin-top: .3rem; font-size: .8rem; line-height: 1.35; color: var(--muted);
 }
 
 .empty { text-align: center; padding: 3rem 1rem; }
