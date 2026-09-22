@@ -593,7 +593,7 @@ export async function realNetflixTop10Movies(): Promise<Movie[] | null> {
     /* cache illisible : on refetch */
   }
   const resolved: Movie[] = []
-  for (const row of raw.movies) {
+  for (const row of raw.movies.slice(0, 6)) {
     const results = await searchMovies(row.title).catch(() => [])
     if (results[0]) resolved.push(results[0])
   }
@@ -616,7 +616,7 @@ export async function realNetflixTop10Shows(): Promise<TvRecommendation[] | null
     /* cache illisible : on refetch */
   }
   const resolved: TvRecommendation[] = []
-  for (const row of raw.shows) {
+  for (const row of raw.shows.slice(0, 6)) {
     const results = await searchTv(row.title).catch(() => [])
     if (results[0]) resolved.push(results[0])
   }

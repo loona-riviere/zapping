@@ -266,17 +266,22 @@ export function NetflixTopMovies() {
     if (!tmdbConfigured || loading) return
     let alive = true
     setStatus('loading')
-    realNetflixTop10Movies().then((real) => {
-      if (real?.length) return { found: real, isReal: true }
-      return netflixTopMovies().then((found) => ({ found, isReal: false }))
-    }).then(({ found, isReal }) => {
-      if (!alive) return
-      setRaw(found)
-      setIsReal(isReal)
-      setStatus(found.length ? 'ready' : 'empty')
-    })
+    // Décalé : sinon ça se rajoute à la salve initiale des recommandations
+    // personnalisées, et à plusieurs on a déjà fait sauter la limite TMDB.
+    const timer = setTimeout(() => {
+      realNetflixTop10Movies().then((real) => {
+        if (real?.length) return { found: real, isReal: true }
+        return netflixTopMovies().then((found) => ({ found, isReal: false }))
+      }).then(({ found, isReal }) => {
+        if (!alive) return
+        setRaw(found)
+        setIsReal(isReal)
+        setStatus(found.length ? 'ready' : 'empty')
+      })
+    }, 1500)
     return () => {
       alive = false
+      clearTimeout(timer)
     }
   }, [loading])
 
@@ -339,17 +344,21 @@ export function NetflixTopShows() {
     if (!tmdbConfigured || loading) return
     let alive = true
     setStatus('loading')
-    realNetflixTop10Shows().then((real) => {
-      if (real?.length) return { found: real, isReal: true }
-      return netflixTopShows().then((found) => ({ found, isReal: false }))
-    }).then(({ found, isReal }) => {
-      if (!alive) return
-      setRaw(found)
-      setIsReal(isReal)
-      setStatus(found.length ? 'ready' : 'empty')
-    })
+    // Décalé, et après les films (même limite TMDB à ménager, voir NetflixTopMovies).
+    const timer = setTimeout(() => {
+      realNetflixTop10Shows().then((real) => {
+        if (real?.length) return { found: real, isReal: true }
+        return netflixTopShows().then((found) => ({ found, isReal: false }))
+      }).then(({ found, isReal }) => {
+        if (!alive) return
+        setRaw(found)
+        setIsReal(isReal)
+        setStatus(found.length ? 'ready' : 'empty')
+      })
+    }, 3000)
     return () => {
       alive = false
+      clearTimeout(timer)
     }
   }, [loading])
 
