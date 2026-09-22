@@ -23,7 +23,7 @@ export function Rewatches({ show, episodes }: { show: TvShow; episodes: TvEpisod
     return (
       <div className="rewatch rewatch--live">
         <p className="rewatch__state">
-          <strong>Revisionnage en cours</strong> — {done} / {aired.length} épisodes
+          <strong>Revisionnage en cours</strong>
         </p>
         <div className="rewatch__actions">
           {complete ? (
