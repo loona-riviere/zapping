@@ -18,13 +18,13 @@ export function BottomNav({ route }: { route: Route }) {
         <SearchIcon />
         <span>Chercher</span>
       </a>
-      <a href={href.import} aria-current={route.name === 'import' ? 'page' : undefined}>
-        <ImportIcon />
-        <span>Import</span>
-      </a>
       <a href={href.stats} aria-current={route.name === 'stats' ? 'page' : undefined}>
         <StatsIcon />
         <span>Stats</span>
+      </a>
+      <a href={href.settings} aria-current={route.name === 'settings' ? 'page' : undefined}>
+        <SettingsIcon />
+        <span>Paramètres</span>
       </a>
     </nav>
   )
@@ -60,22 +60,21 @@ function SearchIcon() {
   )
 }
 
-function ImportIcon() {
-  return (
-    <svg {...ICON_PROPS}>
-      <path d="M12 3v11" />
-      <path d="M7 9l5 5 5-5" />
-      <path d="M4 18v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2" />
-    </svg>
-  )
-}
-
 function StatsIcon() {
   return (
     <svg {...ICON_PROPS}>
       <line x1="4" y1="21" x2="4" y2="12" />
       <line x1="12" y1="21" x2="12" y2="6" />
       <line x1="20" y1="21" x2="20" y2="15" />
+    </svg>
+  )
+}
+
+function SettingsIcon() {
+  return (
+    <svg {...ICON_PROPS}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
     </svg>
   )
 }

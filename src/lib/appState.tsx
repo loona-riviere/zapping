@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import * as store from './store'
-import type { Rating, ShowStatus, TrackedShow, WatchedMap, WatchedMovie } from './store'
+import type { DismissedRec, Rating, ShowStatus, TrackedShow, WatchedMap, WatchedMovie } from './store'
 import { movieRuntime, type Movie } from './tmdb'
 import type { TvEpisode, TvShow } from './tvmaze'
 
@@ -65,6 +65,11 @@ type AppState = {
   renameShow: (showId: number, name: string) => Promise<void>
   rateShow: (showId: number, rating: Rating | null) => Promise<void>
   rateMovie: (movieId: number, rating: Rating | null) => Promise<void>
+  /** Suggestions écartées dans « Recommandé pour toi », consultables depuis les paramètres. */
+  dismissed: DismissedRec[]
+  isDismissed: (kind: 'show' | 'movie', id: number) => boolean
+  dismissRec: (kind: 'show' | 'movie', id: number, name: string, posterUrl: string | null) => Promise<void>
+  undismissRec: (kind: 'show' | 'movie', id: number) => Promise<void>
 }
 
 const Ctx = createContext<AppState | null>(null)
@@ -78,6 +83,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
   const [moviesReady, setMoviesReady] = useState(true)
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState<string | null>(null)
+  const [dismissed, setDismissed] = useState<DismissedRec[]>([])
 
   useEffect(() => {
     let alive = true
@@ -100,6 +106,13 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
         if (!alive) return
         if (store.isMissingSchema(e)) setMoviesReady(false)
         else setNotice(`Chargement des films impossible : ${e.message}`)
+      })
+
+    store
+      .fetchDismissed()
+      .then((d) => alive && setDismissed(d))
+      .catch(() => {
+        /* liste secondaire : pas grave si elle manque, on repart à zéro */
       })
     return () => {
       alive = false
@@ -571,6 +584,39 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     }
   }, [movies])
 
+  const isDismissed = useCallback(
+    (kind: 'show' | 'movie', id: number) => dismissed.some((d) => d.kind === kind && d.tmdb_id === id),
+    [dismissed],
+  )
+
+  const dismissRec = useCallback(
+    async (kind: 'show' | 'movie', id: number, name: string, posterUrl: string | null) => {
+      const snapshot = dismissed
+      setDismissed((prev) => [{ kind, tmdb_id: id, name, poster_url: posterUrl, dismissed_at: new Date().toISOString() }, ...prev])
+      try {
+        await store.dismissRec(kind, id, name, posterUrl)
+      } catch (e) {
+        setDismissed(snapshot)
+        setNotice(`Enregistrement impossible : ${(e as Error).message}`)
+      }
+    },
+    [dismissed],
+  )
+
+  const undismissRec = useCallback(
+    async (kind: 'show' | 'movie', id: number) => {
+      const snapshot = dismissed
+      setDismissed((prev) => prev.filter((d) => !(d.kind === kind && d.tmdb_id === id)))
+      try {
+        await store.undismissRec(kind, id)
+      } catch (e) {
+        setDismissed(snapshot)
+        setNotice(`Suppression impossible : ${(e as Error).message}`)
+      }
+    },
+    [dismissed],
+  )
+
   const value = useMemo<AppState>(
     () => ({
       userId, tracked, watched, movies, moviesReady, loading, notice,
@@ -579,10 +625,12 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       isRewatching, startRewatch, endRewatch,
       track, untrack, setStatus, setWatched,
       addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
+      dismissed, isDismissed, dismissRec, undismissRec,
     }),
     [userId, tracked, watched, rewatch, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
      historyFor, rewatchesOf, setRewatches, isRewatching, startRewatch, endRewatch,
-     track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie],
+     track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
+     dismissed, isDismissed, dismissRec, undismissRec],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

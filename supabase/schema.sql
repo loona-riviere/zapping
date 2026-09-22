@@ -175,6 +175,27 @@ create policy "rewatch_progress: own rows" on public.rewatch_progress
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
 
+-- Suggestions écartées dans « Recommandé pour toi » : en base plutôt qu'en
+-- localStorage, pour que ça tienne d'un appareil à l'autre et que ce soit
+-- consultable (et réversible) depuis les paramètres.
+create table if not exists public.dismissed_recommendations (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  kind text not null check (kind in ('show', 'movie')),
+  tmdb_id integer not null,
+  name text not null,
+  poster_url text,
+  dismissed_at timestamptz not null default now(),
+  primary key (user_id, kind, tmdb_id)
+);
+
+alter table public.dismissed_recommendations enable row level security;
+
+drop policy if exists "dismissed_recommendations: own rows" on public.dismissed_recommendations;
+create policy "dismissed_recommendations: own rows" on public.dismissed_recommendations
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
 drop policy if exists "watched_movies: own rows" on public.watched_movies;
 create policy "watched_movies: own rows" on public.watched_movies
   for all to authenticated

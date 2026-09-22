@@ -456,3 +456,36 @@ export async function unmarkRewatched(ids: number[]): Promise<void> {
     if (error) throw error
   }
 }
+
+export type DismissedRec = {
+  kind: 'show' | 'movie'
+  tmdb_id: number
+  name: string
+  poster_url: string | null
+  dismissed_at: string
+}
+
+export async function fetchDismissed(): Promise<DismissedRec[]> {
+  const { data, error } = await supabase
+    .from('dismissed_recommendations')
+    .select('kind, tmdb_id, name, poster_url, dismissed_at')
+    .order('dismissed_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as DismissedRec[]
+}
+
+export async function dismissRec(kind: 'show' | 'movie', id: number, name: string, posterUrl: string | null): Promise<void> {
+  const { error } = await supabase
+    .from('dismissed_recommendations')
+    .upsert({ kind, tmdb_id: id, name, poster_url: posterUrl }, { onConflict: 'user_id,kind,tmdb_id' })
+  if (error) throw error
+}
+
+export async function undismissRec(kind: 'show' | 'movie', id: number): Promise<void> {
+  const { error } = await supabase
+    .from('dismissed_recommendations')
+    .delete()
+    .eq('kind', kind)
+    .eq('tmdb_id', id)
+  if (error) throw error
+}

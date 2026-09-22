@@ -6,6 +6,7 @@ export type Route =
   | { name: 'import' }
   | { name: 'movies' }
   | { name: 'stats' }
+  | { name: 'settings' }
   | { name: 'show'; id: number }
   | { name: 'movie'; id: number }
 
@@ -19,6 +20,7 @@ function parse(hash: string): Route {
   if (hash.startsWith('#/import')) return { name: 'import' }
   if (hash.startsWith('#/films')) return { name: 'movies' }
   if (hash.startsWith('#/stats')) return { name: 'stats' }
+  if (hash.startsWith('#/parametres')) return { name: 'settings' }
   const show = hash.match(/^#\/show\/(\d+)/)
   if (show) return { name: 'show', id: Number(show[1]) }
   const movie = hash.match(/^#\/movie\/(\d+)/)
@@ -47,6 +49,7 @@ export const href = {
   import: '#/import',
   movies: '#/films',
   stats: '#/stats',
+  settings: '#/parametres',
   show: (id: number) => `#/show/${id}`,
   movie: (id: number) => `#/movie/${id}`,
 }

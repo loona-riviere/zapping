@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
-import { dismiss, isDismissed } from '../lib/dismissed'
 import { href } from '../lib/route'
 import {
   movieRecommendations, tmdbConfigured, tvRecommendationsByImdb,
@@ -19,7 +18,7 @@ type Status = 'idle' | 'loading' | 'empty' | 'ready'
  * choix limité. La croix écarte la suggestion pour de bon, sans y entrer.
  */
 export function MovieRecommendations() {
-  const { movies } = useApp()
+  const { movies, isDismissed, dismissRec } = useApp()
   const [recs, setRecs] = useState<Movie[]>([])
   const [status, setStatus] = useState<Status>('idle')
 
@@ -46,7 +45,7 @@ export function MovieRecommendations() {
       const byId = new Map<number, Movie>()
       for (const list of lists) {
         for (const m of list) {
-          if (!known.has(m.id) && !isDismissed('movie', m.id) && !byId.has(m.id)) byId.set(m.id, m)
+          if (!known.has(m.id) && !byId.has(m.id)) byId.set(m.id, m)
         }
       }
       const found = [...byId.values()].slice(0, 10)
@@ -60,9 +59,11 @@ export function MovieRecommendations() {
   }, [seeds])
 
   function skip(m: Movie) {
-    dismiss('movie', m.id)
+    dismissRec('movie', m.id, m.title, m.poster_url)
     setRecs((prev) => prev.filter((x) => x.id !== m.id))
   }
+
+  const visible = recs.filter((m) => !isDismissed('movie', m.id))
 
   if (status === 'idle') return null
 
@@ -75,7 +76,7 @@ export function MovieRecommendations() {
       )}
       {status === 'ready' && (
         <ul className="shelf">
-          {recs.map((m) => (
+          {visible.map((m) => (
             <li key={m.id} className="shelf__item">
               <a href={href.movie(m.id)} title={m.title}>
                 <Poster src={m.poster_url} alt={m.title} />
@@ -104,7 +105,7 @@ export function MovieRecommendations() {
  * fiche directement — sans résultat, on le dit plutôt que de deviner.
  */
 export function ShowRecommendations({ showIds }: { showIds: number[] }) {
-  const { tracked } = useApp()
+  const { tracked, isDismissed, dismissRec } = useApp()
   const { data } = useShowEpisodes(showIds)
   const [recs, setRecs] = useState<TvRecommendation[]>([])
   const [status, setStatus] = useState<Status>('idle')
@@ -142,7 +143,7 @@ export function ShowRecommendations({ showIds }: { showIds: number[] }) {
         for (const r of list) {
           const alreadyTracked =
             trackedNames.has(r.name.toLowerCase()) || trackedNames.has(r.originalName.toLowerCase())
-          if (!alreadyTracked && !isDismissed('show', r.id) && !byId.has(r.id)) {
+          if (!alreadyTracked && !byId.has(r.id)) {
             byId.set(r.id, r)
           }
         }
@@ -182,9 +183,11 @@ export function ShowRecommendations({ showIds }: { showIds: number[] }) {
   }
 
   function skip(r: TvRecommendation) {
-    dismiss('show', r.id)
+    dismissRec('show', r.id, r.name, r.poster_url)
     setRecs((prev) => prev.filter((x) => x.id !== r.id))
   }
+
+  const visible = recs.filter((r) => !isDismissed('show', r.id))
 
   if (status === 'idle') return null
 
@@ -197,7 +200,7 @@ export function ShowRecommendations({ showIds }: { showIds: number[] }) {
       )}
       {status === 'ready' && (
         <ul className="shelf">
-          {recs.map((r) => (
+          {visible.map((r) => (
             <li key={r.id} className="shelf__item">
               <button
                 type="button"

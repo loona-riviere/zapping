@@ -8,7 +8,7 @@ import { Import } from './components/Import'
 import { Library, isLibrary } from './components/Library'
 import { MoviePage } from './components/MoviePage'
 import { Search } from './components/Search'
-import { SetPassword } from './components/SetPassword'
+import { Settings } from './components/Settings'
 import { ShowPage } from './components/ShowPage'
 import { Stats } from './components/Stats'
 import { AppProvider, useApp } from './lib/appState'
@@ -64,10 +64,8 @@ function Shell() {
         <nav className="topbar__nav">
           <a href={href.home} aria-current={isLibrary(route) ? 'page' : undefined}>Bibliothèque</a>
           <a href={href.search} aria-current={route.name === 'search' ? 'page' : undefined}>Chercher</a>
-          <a href={href.import} aria-current={route.name === 'import' ? 'page' : undefined}>Import</a>
           <a href={href.stats} aria-current={route.name === 'stats' ? 'page' : undefined}>Statistiques</a>
-          <SetPassword />
-          <button className="link-btn" onClick={() => supabase.auth.signOut()}>Déconnexion</button>
+          <a href={href.settings} aria-current={route.name === 'settings' ? 'page' : undefined}>Paramètres</a>
         </nav>
       </header>
 
@@ -76,6 +74,7 @@ function Shell() {
         {route.name === 'search' && <Search initialQuery={route.q} initialKind={route.kind} />}
         {route.name === 'import' && <Import />}
         {route.name === 'stats' && <Stats />}
+        {route.name === 'settings' && <Settings />}
         {route.name === 'show' && <ShowPage id={route.id} />}
         {route.name === 'movie' && <MoviePage id={route.id} />}
       </main>
