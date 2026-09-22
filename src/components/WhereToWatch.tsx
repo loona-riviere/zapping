@@ -8,7 +8,10 @@ import { tmdbConfigured, watchProviders, type Availability, type Provider } from
 function dedupeProviders(providers: Provider[]): Provider[] {
   const byPlatform = new Map<string, Provider>()
   for (const p of providers) {
-    const key = p.name.replace(/\s*(with ads|w\/ ads).*/i, '').trim().toLowerCase()
+    // « Netflix Standard with Ads » : le nom du palier (Standard/Basic/…)
+    // se glisse AVANT « with Ads », donc il faut le retirer lui aussi pour
+    // retomber sur la même clé que « Netflix » tout court.
+    const key = p.name.replace(/\s+(standard|basic|premium)?\s*(with ads|w\/ ads).*/i, '').trim().toLowerCase()
     const existing = byPlatform.get(key)
     if (!existing || (/ads/i.test(existing.name) && !/ads/i.test(p.name))) {
       byPlatform.set(key, p)
