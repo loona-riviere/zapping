@@ -245,6 +245,8 @@ button { font: inherit; color: inherit; }
 
 .settings__signout { margin-top: .75rem; }
 
+.movie__actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+
 .rating-picker { display: flex; gap: .4rem; margin: .2rem 0; }
 .rating-picker__btn {
   font-size: 1.3rem; line-height: 1; padding: .4rem .6rem; border-radius: 999px;

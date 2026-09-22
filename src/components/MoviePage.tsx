@@ -113,52 +113,54 @@ export function MoviePage({ id }: { id: number }) {
             <RatingPicker rating={movie.rating} onChange={(r) => rateMovie(movie.movie_id, r)} />
           )}
 
-          {movie?.status === 'watched' ? (
-            <button
-              className="btn btn--ghost"
-              onClick={() =>
-                confirm(`Marquer ${title} comme pas vu ? Sa date de visionnage sera perdue.`) &&
-                markMovieUnwatched(movie.movie_id)
-              }
-            >
-              Pas vu
-            </button>
-          ) : movie ? (
-            !notYetReleased && (
-              <button className="btn btn--primary" onClick={() => markMovieWatched(movie.movie_id, today())}>
-                Vu
+          <div className="movie__actions">
+            {movie?.status === 'watched' ? (
+              <button
+                className="btn btn--ghost"
+                onClick={() =>
+                  confirm(`Marquer ${title} comme pas vu ? Sa date de visionnage sera perdue.`) &&
+                  markMovieUnwatched(movie.movie_id)
+                }
+              >
+                Pas vu
               </button>
-            )
-          ) : (
-            asMovie && (
-              <>
-                {!notYetReleased && (
-                  <button
-                    className="btn btn--primary"
-                    onClick={() => addMovies([{ movie: asMovie, watchedAt: today() }])}
-                  >
-                    Vu
-                  </button>
-                )}
-                <button className="btn btn--ghost" onClick={() => addToWatchlist(asMovie)}>
-                  À voir
+            ) : movie ? (
+              !notYetReleased && (
+                <button className="btn btn--primary" onClick={() => markMovieWatched(movie.movie_id, today())}>
+                  Vu
                 </button>
-              </>
-            )
-          )}
+              )
+            ) : (
+              asMovie && (
+                <>
+                  {!notYetReleased && (
+                    <button
+                      className="btn btn--primary"
+                      onClick={() => addMovies([{ movie: asMovie, watchedAt: today() }])}
+                    >
+                      Vu
+                    </button>
+                  )}
+                  <button className="btn btn--ghost" onClick={() => addToWatchlist(asMovie)}>
+                    À voir
+                  </button>
+                </>
+              )
+            )}
 
-          {movie && (
-            <button
-              className="link-btn muted"
-              onClick={() =>
-                confirm(
-                  `Retirer ${title} de tes films ? Contrairement à « Pas vu », la fiche est supprimée pour de bon.`,
-                ) && removeMovie(movie.movie_id)
-              }
-            >
-              Retirer
-            </button>
-          )}
+            {movie && (
+              <button
+                className="link-btn muted"
+                onClick={() =>
+                  confirm(
+                    `Retirer ${title} de tes films ? Contrairement à « Pas vu », la fiche est supprimée pour de bon.`,
+                  ) && removeMovie(movie.movie_id)
+                }
+              >
+                Retirer
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
