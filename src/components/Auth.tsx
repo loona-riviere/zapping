@@ -48,12 +48,21 @@ export function Auth() {
   }
 
   async function signInWithGoogle() {
+    // Sans ce garde-fou, un double-tap relance signInWithOAuth avant la
+    // redirection : le second appel écrase le cookie d'état PKCE du premier,
+    // et le retour de Google échoue avec « state missing » ou « already used ».
+    if (step === 'sending') return
+    setStep('sending')
     setError('')
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin + import.meta.env.BASE_URL },
     })
-    if (error) setError(error.message)
+    if (error) {
+      setError(error.message)
+      setStep('form')
+    }
+    // Succès : la page redirige vers Google, pas besoin de repasser step à 'form'.
   }
 
   async function sendCode(e: FormEvent) {
@@ -124,7 +133,7 @@ export function Auth() {
             {error && <p className="error">{error}</p>}
           </form>
 
-          <button className="btn btn--google" onClick={signInWithGoogle}>
+          <button className="btn btn--google" onClick={signInWithGoogle} disabled={step === 'sending'}>
             <GoogleG /> Continuer avec Google
           </button>
 
