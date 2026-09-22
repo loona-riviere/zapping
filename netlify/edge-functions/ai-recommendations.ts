@@ -109,6 +109,31 @@ const SCHEMA = {
   required: ['picks'],
 }
 
+/**
+ * Lit la réponse JSON de Gemini. Si elle est coupée (limite de longueur),
+ * on garde toutes les recommandations complètes qu'elle contient plutôt que
+ * de tout perdre pour la dernière, inachevée.
+ */
+export function parsePicks(text: string): { id: number; reason: string }[] {
+  try {
+    const parsed = JSON.parse(text) as { picks?: { id: number; reason: string }[] }
+    if (Array.isArray(parsed.picks)) return parsed.picks
+  } catch {
+    /* réponse tronquée : récupération ci-dessous */
+  }
+  const out: { id: number; reason: string }[] = []
+  const re = /\{\s*"id"\s*:\s*(\d+)\s*,\s*"reason"\s*:\s*"((?:[^"\\]|\\.)*)"\s*\}/g
+  for (const m of text.matchAll(re)) {
+    try {
+      out.push({ id: Number(m[1]), reason: JSON.parse(`"${m[2]}"`) as string })
+    } catch {
+      /* raison mal échappée : on saute celle-là */
+    }
+  }
+  if (!out.length) throw new Error('réponse Gemini illisible')
+  return out
+}
+
 async function askGemini(key: string, prompt: string) {
   let lastError = ''
   for (const model of MODELS) {
@@ -122,9 +147,10 @@ async function askGemini(key: string, prompt: string) {
           responseMimeType: 'application/json',
           responseSchema: SCHEMA,
           temperature: 0.6,
-          maxOutputTokens: 2048,
-          // Pas de phase de réflexion : la réponse doit tenir dans le délai
-          // d'une fonction Netlify, et le classement n'en a pas besoin.
+          // Large : sur les modèles qui « réfléchissent » avant de répondre,
+          // cette réflexion est décomptée de la même limite — à 2048, la
+          // réponse arrivait coupée au milieu de la liste.
+          maxOutputTokens: 8192,
           ...(model === 'gemini-2.5-flash' ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
         },
       }),
@@ -140,7 +166,7 @@ async function askGemini(key: string, prompt: string) {
       .filter((p) => !p.thought)
       .map((p) => p.text ?? '')
       .join('')
-    return JSON.parse(text) as { picks: { id: number; reason: string }[] }
+    return { picks: parsePicks(text) }
   }
   throw new Error(lastError || 'aucun modèle Gemini disponible')
 }
