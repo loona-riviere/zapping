@@ -9,6 +9,8 @@ export type TvShow = {
   status: string
   summary: string | null
   genres: string[]
+  /** Note moyenne de la communauté TVmaze, sur 10 — absente pour une série trop récente. */
+  rating: number | null
   network: { name: string } | null
   webChannel: { name: string } | null
   /** Identifiants externes : l'IMDb sert de pont vers TMDB. */
@@ -43,9 +45,11 @@ async function get<T>(path: string, retry = true): Promise<T> {
   return res.json() as Promise<T>
 }
 
+type RawTvShow = Omit<TvShow, 'rating'> & { rating: { average: number | null } | null }
+
 export async function searchShows(query: string): Promise<TvShow[]> {
-  const data = await get<{ show: TvShow }[]>(`/search/shows?q=${encodeURIComponent(query)}`)
-  return data.map((d) => d.show)
+  const data = await get<{ show: RawTvShow }[]>(`/search/shows?q=${encodeURIComponent(query)}`)
+  return data.map((d) => ({ ...d.show, rating: d.show.rating?.average ?? null }))
 }
 
 /**
@@ -55,7 +59,9 @@ export async function searchShows(query: string): Promise<TvShow[]> {
  * version.
  */
 export function getShowWithEpisodes(id: number, force = false): Promise<ShowWithEpisodes> {
-  const key = `tvmaze:show:${id}`
+  // Le numéro de version change avec la forme de TvShow (leçon de movieDetails
+  // chez TMDB) : à rebumper si le type change encore.
+  const key = `tvmaze:show:v2:${id}`
   if (!force) {
     try {
       const raw = localStorage.getItem(key)
@@ -71,7 +77,7 @@ export function getShowWithEpisodes(id: number, force = false): Promise<ShowWith
   const pending = inflight.get(id)
   if (pending && !force) return pending
 
-  const p = get<TvShow & { _embedded: { episodes: (TvEpisode & { number: number | null })[] } }>(
+  const p = get<RawTvShow & { _embedded: { episodes: (TvEpisode & { number: number | null })[] } }>(
     `/shows/${id}?embed=episodes`,
   )
     .then(({ _embedded, ...show }) => {
@@ -83,6 +89,7 @@ export function getShowWithEpisodes(id: number, force = false): Promise<ShowWith
       const s: TvShow = {
         id: show.id, name: show.name, image: show.image, premiered: show.premiered,
         status: show.status, summary: show.summary, genres: show.genres,
+        rating: show.rating?.average ?? null,
         network: show.network, webChannel: show.webChannel,
         externals: show.externals ?? null,
       }

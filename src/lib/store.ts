@@ -419,6 +419,12 @@ export async function touchLastWatched(showId: number, at: string | null): Promi
   if (error) throw error
 }
 
+/** Renomme une série suivie — sert à poser le titre français une fois trouvé chez TMDB. */
+export async function renameShow(showId: number, name: string): Promise<void> {
+  const { error } = await supabase.from('tracked_shows').update({ name }).eq('show_id', showId)
+  if (error) throw error
+}
+
 export async function unmarkRewatched(ids: number[]): Promise<void> {
   for (const batch of chunks(ids, 300)) {
     const { error } = await supabase.from('rewatch_progress').delete().in('episode_id', batch)

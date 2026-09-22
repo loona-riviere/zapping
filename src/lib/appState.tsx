@@ -61,6 +61,8 @@ type AppState = {
   fillMovieMeta: (movieId: number, patch: { poster_url?: string; runtime?: number; release_date?: string }) => Promise<void>
   /** Recale `last_watched_at` sur la vraie date, quand le diagnostic en trouve un décalage. */
   fixActivity: (showId: number, actual: string | null) => Promise<void>
+  /** Pose le titre français d'une série une fois trouvé chez TMDB. */
+  renameShow: (showId: number, name: string) => Promise<void>
 }
 
 const Ctx = createContext<AppState | null>(null)
@@ -451,6 +453,16 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     }
   }, [])
 
+  /** Pose le titre français une fois trouvé chez TMDB — silencieux en cas d'échec, on retentera à la prochaine visite. */
+  const renameShow = useCallback(async (showId: number, name: string) => {
+    patchShow(showId, { name })
+    try {
+      await store.renameShow(showId, name)
+    } catch {
+      /* pas grave, on retentera */
+    }
+  }, [patchShow])
+
   const fixActivity = useCallback(async (showId: number, actual: string | null) => {
     const before = tracked.find((t) => t.show_id === showId)?.last_watched_at ?? null
     patchShow(showId, { last_watched_at: actual })
@@ -540,11 +552,11 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       isTracked, statusOf, watchedFor, historyFor, rewatchesOf, setRewatches,
       isRewatching, startRewatch, endRewatch,
       track, untrack, setStatus, setWatched,
-      addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieRuntimes, fillMovieMeta, fixActivity,
+      addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow,
     }),
     [userId, tracked, watched, rewatch, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
      historyFor, rewatchesOf, setRewatches, isRewatching, startRewatch, endRewatch,
-     track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieRuntimes, fillMovieMeta, fixActivity],
+     track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

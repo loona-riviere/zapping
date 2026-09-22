@@ -332,14 +332,23 @@ const SUMMARY_TTL = 7 * 24 * 60 * 60 * 1000 // 7 j
  * d'IMDb ID, sans traduction connue, ou si TMDB est en pause (quota) — dans
  * tous les cas, l'appelant retombe alors sur le texte anglais de TVmaze.
  */
-export async function showOverviewFr(imdbId: string | null | undefined): Promise<string | null> {
+export type ShowDetailsFr = { name: string; overview: string | null }
+
+/**
+ * Titre et résumé français d'une série, via TMDB (résolue par son IMDb ID) —
+ * TVmaze n'a que le titre original, pas de traduction. Les deux dans le même
+ * appel : TMDB les renvoie ensemble, pas la peine de le faire deux fois.
+ */
+export async function showDetailsFr(imdbId: string | null | undefined): Promise<ShowDetailsFr | null> {
   if (!KEY || !imdbId) return null
-  const key = `tmdb:overview:${imdbId}`
+  // Le numéro de version change avec la forme des données mises en cache
+  // (leçon de movieDetails) : à rebumper si le type change encore.
+  const key = `tmdb:showdetails:v1:${imdbId}`
   try {
     const raw = localStorage.getItem(key)
     if (raw !== null) {
-      const cached = JSON.parse(raw) as { at: number; overview: string | null }
-      if (Date.now() - cached.at < SUMMARY_TTL) return cached.overview
+      const cached = JSON.parse(raw) as { at: number; data: ShowDetailsFr | null }
+      if (Date.now() - cached.at < SUMMARY_TTL) return cached.data
     }
   } catch {
     /* cache illisible : on refetch */
@@ -347,14 +356,14 @@ export async function showOverviewFr(imdbId: string | null | undefined): Promise
 
   const tvId = await resolveTvId(imdbId)
   if (!tvId) return null
-  const show = await get<{ overview: string | null }>(`/tv/${tvId}`, {})
-  const overview = show.overview || null
+  const show = await get<{ name: string; overview: string | null }>(`/tv/${tvId}`, {})
+  const data: ShowDetailsFr = { name: show.name, overview: show.overview || null }
   try {
-    localStorage.setItem(key, JSON.stringify({ at: Date.now(), overview }))
+    localStorage.setItem(key, JSON.stringify({ at: Date.now(), data }))
   } catch {
     /* stockage plein : pas grave */
   }
-  return overview
+  return data
 }
 
 /**

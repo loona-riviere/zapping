@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
 import { computeProgress, epCode, formatDate, formatShortDate, isAired } from '../lib/progress'
 import { href } from '../lib/route'
-import { seasonOverviewsFr, showOverviewFr } from '../lib/tmdb'
+import { seasonOverviewsFr, showDetailsFr } from '../lib/tmdb'
 import { getShowWithEpisodes, statusFr, stripHtml, type ShowWithEpisodes, type TvEpisode } from '../lib/tvmaze'
 import { Poster } from './Poster'
 import { Rewatches } from './Rewatches'
@@ -10,7 +10,7 @@ import { StatusPicker } from './StatusPicker'
 import { WhereToWatch } from './WhereToWatch'
 
 export function ShowPage({ id }: { id: number }) {
-  const { isTracked, track, untrack, watchedFor, historyFor, setWatched, isRewatching } = useApp()
+  const { isTracked, track, untrack, watchedFor, historyFor, setWatched, isRewatching, tracked, renameShow } = useApp()
   const [data, setData] = useState<ShowWithEpisodes | null>(null)
   const [error, setError] = useState(false)
   const [catchUp, setCatchUp] = useState<TvEpisode[] | null>(null)
@@ -18,9 +18,10 @@ export function ShowPage({ id }: { id: number }) {
   const [refresh, setRefresh] = useState<'idle' | 'busy' | 'done' | 'nochange' | 'failed'>('idle')
   const [openSeasons, setOpenSeasons] = useState<Set<number>>(new Set())
   const [openSummaries, setOpenSummaries] = useState<Set<number>>(new Set())
-  // Résumés en français, via TMDB — absents tant qu'ils n'ont pas fini de
-  // charger ou si TMDB n'a rien pour cette série ; on retombe alors sur
+  // Titre et résumé en français, via TMDB — absents tant qu'ils n'ont pas fini
+  // de charger ou si TMDB n'a rien pour cette série ; on retombe alors sur
   // l'anglais de TVmaze.
+  const [frName, setFrName] = useState<string | null>(null)
   const [frOverview, setFrOverview] = useState<string | null>(null)
   const [frEpisodes, setFrEpisodes] = useState<Map<number, Map<number, string>>>(new Map())
 
@@ -29,6 +30,7 @@ export function ShowPage({ id }: { id: number }) {
     setData(null)
     setError(false)
     setRefresh('idle')
+    setFrName(null)
     setFrOverview(null)
     setFrEpisodes(new Map())
     getShowWithEpisodes(id)
@@ -43,8 +45,12 @@ export function ShowPage({ id }: { id: number }) {
     let alive = true
     const imdbId = data?.show.externals?.imdb
     if (!imdbId) return
-    showOverviewFr(imdbId)
-      .then((o) => alive && o && setFrOverview(o))
+    showDetailsFr(imdbId)
+      .then((d) => {
+        if (!alive || !d) return
+        if (d.overview) setFrOverview(d.overview)
+        if (d.name) setFrName(d.name)
+      })
       .catch(() => {
         /* pas de traduction dispo : on garde l'anglais de TVmaze */
       })
@@ -52,6 +58,16 @@ export function ShowPage({ id }: { id: number }) {
       alive = false
     }
   }, [data?.show.externals?.imdb])
+
+  // Une fois le titre français trouvé, on le pose en base pour de bon — sans
+  // ça, la fiche l'afficherait en français mais l'accueil et la recherche
+  // resteraient sur l'anglais de TVmaze.
+  useEffect(() => {
+    if (!frName) return
+    const current = tracked.find((t) => t.show_id === id)?.name
+    if (current && current !== frName) renameShow(id, frName)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frName, id])
 
   const watched = watchedFor(id)
   // Pendant un revisionnage, `watched` ne montre que la passe en cours :
@@ -196,8 +212,13 @@ export function ShowPage({ id }: { id: number }) {
       <header className="show__head">
         <Poster src={show.image?.original ?? show.image?.medium} alt={show.name} size="lg" />
         <div className="show__meta">
-          <h1>{show.name}</h1>
+          <h1>{frName ?? show.name}</h1>
           <p className="muted">{[show.premiered?.slice(0, 4), channel, statusFr(show.status)].filter(Boolean).join(', ')}</p>
+          {(show.rating || show.genres.length > 0) && (
+            <p className="muted">
+              {[show.rating ? `★ ${show.rating.toFixed(1)}` : null, ...show.genres].filter(Boolean).join(' · ')}
+            </p>
+          )}
           {progress.aired > 0 && (
             <p className="show__count">
               <strong>{progress.watched}</strong> sur {progress.aired} épisodes vus

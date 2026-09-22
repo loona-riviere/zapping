@@ -65,7 +65,10 @@ export function Home() {
     const data = cache[t.show_id]
     return {
       id: t.show_id,
-      name: data?.show.name ?? t.name,
+      // Le titre suivi fait foi (il porte le français une fois posé par la
+      // fiche série) : le nom TVmaze, toujours en anglais, ne sert que tant
+      // qu'on n'a encore rien suivi.
+      name: t.name,
       image: data?.show.image?.medium ?? t.image_url,
       lastWatchedAt: t.last_watched_at,
       addedAt: t.added_at,
