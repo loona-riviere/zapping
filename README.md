@@ -111,6 +111,10 @@ notification push quand un épisode suivi vient de sortir. Variables à ajouter 
 - `SUPABASE_SERVICE_ROLE_KEY` : **Project Settings → API → Project API keys → `service_role`**
   (secrète — jamais dans `VITE_*`, uniquement lue côté fonction).
 
+Une variable marquée secrète chez Netlify doit avoir une valeur pour le contexte **Production**
+(« même valeur pour tous les contextes » n'est pas possible pour un secret) : sans ça, elle est
+absente du site en ligne.
+
 Sans ces variables, l'app fonctionne normalement ; la section Notifications des Paramètres
 affiche juste « indisponible ». Sur iPhone, ça ne marche que depuis l'icône ajoutée à l'écran
 d'accueil (jamais depuis un onglet Safari), et demande iOS 16.4 ou plus récent.
@@ -124,8 +128,10 @@ en France (titres proches de ceux aimés, Top 10 Netflix France de la semaine, n
 plateformes), avec une raison pour chacun. Il ne propose jamais de titre de mémoire.
 
 - `GEMINI_API_KEY` : clé créée sur [aistudio.google.com](https://aistudio.google.com) → *Get API key*.
-- Utilise aussi `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY` (section 5) : la fonction n'accepte
-  que les personnes connectées et garde la sélection en base (table `ai_recommendations`).
+- Utilise aussi l'URL et la clé publique Supabase (`SUPABASE_URL`/`SUPABASE_ANON_KEY`, ou à défaut
+  les `VITE_*`), disponibles pour les fonctions : la fonction n'accepte que les personnes
+  connectées et agit avec leur session (RLS) pour garder la sélection en base (table
+  `ai_recommendations`) — pas besoin de la clé `service_role`.
 
 Cache : 6 h sur l'appareil, 24 h en base, régénéré seulement à l'ouverture de l'app ; « Actualiser »
 au plus toutes les 6 h. Sans clé, l'app affiche les suggestions classées localement

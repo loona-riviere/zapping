@@ -19,13 +19,17 @@ async function fetchEpisodes(showId: number): Promise<Episode[]> {
 }
 
 export default async () => {
-  const supabaseUrl = Netlify.env.get('SUPABASE_URL')
+  const supabaseUrl = Netlify.env.get('SUPABASE_URL') || Netlify.env.get('VITE_SUPABASE_URL')
   const serviceKey = Netlify.env.get('SUPABASE_SERVICE_ROLE_KEY')
   const vapidPublic = Netlify.env.get('VAPID_PUBLIC_KEY')
   const vapidPrivate = Netlify.env.get('VAPID_PRIVATE_KEY')
   const vapidSubject = Netlify.env.get('VAPID_SUBJECT')
-  if (!supabaseUrl || !serviceKey || !vapidPublic || !vapidPrivate || !vapidSubject) {
-    console.error('check-new-episodes: variables manquantes')
+  const missing = Object.entries({
+    SUPABASE_URL: supabaseUrl, SUPABASE_SERVICE_ROLE_KEY: serviceKey,
+    VAPID_PUBLIC_KEY: vapidPublic, VAPID_PRIVATE_KEY: vapidPrivate, VAPID_SUBJECT: vapidSubject,
+  }).filter(([, v]) => !v).map(([k]) => k)
+  if (missing.length || !supabaseUrl || !serviceKey || !vapidPublic || !vapidPrivate || !vapidSubject) {
+    console.error(`check-new-episodes: variables manquantes : ${missing.join(', ')}`)
     return
   }
 

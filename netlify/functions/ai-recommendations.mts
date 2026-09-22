@@ -141,17 +141,28 @@ async function askGemini(key: string, prompt: string) {
 export default async (req: Request) => {
   if (req.method !== 'POST') return new Response('POST attendu', { status: 405 })
 
-  const geminiKey = Netlify.env.get('GEMINI_API_KEY')
-  const supabaseUrl = Netlify.env.get('SUPABASE_URL')
-  const serviceKey = Netlify.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  if (!geminiKey) return Response.json({ error: 'GEMINI_API_KEY absente sur Netlify' }, { status: 503 })
-  if (!supabaseUrl || !serviceKey) return Response.json({ error: 'Supabase non configuré côté serveur' }, { status: 503 })
+  const env = (...names: string[]) => names.map((n) => Netlify.env.get(n)).find(Boolean)
+  const geminiKey = env('GEMINI_API_KEY')
+  // Les variables publiques du site suffisent : on agit avec la session de la
+  // personne (RLS), pas avec la clé service_role.
+  const supabaseUrl = env('SUPABASE_URL', 'VITE_SUPABASE_URL')
+  const anonKey = env('SUPABASE_ANON_KEY', 'VITE_SUPABASE_ANON_KEY')
+  const missing = [!geminiKey && 'GEMINI_API_KEY', !supabaseUrl && 'VITE_SUPABASE_URL', !anonKey && 'VITE_SUPABASE_ANON_KEY']
+    .filter(Boolean)
+    .join(', ')
+  if (missing || !geminiKey || !supabaseUrl || !anonKey) {
+    return Response.json({ error: `variable(s) absente(s) côté fonctions Netlify : ${missing}` }, { status: 503 })
+  }
 
   // Réservé aux personnes connectées à l'app : sans ça, n'importe qui
   // pourrait consommer le quota Gemini gratuit.
   const jwt = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '')
   if (!jwt) return Response.json({ error: 'non connecté' }, { status: 401 })
-  const { data: auth, error: authError } = await createClient(supabaseUrl, serviceKey).auth.getUser(jwt)
+  const db = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: `Bearer ${jwt}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  const { data: auth, error: authError } = await db.auth.getUser(jwt)
   if (authError || !auth.user) return Response.json({ error: 'session invalide' }, { status: 401 })
 
   let body: Body
@@ -164,7 +175,6 @@ export default async (req: Request) => {
     return Response.json({ error: 'requête incomplète' }, { status: 400 })
   }
 
-  const db = createClient(supabaseUrl, serviceKey)
   const { data: row } = await db
     .from('ai_recommendations')
     .select('picks, created_at')
