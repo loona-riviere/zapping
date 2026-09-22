@@ -43,6 +43,7 @@ type RawMovie = {
   poster_path: string | null
   release_date: string | null
   overview: string | null
+  vote_count?: number
 }
 
 function toMovie(r: RawMovie): Movie {
@@ -418,7 +419,7 @@ export async function seasonOverviewsFr(
  */
 export async function movieRecommendations(movieId: number): Promise<Movie[]> {
   if (!KEY) return []
-  const key = `tmdb:movierec:${movieId}`
+  const key = `tmdb:movierec:v2:${movieId}`
   try {
     const raw = sessionStorage.getItem(key)
     if (raw) {
@@ -430,7 +431,8 @@ export async function movieRecommendations(movieId: number): Promise<Movie[]> {
   }
   try {
     const data = await get<{ results: RawMovie[] }>(`/movie/${movieId}/recommendations`, {})
-    const movies = data.results.map(toMovie)
+    // Même plancher que côté séries : écarte les titres très confidentiels.
+    const movies = data.results.filter((r) => (r.vote_count ?? 0) >= 20).map(toMovie)
     try {
       sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), data: movies }))
     } catch {
@@ -458,6 +460,7 @@ type RawTvRec = {
   original_name: string
   poster_path: string | null
   first_air_date: string | null
+  vote_count: number
 }
 
 /**
@@ -474,7 +477,7 @@ export async function tvRecommendationsByImdb(
   if (!tvId) return []
   // Le numéro de version change avec la forme des données mises en cache
   // (leçon de movieDetails) : à rebumper si le type change encore.
-  const key = `tmdb:tvrec:v2:${tvId}`
+  const key = `tmdb:tvrec:v3:${tvId}`
   try {
     const raw = sessionStorage.getItem(key)
     if (raw) {
@@ -486,13 +489,18 @@ export async function tvRecommendationsByImdb(
   }
   try {
     const data = await get<{ results: RawTvRec[] }>(`/tv/${tvId}/recommendations`, {})
-    const recs = data.results.map((r) => ({
-      id: r.id,
-      name: r.name,
-      originalName: r.original_name,
-      poster_url: r.poster_path ? IMG + r.poster_path : null,
-      year: r.first_air_date ? Number(r.first_air_date.slice(0, 4)) : null,
-    }))
+    // TMDB propose parfois des séries très confidentielles (quelques votes
+    // à peine) : un plancher de votes écarte l'inconnu obscur sans changer
+    // le reste de l'algorithme, qui appartient à TMDB.
+    const recs = data.results
+      .filter((r) => r.vote_count >= 20)
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        originalName: r.original_name,
+        poster_url: r.poster_path ? IMG + r.poster_path : null,
+        year: r.first_air_date ? Number(r.first_air_date.slice(0, 4)) : null,
+      }))
     try {
       sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), data: recs }))
     } catch {
@@ -514,11 +522,13 @@ const NETFLIX_PROVIDER_ID = '8'
 
 export async function netflixTopMovies(): Promise<Movie[]> {
   if (!KEY) return []
-  // v2 : deux requêtes plutôt qu'un simple tri par popularité — un pur tri
-  // popularité laisse passer des titres obscurs mal notés. On mélange les
-  // sorties récentes qui cartonnent avec les classiques toujours regardés
-  // (beaucoup de votes, bien notés) plutôt qu'un seul critère.
-  const key = 'tmdb:netflixtop:v2:movie'
+  // v3 : une seule requête (v2 en envoyait deux en parallèle, en plus des
+  // autres carrousels de la même page — cumulés, ça a fait sauter la limite
+  // de requêtes TMDB, coupant tout « Populaire » pendant plusieurs minutes).
+  // Un plancher de votes suffit à écarter l'obscur sans requête en plus :
+  // un classique culte a accumulé des votes avec le temps, un titre oublié
+  // n'en a jamais eu beaucoup — le tri popularité fait le reste.
+  const key = 'tmdb:netflixtop:v3:movie'
   try {
     const raw = localStorage.getItem(key)
     if (raw) {
@@ -529,29 +539,13 @@ export async function netflixTopMovies(): Promise<Movie[]> {
     /* cache illisible : on refetch */
   }
   try {
-    const cutoff = new Date()
-    cutoff.setFullYear(cutoff.getFullYear() - 5)
-    const cutoffDate = cutoff.toISOString().slice(0, 10)
-    const [recent, classics] = await Promise.all([
-      get<{ results: RawMovie[] }>('/discover/movie', {
-        with_watch_providers: NETFLIX_PROVIDER_ID,
-        watch_region: 'FR',
-        sort_by: 'popularity.desc',
-        'vote_count.gte': '100',
-        'primary_release_date.gte': cutoffDate,
-      }),
-      get<{ results: RawMovie[] }>('/discover/movie', {
-        with_watch_providers: NETFLIX_PROVIDER_ID,
-        watch_region: 'FR',
-        sort_by: 'vote_average.desc',
-        'vote_count.gte': '1000',
-        'primary_release_date.lte': cutoffDate,
-      }),
-    ])
-    const byId = new Map<number, Movie>()
-    for (const r of recent.results) byId.set(r.id, toMovie(r))
-    for (const r of classics.results) if (!byId.has(r.id)) byId.set(r.id, toMovie(r))
-    const movies = [...byId.values()].slice(0, 20)
+    const data = await get<{ results: RawMovie[] }>('/discover/movie', {
+      with_watch_providers: NETFLIX_PROVIDER_ID,
+      watch_region: 'FR',
+      sort_by: 'popularity.desc',
+      'vote_count.gte': '300',
+    })
+    const movies = data.results.map(toMovie).slice(0, 20)
     try {
       localStorage.setItem(key, JSON.stringify({ at: Date.now(), data: movies }))
     } catch {
