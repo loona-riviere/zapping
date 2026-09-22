@@ -260,7 +260,7 @@ export function ShowPage({ id }: { id: number }) {
         )}
       </div>
 
-      <WhereToWatch imdbId={show.externals?.imdb} />
+      <WhereToWatch imdbId={show.externals?.imdb} title={frName ?? show.name} />
 
       {summary && <p className="show__summary">{summary}</p>}
 
