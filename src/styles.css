@@ -123,6 +123,16 @@ button { font: inherit; color: inherit; }
 .shelf { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: .6rem; }
 .shelf .poster--sm { width: 100%; }
 .shelf a { display: block; }
+
+/* Variante carrousel : une ligne qui défile horizontalement plutôt qu'une
+   grille qui s'étire en hauteur — pour parcourir plein de suggestions sans
+   avoir à en écarter pour faire de la place. */
+.shelf--carousel {
+  display: flex; flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x proximity;
+  margin: 0 -1rem; padding: 0 1rem .3rem; -webkit-overflow-scrolling: touch;
+}
+.shelf--carousel .shelf__item { flex: 0 0 6rem; scroll-snap-align: start; }
+.shelf--carousel .poster--sm { width: 100%; }
 .shelf__item { position: relative; }
 .shelf__dismiss {
   position: absolute; top: -.3rem; right: -.3rem; width: 1.4rem; height: 1.4rem;

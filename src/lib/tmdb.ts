@@ -503,3 +503,77 @@ export async function tvRecommendationsByImdb(
     return []
   }
 }
+
+/**
+ * Populaire sur Netflix en ce moment, en France. TMDB n'a pas le vrai
+ * Top 10 officiel de Netflix (pas d'API publique pour ça) : on approxime
+ * avec son propre classement de popularité, filtré aux titres disponibles
+ * en abonnement chez Netflix. L'identifiant 8 est celui de Netflix chez TMDB.
+ */
+const NETFLIX_PROVIDER_ID = '8'
+
+export async function netflixTopMovies(): Promise<Movie[]> {
+  if (!KEY) return []
+  const key = 'tmdb:netflixtop:v1:movie'
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw) {
+      const c = JSON.parse(raw) as { at: number; data: Movie[] }
+      if (Date.now() - c.at < CACHE_TTL) return c.data
+    }
+  } catch {
+    /* cache illisible : on refetch */
+  }
+  try {
+    const data = await get<{ results: RawMovie[] }>('/discover/movie', {
+      with_watch_providers: NETFLIX_PROVIDER_ID,
+      watch_region: 'FR',
+      sort_by: 'popularity.desc',
+    })
+    const movies = data.results.map(toMovie)
+    try {
+      localStorage.setItem(key, JSON.stringify({ at: Date.now(), data: movies }))
+    } catch {
+      /* stockage plein : pas grave */
+    }
+    return movies
+  } catch {
+    return []
+  }
+}
+
+export async function netflixTopShows(): Promise<TvRecommendation[]> {
+  if (!KEY) return []
+  const key = 'tmdb:netflixtop:v1:show'
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw) {
+      const c = JSON.parse(raw) as { at: number; data: TvRecommendation[] }
+      if (Date.now() - c.at < CACHE_TTL) return c.data
+    }
+  } catch {
+    /* cache illisible : on refetch */
+  }
+  try {
+    const data = await get<{ results: RawTvRec[] }>('/discover/tv', {
+      with_watch_providers: NETFLIX_PROVIDER_ID,
+      watch_region: 'FR',
+      sort_by: 'popularity.desc',
+    })
+    const shows = data.results.map((r) => ({
+      id: r.id,
+      name: r.name,
+      originalName: r.original_name,
+      poster_url: r.poster_path ? IMG + r.poster_path : null,
+      year: r.first_air_date ? Number(r.first_air_date.slice(0, 4)) : null,
+    }))
+    try {
+      localStorage.setItem(key, JSON.stringify({ at: Date.now(), data: shows }))
+    } catch {
+      /* stockage plein : pas grave */
+    }
+    return shows
+  } catch {
+    return []
+  }
+}

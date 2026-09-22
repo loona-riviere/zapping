@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
 import { href } from '../lib/route'
+import { ratingRank } from '../lib/store'
 import {
-  movieRecommendations, tmdbConfigured, tvRecommendationsByImdb,
+  movieRecommendations, netflixTopMovies, netflixTopShows, tmdbConfigured, tvRecommendationsByImdb,
   type Movie, type TvRecommendation,
 } from '../lib/tmdb'
 import { searchShows } from '../lib/tvmaze'
@@ -22,11 +23,13 @@ export function MovieRecommendations() {
   const [recs, setRecs] = useState<Movie[]>([])
   const [status, setStatus] = useState<Status>('idle')
 
+  // Les adorés/aimés passent devant, à date égale ; un film pas aimé ne sert
+  // jamais de base à une suggestion.
   const seeds = useMemo(
     () =>
       movies
-        .filter((m) => m.status === 'watched')
-        .sort((a, b) => (b.watched_at ?? '').localeCompare(a.watched_at ?? ''))
+        .filter((m) => m.status === 'watched' && m.rating !== 'dislike')
+        .sort((a, b) => ratingRank(b.rating) - ratingRank(a.rating) || (b.watched_at ?? '').localeCompare(a.watched_at ?? ''))
         .slice(0, 3),
     [movies],
   )
@@ -48,7 +51,7 @@ export function MovieRecommendations() {
           if (!known.has(m.id) && !byId.has(m.id)) byId.set(m.id, m)
         }
       }
-      const found = [...byId.values()].slice(0, 10)
+      const found = [...byId.values()].slice(0, 20)
       setRecs(found)
       setStatus(found.length ? 'ready' : 'empty')
     })
@@ -75,7 +78,7 @@ export function MovieRecommendations() {
         <p className="muted">TMDB n'a rien à te proposer pour l'instant à partir de tes derniers films vus.</p>
       )}
       {status === 'ready' && (
-        <ul className="shelf">
+        <ul className="shelf shelf--carousel">
           {visible.map((m) => (
             <li key={m.id} className="shelf__item">
               <a href={href.movie(m.id)} title={m.title}>
@@ -154,7 +157,7 @@ export function ShowRecommendations({ showIds }: { showIds: number[] }) {
       const found = [...byId.values()]
         .filter((r) => r.year === null || r.year >= minYear)
         .sort((a, b) => (b.year ?? 0) - (a.year ?? 0))
-        .slice(0, 10)
+        .slice(0, 20)
       setRecs(found)
       setStatus(found.length ? 'ready' : 'empty')
     })
@@ -199,7 +202,7 @@ export function ShowRecommendations({ showIds }: { showIds: number[] }) {
         <p className="muted">TMDB n'a rien à te proposer pour l'instant à partir de tes séries les plus actives.</p>
       )}
       {status === 'ready' && (
-        <ul className="shelf">
+        <ul className="shelf shelf--carousel">
           {visible.map((r) => (
             <li key={r.id} className="shelf__item">
               <button
@@ -227,6 +230,159 @@ export function ShowRecommendations({ showIds }: { showIds: number[] }) {
           ))}
         </ul>
       )}
+    </section>
+  )
+}
+
+/**
+ * Ce qui est populaire sur Netflix en ce moment, indépendant de ce qu'on a
+ * regardé — contrairement à « Recommandé pour toi », toujours affiché tant
+ * que TMDB répond. Même mécanisme d'écart (et de mémoire partagée) que les
+ * suggestions personnalisées.
+ */
+export function NetflixTopMovies() {
+  const { movies, isDismissed, dismissRec } = useApp()
+  const [recs, setRecs] = useState<Movie[]>([])
+  const [status, setStatus] = useState<Status>('idle')
+
+  useEffect(() => {
+    if (!tmdbConfigured) return
+    let alive = true
+    setStatus('loading')
+    netflixTopMovies().then((found) => {
+      if (!alive) return
+      const known = new Set(movies.map((m) => m.movie_id))
+      const list = found.filter((m) => !known.has(m.id))
+      setRecs(list)
+      setStatus(list.length ? 'ready' : 'empty')
+    })
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function skip(m: Movie) {
+    dismissRec('movie', m.id, m.title, m.poster_url)
+    setRecs((prev) => prev.filter((x) => x.id !== m.id))
+  }
+
+  const visible = recs.filter((m) => !isDismissed('movie', m.id))
+
+  if (status === 'idle' || status === 'empty' || !visible.length) return null
+
+  return (
+    <section>
+      <h2 className="section-title">Populaire sur Netflix</h2>
+      <ul className="shelf shelf--carousel">
+        {visible.map((m) => (
+          <li key={m.id} className="shelf__item">
+            <a href={href.movie(m.id)} title={m.title}>
+              <Poster src={m.poster_url} alt={m.title} />
+              <span className="shelf__label">{m.title}</span>
+            </a>
+            <button
+              type="button"
+              className="shelf__dismiss"
+              onClick={() => skip(m)}
+              aria-label={`Ne plus recommander ${m.title}`}
+            >
+              ✕
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+/** Équivalent séries de NetflixTopMovies : même logique, résolution TVmaze au clic. */
+export function NetflixTopShows() {
+  const { tracked, isDismissed, dismissRec } = useApp()
+  const [recs, setRecs] = useState<TvRecommendation[]>([])
+  const [status, setStatus] = useState<Status>('idle')
+  const [opening, setOpening] = useState<number | null>(null)
+  const [notFound, setNotFound] = useState<number | null>(null)
+  const trackedNames = useMemo(
+    () => new Set(tracked.map((t) => t.name.toLowerCase())),
+    [tracked],
+  )
+
+  useEffect(() => {
+    if (!tmdbConfigured) return
+    let alive = true
+    setStatus('loading')
+    netflixTopShows().then((found) => {
+      if (!alive) return
+      const list = found.filter(
+        (r) => !trackedNames.has(r.name.toLowerCase()) && !trackedNames.has(r.originalName.toLowerCase()),
+      )
+      setRecs(list)
+      setStatus(list.length ? 'ready' : 'empty')
+    })
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function open(r: TvRecommendation) {
+    setNotFound(null)
+    setOpening(r.id)
+    try {
+      const results = await searchShows(r.name)
+      const match =
+        results.find((s) => r.year && s.premiered && Number(s.premiered.slice(0, 4)) === r.year) ??
+        results[0]
+      if (!match) {
+        setNotFound(r.id)
+        return
+      }
+      window.location.hash = href.show(match.id)
+    } finally {
+      setOpening(null)
+    }
+  }
+
+  function skip(r: TvRecommendation) {
+    dismissRec('show', r.id, r.name, r.poster_url)
+    setRecs((prev) => prev.filter((x) => x.id !== r.id))
+  }
+
+  const visible = recs.filter((r) => !isDismissed('show', r.id))
+
+  if (status === 'idle' || status === 'empty' || !visible.length) return null
+
+  return (
+    <section>
+      <h2 className="section-title">Populaire sur Netflix</h2>
+      <ul className="shelf shelf--carousel">
+        {visible.map((r) => (
+          <li key={r.id} className="shelf__item">
+            <button
+              type="button"
+              className="shelf__pick"
+              onClick={() => open(r)}
+              disabled={opening === r.id}
+              title={r.name}
+            >
+              <Poster src={r.poster_url} alt={r.name} />
+              <span className="shelf__label">{opening === r.id ? 'Ouverture…' : r.name}</span>
+              {notFound === r.id && (
+                <span className="error shelf__label">Introuvable chez TVmaze</span>
+              )}
+            </button>
+            <button
+              type="button"
+              className="shelf__dismiss"
+              onClick={() => skip(r)}
+              aria-label={`Ne plus recommander ${r.name}`}
+            >
+              ✕
+            </button>
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }
