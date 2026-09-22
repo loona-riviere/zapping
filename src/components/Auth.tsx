@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 
 type Mode = 'password' | 'code'
@@ -11,6 +11,18 @@ export function Auth() {
   const [code, setCode] = useState('')
   const [step, setStep] = useState<Step>('form')
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    // Quand l'échange OAuth échoue côté serveur (ex. state Safari perdu en
+    // route), Supabase revient ici avec ?error_description=… dans l'URL —
+    // sans ça, l'appli retombe juste sur ce formulaire sans un mot d'explication.
+    const params = new URLSearchParams(window.location.search)
+    const desc = params.get('error_description')
+    if (desc) {
+      setError(desc.replace(/\+/g, ' '))
+      window.history.replaceState(null, '', window.location.pathname + window.location.hash)
+    }
+  }, [])
 
   async function signIn(e: FormEvent) {
     e.preventDefault()
