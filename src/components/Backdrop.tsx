@@ -60,12 +60,12 @@ export function Splash() {
   )
 }
 
-const LAUNCH_MS = 1500
+const LAUNCH_MS = 2500
 const FADE_MS = 400
 
 /**
  * Écran d'ouverture quand l'app est lancée depuis son icône d'écran
- * d'accueil : logo et mire devant le mur d'affiches, ~1,5 s, puis fondu vers
+ * d'accueil : logo et mire devant le mur d'affiches, ~2,5 s, puis fondu vers
  * l'app, qui charge derrière pendant ce temps. Un toucher le passe. Pas dans
  * un onglet de navigateur, où ce serait juste une attente de plus.
  */
