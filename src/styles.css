@@ -205,10 +205,31 @@ button { font: inherit; color: inherit; }
 .show__count { font-variant-numeric: tabular-nums; }
 .show__count strong { font-family: var(--display); font-size: 1.4rem; }
 .show__summary { color: var(--muted); max-width: 38rem; margin: 1.25rem 0 0; line-height: 1.6; }
+.show__summary--clamped { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.show__summary-more { margin-top: .25rem; font-size: .85rem; color: var(--muted); }
 
 .season { margin-top: 2rem; }
 .season__head { display: flex; align-items: baseline; gap: .75rem; margin-bottom: .6rem; }
 .season__head h2 { font-size: 1.15rem; }
+/* Toute la ligne « ▸ Saison 3 24/24 ✓ » se touche pour replier/déplier la grille. */
+.season__toggle {
+  display: inline-flex; align-items: baseline; gap: .5rem; padding: 0; border: 0; background: none;
+  font: inherit; color: inherit; cursor: pointer; text-align: left;
+}
+.season__chevron { display: inline-block; width: .8rem; color: var(--muted); font-size: .9rem; }
+.season__count { font-family: var(--body); font-size: .95rem; font-weight: 400; }
+.season__done { color: var(--accent); font-size: .95rem; }
+/* Saisons repliées : des lignes serrées, pas de grands blancs entre elles. */
+.season:has(.season__toggle[aria-expanded='false']) { margin-top: 1rem; }
+.season:has(.season__toggle[aria-expanded='false']) .season__head { margin-bottom: 0; }
+.season__menu-btn {
+  border: 0; background: none; color: var(--muted); font-size: 1.2rem; line-height: 1;
+  padding: 0 .25rem; cursor: pointer;
+}
+.season__menu {
+  display: flex; flex-direction: column; align-items: flex-start; gap: .6rem;
+  margin: 0 0 .8rem; padding: .7rem .85rem; border-radius: var(--radius); background: var(--surface); font-size: .9rem;
+}
 .season__head .link-btn { margin-left: auto; font-size: .9rem; }
 .season__more { font-size: .85rem; color: var(--muted); margin-top: .6rem; }
 
@@ -567,7 +588,6 @@ button { font: inherit; color: inherit; }
 .row__head { display: flex; align-items: flex-start; gap: .75rem; }
 .row__fixactions { display: flex; flex-direction: column; align-items: flex-end; gap: .3rem; flex: none; font-size: .85rem; }
 .row__stack { display: flex; flex-direction: column; gap: .4rem; flex: 1; }
-.season__dates { font-size: .8rem; color: var(--muted); }
 .season__bulk-date {
   display: flex; align-items: center; gap: .35rem; font-size: .8rem; color: var(--muted); cursor: pointer;
 }

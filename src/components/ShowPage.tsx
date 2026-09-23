@@ -20,6 +20,11 @@ export function ShowPage({ id }: { id: number }) {
   const [confirmUncheck, setConfirmUncheck] = useState<TvEpisode | null>(null)
   const [refresh, setRefresh] = useState<'idle' | 'busy' | 'done' | 'nochange' | 'failed'>('idle')
   const [openSeasons, setOpenSeasons] = useState<Set<number>>(new Set())
+  // Grilles repliées ou dépliées à la main ; sans choix explicite, seule la
+  // saison en cours est dépliée (voir `isGridOpen`).
+  const [gridChoice, setGridChoice] = useState<Map<number, boolean>>(new Map())
+  const [menuSeason, setMenuSeason] = useState<number | null>(null)
+  const [summaryOpen, setSummaryOpen] = useState(false)
   const [openSummaries, setOpenSummaries] = useState<Set<number>>(new Set())
   // Titre et résumé en français, via TMDB — absents tant qu'ils n'ont pas fini
   // de charger ou si TMDB n'a rien pour cette série ; on retombe alors sur
@@ -33,6 +38,9 @@ export function ShowPage({ id }: { id: number }) {
     setData(null)
     setError(false)
     setRefresh('idle')
+    setGridChoice(new Map())
+    setMenuSeason(null)
+    setSummaryOpen(false)
     setFrName(null)
     setFrOverview(null)
     setFrEpisodes(new Map())
@@ -95,6 +103,16 @@ export function ShowPage({ id }: { id: number }) {
   const progress = computeProgress(episodes, watched)
   const channel = show.network?.name ?? show.webChannel?.name
   const summary = frOverview ?? stripHtml(show.summary)
+  const longSummary = summary.length > 220
+
+  // La saison du prochain épisode (ou du prochain à sortir) : la seule
+  // dépliée d'office, pour ne pas faire défiler dix grilles de Friends avant
+  // d'arriver à celle qui compte. Elle suit : un épisode coché en fin de
+  // saison déplie la suivante.
+  const currentSeason = (progress.next ?? progress.upcoming)?.season ?? seasons[0]?.[0]
+  const isGridOpen = (season: number) => gridChoice.get(season) ?? season === currentSeason
+  const toggleGrid = (season: number) =>
+    setGridChoice((prev) => new Map(prev).set(season, !isGridOpen(season)))
 
   /** Un jour seul : on horodate à midi pour éviter les sauts de fuseau. */
   const isoAtNoon = (day: string) => `${day}T12:00:00.000Z`
@@ -272,13 +290,25 @@ export function ShowPage({ id }: { id: number }) {
 
       <WhereToWatch imdbId={show.externals?.imdb} title={frName ?? show.name} />
 
-      {summary && <p className="show__summary">{summary}</p>}
+      {summary && (
+        <>
+          <p className={`show__summary${longSummary && !summaryOpen ? ' show__summary--clamped' : ''}`}>{summary}</p>
+          {longSummary && (
+            <button type="button" className="link-btn show__summary-more" onClick={() => setSummaryOpen((v) => !v)}>
+              {summaryOpen ? 'Réduire' : 'Lire la suite'}
+            </button>
+          )}
+        </>
+      )}
 
       {seasons.map(([season, eps]) => {
         const aired = eps.filter((e) => isAired(e))
         const seen = aired.filter((e) => watched.has(e.id)).length
         const complete = aired.length > 0 && seen === aired.length
         const open = openSeasons.has(season)
+        const gridOpen = isGridOpen(season)
+        // Outils de datation en lot : rarement utiles, rangés derrière « ⋯ ».
+        const dateTools = seen > 0 && !rewatching
         // Pendant un revisionnage : ce que cette saison portait avant, pour ne
         // pas perdre de vue une saison déjà vue mais pas encore recochée.
         const historyCount = rewatching ? aired.filter((e) => history.has(e.id)).length : 0
@@ -291,8 +321,19 @@ export function ShowPage({ id }: { id: number }) {
         return (
           <section key={season} className="season">
             <div className="season__head">
-              <h2>Saison {season}</h2>
-              <span className="muted">{seen}/{eps.length}</span>
+              <h2>
+                <button
+                  type="button"
+                  className="season__toggle"
+                  aria-expanded={gridOpen}
+                  onClick={() => toggleGrid(season)}
+                >
+                  <span className="season__chevron" aria-hidden="true">{gridOpen ? '▾' : '▸'}</span>
+                  Saison {season}
+                  <span className="season__count muted">{seen}/{eps.length}</span>
+                  {complete && <span className="season__done" aria-label="terminée">✓</span>}
+                </button>
+              </h2>
               {historyCount > 0 && seen < aired.length && (
                 <span
                   className="muted season__history"
@@ -301,33 +342,54 @@ export function ShowPage({ id }: { id: number }) {
                   déjà vue ({historyCount}/{aired.length}){historyLast ? `, dernière fois le ${formatShortDate(historyLast)}` : ''}
                 </span>
               )}
-              {aired.length > 0 && (
+              {gridOpen && aired.length > 0 && (
                 <button className="link-btn" onClick={() => toggleSeason(eps)}>
                   {complete ? 'Tout décocher' : 'Tout cocher'}
                 </button>
               )}
-              {seen > 0 && !isRewatching(show.id) && (
+              {gridOpen && dateTools && (
                 <button
-                  className="link-btn season__dates"
-                  onClick={() => dateToAirdates(eps)}
-                  title="Reprend la date de diffusion d'origine de chaque épisode déjà coché"
+                  type="button"
+                  className="season__menu-btn"
+                  aria-expanded={menuSeason === season}
+                  aria-label={`Plus d'actions pour la saison ${season}`}
+                  onClick={() => setMenuSeason(menuSeason === season ? null : season)}
                 >
-                  Dater à la diffusion
+                  ⋯
                 </button>
               )}
-              {seen > 0 && !isRewatching(show.id) && (
+            </div>
+
+            {gridOpen && dateTools && menuSeason === season && (
+              <div className="season__menu">
+                <button
+                  className="link-btn"
+                  onClick={() => {
+                    dateToAirdates(eps)
+                    setMenuSeason(null)
+                  }}
+                  title="Reprend la date de diffusion d'origine de chaque épisode déjà coché"
+                >
+                  Dater les épisodes vus à leur diffusion
+                </button>
                 <label className="season__bulk-date" title="Mettre la même date sur tous les épisodes déjà cochés de cette saison">
-                  Dater tout à…
+                  Mettre la même date à tous :
                   <input
                     type="date"
                     className="season__bulk-date-input"
                     max={new Date().toISOString().slice(0, 10)}
-                    onChange={(e) => e.target.value && dateAllTo(eps, e.target.value)}
+                    onChange={(e) => {
+                      if (!e.target.value) return
+                      dateAllTo(eps, e.target.value)
+                      setMenuSeason(null)
+                    }}
                   />
                 </label>
-              )}
-            </div>
+              </div>
+            )}
 
+            {gridOpen && (
+              <>
             <div className="tiles">
               {eps.map((ep) => {
                 const on = watched.has(ep.id)
@@ -419,6 +481,8 @@ export function ShowPage({ id }: { id: number }) {
                   )
                 })}
               </ol>
+            )}
+              </>
             )}
           </section>
         )
