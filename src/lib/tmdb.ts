@@ -759,3 +759,30 @@ export async function discoverRecentMovies(): Promise<RecMovie[]> {
     return []
   }
 }
+
+/**
+ * Affiches des séries et films tendance de la semaine, pour le mur d'affiches
+ * de l'écran de connexion. Une seule paire de requêtes par jour ; sans clé
+ * TMDB ou en cas d'échec, l'écran se contente de la mire.
+ */
+export async function trendingPosters(): Promise<string[]> {
+  if (!KEY) return []
+  const key = 'tmdb:trending:v1'
+  const hit = readCache<string[]>(key, CACHE_TTL)
+  if (hit) return hit
+  try {
+    const [tv, movie] = await Promise.all([
+      get<{ results: { poster_path: string | null }[] }>('/trending/tv/week', {}),
+      get<{ results: { poster_path: string | null }[] }>('/trending/movie/week', {}),
+    ])
+    // Séries et films alternés, pour un mur varié plutôt que deux blocs.
+    const posters: string[] = []
+    for (let i = 0; i < Math.max(tv.results.length, movie.results.length); i++) {
+      for (const r of [tv.results[i], movie.results[i]]) if (r?.poster_path) posters.push(IMG + r.poster_path)
+    }
+    writeCache(key, posters)
+    return posters
+  } catch {
+    return []
+  }
+}

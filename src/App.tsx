@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { Auth } from './components/Auth'
+import { Splash } from './components/Backdrop'
 import { BottomNav } from './components/BottomNav'
 import { EasterEggOverlay, useLogoEasterEgg } from './components/EasterEgg'
 import { Footer } from './components/Footer'
@@ -42,7 +43,7 @@ export default function App() {
       </main>
     )
   }
-  if (session === undefined) return null
+  if (session === undefined) return <Splash />
   if (!session) return <Auth />
 
   return (

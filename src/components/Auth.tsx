@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
+import { Mire, PosterWall } from './Backdrop'
 
 type Mode = 'password' | 'code'
 type Step = 'form' | 'sending' | 'sent' | 'verifying'
@@ -109,100 +110,107 @@ export function Auth() {
   }
 
   return (
-    <main className="auth">
-      <h1 className="wordmark wordmark--big">Zapping</h1>
-      <p className="auth__lede">Coche les épisodes que tu regardes et retrouve toujours où tu en es.</p>
+    <div className="auth-screen">
+      <PosterWall />
+      <div className="auth-screen__veil" aria-hidden="true" />
+      <main className="auth auth--card">
+        <h1 className="wordmark wordmark--big">Zapping</h1>
+        <Mire />
+        <p className="auth__lede">Coche les épisodes que tu regardes et retrouve toujours où tu en es.</p>
 
-      {mode === 'password' && (
-        <>
-          <form onSubmit={signIn} className="auth__form">
-            <label htmlFor="email">Adresse e-mail</label>
-            <input
-              id="email"
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <label htmlFor="password">Mot de passe</label>
-            <input
-              id="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <div className="auth__actions">
-              <button className="btn btn--primary" disabled={step === 'sending'}>
-                {step === 'sending' ? 'Connexion…' : 'Se connecter'}
-              </button>
-              <button type="button" className="btn btn--ghost" disabled={step === 'sending'} onClick={signUp}>
-                Créer un compte
-              </button>
-            </div>
-            {error && <p className="error">{error}</p>}
-          </form>
-
-          <button className="btn btn--google" onClick={signInWithGoogle} disabled={step === 'sending'}>
-            <GoogleG /> Continuer avec Google
-          </button>
-
-          <button className="link-btn auth__switch" onClick={() => switchMode('code')}>
-            Se connecter avec un code reçu par e-mail à la place
-          </button>
-        </>
-      )}
-
-      {mode === 'code' && (
-        <>
-          {step !== 'sent' && step !== 'verifying' ? (
-            <form onSubmit={sendCode} className="auth__form">
-              <label htmlFor="email-code">Adresse e-mail</label>
+        {mode === 'password' && (
+          <>
+            <form onSubmit={signIn} className="auth__form">
+              <label htmlFor="email">Adresse e-mail</label>
               <input
-                id="email-code"
+                id="email"
                 type="email"
                 required
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              <button className="btn btn--primary" disabled={step === 'sending'}>
-                {step === 'sending' ? 'Envoi…' : 'Recevoir un code'}
-              </button>
-              {error && <p className="error">Envoi impossible : {error}</p>}
-            </form>
-          ) : (
-            <form onSubmit={verify} className="auth__form">
-              <p className="auth__sent">
-                Un code à 6 chiffres a été envoyé à <strong>{email}</strong>.
-              </p>
-              <label htmlFor="code">Code reçu par e-mail</label>
+              <label htmlFor="password">Mot de passe</label>
               <input
-                id="code"
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
+                id="password"
+                type="password"
                 required
-                autoFocus
-                maxLength={6}
-                className="auth__code"
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
-              <button className="btn btn--primary" disabled={step === 'verifying' || code.length < 6}>
-                {step === 'verifying' ? 'Vérification…' : 'Se connecter'}
+              <button className="btn btn--primary" disabled={step === 'sending'}>
+                {step === 'sending' ? 'Connexion…' : 'Se connecter'}
               </button>
               {error && <p className="error">{error}</p>}
             </form>
-          )}
-          <button className="link-btn auth__switch" onClick={() => switchMode('password')}>
-            Se connecter avec un mot de passe à la place
-          </button>
-        </>
-      )}
-    </main>
+
+            <button className="btn btn--google" onClick={signInWithGoogle} disabled={step === 'sending'}>
+              <GoogleG /> Continuer avec Google
+            </button>
+
+            <p className="auth__signup muted">
+              Pas encore de compte ?{' '}
+              <button type="button" className="link-btn" disabled={step === 'sending'} onClick={signUp}>
+                Créer un compte
+              </button>
+            </p>
+
+            <button className="link-btn auth__switch" onClick={() => switchMode('code')}>
+              Se connecter avec un code reçu par e-mail à la place
+            </button>
+          </>
+        )}
+
+        {mode === 'code' && (
+          <>
+            {step !== 'sent' && step !== 'verifying' ? (
+              <form onSubmit={sendCode} className="auth__form">
+                <label htmlFor="email-code">Adresse e-mail</label>
+                <input
+                  id="email-code"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <button className="btn btn--primary" disabled={step === 'sending'}>
+                  {step === 'sending' ? 'Envoi…' : 'Recevoir un code'}
+                </button>
+                {error && <p className="error">Envoi impossible : {error}</p>}
+              </form>
+            ) : (
+              <form onSubmit={verify} className="auth__form">
+                <p className="auth__sent">
+                  Un code à 6 chiffres a été envoyé à <strong>{email}</strong>.
+                </p>
+                <label htmlFor="code">Code reçu par e-mail</label>
+                <input
+                  id="code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  required
+                  autoFocus
+                  maxLength={6}
+                  className="auth__code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                />
+                <button className="btn btn--primary" disabled={step === 'verifying' || code.length < 6}>
+                  {step === 'verifying' ? 'Vérification…' : 'Se connecter'}
+                </button>
+                {error && <p className="error">{error}</p>}
+              </form>
+            )}
+            <button className="link-btn auth__switch" onClick={() => switchMode('password')}>
+              Se connecter avec un mot de passe à la place
+            </button>
+          </>
+        )}
+      </main>
+    </div>
   )
 }
 
