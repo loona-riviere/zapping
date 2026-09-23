@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { Auth } from './components/Auth'
-import { Splash } from './components/Backdrop'
+import { LaunchScreen, Splash } from './components/Backdrop'
 import { BottomNav } from './components/BottomNav'
 import { EasterEggOverlay, useLogoEasterEgg } from './components/EasterEgg'
 import { Footer } from './components/Footer'
@@ -18,6 +18,15 @@ import { supabase, supabaseConfigured } from './lib/supabase'
 import { tmdbConfigured } from './lib/tmdb'
 
 export default function App() {
+  return (
+    <>
+      <AppContent />
+      <LaunchScreen />
+    </>
+  )
+}
+
+function AppContent() {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
 
   useEffect(() => {

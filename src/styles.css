@@ -367,8 +367,17 @@ button { font: inherit; color: inherit; }
   align-items: center; justify-content: center; text-align: center; animation: wall-in .4s ease both;
 }
 
+/* Ouverture depuis l'icône : par-dessus l'app, qui charge derrière. */
+.launch {
+  position: fixed; inset: 0; z-index: 100; overflow: hidden; background: var(--bg);
+  display: flex; align-items: center; justify-content: center; transition: opacity .4s ease;
+}
+.launch--leaving { opacity: 0; pointer-events: none; }
+.launch__brand { position: relative; z-index: 1; text-align: center; animation: card-in .6s ease both; }
+.launch__brand .wordmark--big { margin: 0; text-shadow: 0 4px 30px color-mix(in srgb, var(--bg) 80%, transparent); }
+
 @media (prefers-reduced-motion: reduce) {
-  .poster-wall__row, .mire--animated span, .auth--card, .poster-wall, .splash { animation: none; }
+  .poster-wall__row, .mire--animated span, .auth--card, .poster-wall, .splash, .launch__brand { animation: none; }
 }
 
 .settings__signout { margin-top: .75rem; }
