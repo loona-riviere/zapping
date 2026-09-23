@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { isStandalone } from '../lib/push'
 import { trendingPosters } from '../lib/tmdb'
+import { readWallPosters } from '../lib/wall'
 
 const ROWS = 4
 const PER_ROW = 10
+const MIN_POSTERS = 8
 
 /** La bande de couleurs d'une mire TV, rappel de la palette de l'app. */
 export function Mire({ animated = false }: { animated?: boolean }) {
@@ -17,22 +19,30 @@ export function Mire({ animated = false }: { animated?: boolean }) {
 }
 
 /**
- * Mur d'affiches tendance qui défile lentement derrière l'écran de connexion,
- * voilé pour que le formulaire reste lisible. Chaque rangée est dupliquée
- * pour boucler sans à-coup. Purement décoratif.
+ * Mur d'affiches qui défile lentement derrière l'écran de lancement et de
+ * connexion, voilé pour que le logo et le formulaire restent lisibles : ses
+ * séries et films préférés (gardés sur l'appareil, donc immédiats), ou à
+ * défaut — premier lancement, bibliothèque trop maigre — les affiches
+ * tendance de la semaine. Chaque rangée est dupliquée pour boucler sans
+ * à-coup. Purement décoratif.
  */
 export function PosterWall() {
-  const [posters, setPosters] = useState<string[]>([])
+  const [posters, setPosters] = useState<string[]>(() => {
+    const mine = readWallPosters()
+    return mine.length >= MIN_POSTERS ? mine : []
+  })
 
   useEffect(() => {
+    if (posters.length) return
     let alive = true
     trendingPosters().then((p) => alive && setPosters(p))
     return () => {
       alive = false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  if (posters.length < 8) return null
+  if (posters.length < MIN_POSTERS) return null
   const rows = Array.from({ length: ROWS }, (_, r) =>
     Array.from({ length: PER_ROW }, (_, i) => posters[(r * PER_ROW + i * 3 + r) % posters.length]),
   )

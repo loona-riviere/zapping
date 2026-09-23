@@ -14,6 +14,7 @@ import { ShowPage } from './components/ShowPage'
 import { Stats } from './components/Stats'
 import { AppProvider, useApp } from './lib/appState'
 import { href, useRoute } from './lib/route'
+import { favoritePosters, saveWallPosters } from './lib/wall'
 import { supabase, supabaseConfigured } from './lib/supabase'
 import { tmdbConfigured } from './lib/tmdb'
 
@@ -64,8 +65,13 @@ function AppContent() {
 
 function Shell() {
   const route = useRoute()
-  const { notice, dismissNotice } = useApp()
+  const { notice, dismissNotice, tracked, movies, loading } = useApp()
   const { onTap, message } = useLogoEasterEgg()
+
+  // Garde les affiches préférées pour le mur du prochain lancement.
+  useEffect(() => {
+    if (!loading) saveWallPosters(favoritePosters(tracked, movies))
+  }, [loading, tracked, movies])
 
   return (
     <>
