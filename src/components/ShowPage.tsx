@@ -4,6 +4,7 @@ import { computeProgress, epCode, formatDate, formatShortDate, isAired } from '.
 import { href } from '../lib/route'
 import { seasonOverviewsFr, showDetailsFr } from '../lib/tmdb'
 import { getShowWithEpisodes, statusFr, stripHtml, type ShowWithEpisodes, type TvEpisode } from '../lib/tvmaze'
+import { NextEpisode } from './NextEpisode'
 import { Poster } from './Poster'
 import { Rewatches } from './Rewatches'
 import { StatusPicker } from './StatusPicker'
@@ -259,6 +260,15 @@ export function ShowPage({ id }: { id: number }) {
           </button>
         )}
       </div>
+
+      {followed && (
+        <NextEpisode
+          next={progress.next}
+          upcoming={progress.upcoming}
+          imdbId={show.externals?.imdb}
+          onSeen={toggle}
+        />
+      )}
 
       <WhereToWatch imdbId={show.externals?.imdb} title={frName ?? show.name} />
 

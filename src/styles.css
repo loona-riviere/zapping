@@ -576,3 +576,19 @@ button { font: inherit; color: inherit; }
   border: 1.5px solid var(--line); border-radius: 6px; padding: .15rem .4rem;
   min-width: 9rem; flex: none;
 }
+
+/* Prochain épisode, en tête de fiche série. */
+.next-ep {
+  margin: 1.25rem 0 0; padding: .85rem 1rem; border-radius: var(--radius);
+  background: var(--surface); border-left: 4px solid var(--amber);
+}
+.next-ep__label { margin: 0 0 .2rem; font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; }
+.next-ep__head { display: flex; align-items: center; gap: .75rem; }
+.next-ep__title { flex: 1; min-width: 0; font-size: 1.05rem; }
+.next-ep__code { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 700; }
+.next-ep__date { margin: .3rem 0 0; font-size: .9rem; }
+.next-ep__summary { margin: .5rem 0 0; font-size: .92rem; line-height: 1.45; }
+.next-ep__summary--clamped {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.next-ep__more { margin-top: .25rem; font-size: .85rem; color: var(--muted); }
