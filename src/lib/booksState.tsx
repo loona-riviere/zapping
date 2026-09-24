@@ -3,6 +3,7 @@ import type { Book } from './books'
 import * as store from './bookStore'
 import type { BookPatch, BookStatus, TrackedBook } from './bookStore'
 import { fetchRanks, isMissingSchema, rerank, saveRanks } from './store'
+import { celebrate, checkMilestone, nightOwl } from './fun'
 
 type BooksState = {
   books: TrackedBook[]
@@ -75,6 +76,10 @@ export function BooksProvider({
       setBooks((prev) => [row, ...prev])
       try {
         await store.insertBook(userId, row)
+        if (status === 'read') {
+          const n = books.filter((b) => b.status === 'read').length
+          checkMilestone('book', n, n + 1)
+        }
       } catch (e) {
         setBooks((prev) => prev.filter((b) => b.book_id !== book.id))
         onError(`Ajout du livre impossible : ${(e as Error).message}`)
@@ -91,6 +96,14 @@ export function BooksProvider({
       setBooks((prev) => prev.map((b) => (b.book_id === bookId ? { ...b, ...full } : b)))
       try {
         await store.updateBook(bookId, full)
+        const finished = patch.status === 'read' && before.status !== 'read'
+        if (finished) {
+          const n = books.filter((b) => b.status === 'read').length
+          checkMilestone('book', n, n + 1)
+          // Une vraie lecture qui s'achève, pas un « déjà lu » rangé après coup.
+          if (before.status === 'reading') celebrate(`📚 ${before.title} : terminé ! Belle lecture.`)
+        }
+        if (finished || (patch.current_page !== undefined && patch.current_page !== before.current_page)) nightOwl('book')
       } catch (e) {
         setBooks((prev) => prev.map((b) => (b.book_id === bookId ? before : b)))
         onError(`Enregistrement impossible : ${(e as Error).message}`)

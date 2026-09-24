@@ -2,6 +2,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import * as store from './store'
 import type { DismissedRec, Rating, ShowStatus, TrackedShow, WatchedMap, WatchedMovie } from './store'
 import { movieRuntime, type Movie } from './tmdb'
+import { celebrate, checkMilestone, nightOwl } from './fun'
+import { computeProgress } from './progress'
+import { getShowWithEpisodes } from './tvmaze'
 import type { TvEpisode, TvShow } from './tvmaze'
 
 /**
@@ -328,6 +331,34 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     [patchShow, tracked],
   )
 
+  /** Après avoir coché des épisodes : palier franchi, série bouclée, coche nocturne. */
+  const cheerEpisodes = useCallback(
+    (show: TvShow, ids: number[]) => {
+      const before = [...watched.values()].reduce((n, eps) => n + eps.size, 0)
+      const already = watched.get(show.id) ?? new Map()
+      const added = ids.filter((id) => !already.has(id)).length
+      checkMilestone('episode', before, before + added)
+      nightOwl('show')
+      // Fiche en cache (12 h) : pas de requête de plus en général.
+      getShowWithEpisodes(show.id)
+        .then((data) => {
+          if (data.show.status !== 'Ended') return
+          const seen = new Map(already)
+          ids.forEach((id) => seen.set(id, null))
+          const was = computeProgress(data.episodes, already)
+          const now = computeProgress(data.episodes, seen)
+          // C'est ce clic-là qui boucle la série : avant il manquait des épisodes, plus maintenant.
+          if (now.aired > 0 && now.watched === now.aired && was.watched < was.aired) {
+            celebrate(`🎬 ${tracked.find((t) => t.show_id === show.id)?.name ?? show.name} : série terminée ! Générique.`)
+          }
+        })
+        .catch(() => {
+          /* pas de fiche : pas de fête, rien de grave */
+        })
+    },
+    [watched, tracked],
+  )
+
   const setWatched = useCallback(
     async (
       show: TvShow,
@@ -442,6 +473,8 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
           if (!tracked.some((t) => t.show_id === show.id)) await track(show)
           if (wasNotStarted) await store.setShowStatus(show.id, 'watching')
           await store.markWatched(userId, show.id, eps, dates, overwrite)
+          // Un clic dans l'app (pas un import daté) : paliers, fin de série, heure tardive.
+          if (!dates) cheerEpisodes(show, ids)
         } else {
           await store.markUnwatched(ids)
           await store.touchLastWatched(show.id, uncheckedLastWatched ?? null)
@@ -456,7 +489,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
         setNotice(`Enregistrement impossible : ${(e as Error).message}`)
       }
     },
-    [isRewatching, track, tracked, userId, watched, rewatch],
+    [isRewatching, track, tracked, userId, watched, rewatch, cheerEpisodes],
   )
 
   const addMovies = useCallback(
@@ -476,6 +509,9 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
           })),
         )
         await store.addMovies(userId, withRuntime)
+        const seenBefore = movies.filter((m) => m.status === 'watched').length
+        checkMilestone('movie', seenBefore, seenBefore + items.filter((i) => !movies.some((m) => m.movie_id === i.movie.id)).length)
+        if (items.length === 1) nightOwl('movie')
         setMovies((prev) => {
           const byId = new Map(prev.map((m) => [m.movie_id, m]))
           for (const { movie, watchedAt, runtime } of withRuntime) {
@@ -499,7 +535,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
         setNotice(`Enregistrement du film impossible : ${(e as Error).message}`)
       }
     },
-    [moviesReady, userId],
+    [moviesReady, userId, movies],
   )
 
   const fillMovieRuntimes = useCallback(
@@ -625,6 +661,11 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       )
       try {
         await store.markMovieWatched(movieId, watchedAt)
+        if (before?.status !== 'watched') {
+          const n = movies.filter((m) => m.status === 'watched').length
+          checkMilestone('movie', n, n + 1)
+          nightOwl('movie')
+        }
       } catch (e) {
         if (before) setMovies((prev) => prev.map((m) => (m.movie_id === movieId ? before : m)))
         setNotice(`Enregistrement impossible : ${(e as Error).message}`)

@@ -4,7 +4,7 @@ import { Auth } from './components/Auth'
 import { LaunchScreen, Splash } from './components/Backdrop'
 import { BottomNav } from './components/BottomNav'
 import { EasterEggOverlay, useLogoEasterEgg } from './components/EasterEgg'
-import { Footer } from './components/Footer'
+import { Celebrations } from './components/Celebrations'
 import { Import } from './components/Import'
 import { Library, isLibrary } from './components/Library'
 import { BookPage } from './components/BookPage'
@@ -16,10 +16,10 @@ import { Stats } from './components/Stats'
 import { AppProvider, useApp } from './lib/appState'
 import { BooksProvider, useBooks } from './lib/booksState'
 import { PrefsProvider, usePrefs } from './lib/prefs'
+import { checkAnniversary } from './lib/fun'
 import { href, useRoute } from './lib/route'
 import { favoritePosters, saveWallPosters } from './lib/wall'
 import { supabase, supabaseConfigured } from './lib/supabase'
-import { tmdbConfigured } from './lib/tmdb'
 
 export default function App() {
   return (
@@ -44,6 +44,14 @@ function AppContent() {
     })
     return () => data.subscription.unsubscribe()
   }, [])
+
+  // Le jour anniversaire de l'inscription, après l'écran de lancement.
+  const createdAt = session?.user.created_at
+  useEffect(() => {
+    if (!createdAt) return
+    const t = setTimeout(() => checkAnniversary(createdAt), 3000)
+    return () => clearTimeout(t)
+  }, [createdAt])
 
   if (!supabaseConfigured) {
     return (
@@ -121,7 +129,7 @@ function Shell() {
         </div>
       )}
 
-      <Footer tmdbConfigured={tmdbConfigured} />
+      <Celebrations />
       <BottomNav route={route} />
       <EasterEggOverlay message={message} />
     </>

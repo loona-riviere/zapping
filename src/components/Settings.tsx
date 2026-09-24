@@ -122,6 +122,22 @@ export function Settings() {
           </ul>
         )}
       </section>
+
+      <section>
+        <h2 className="section-title">À propos</h2>
+        <ul className="about muted">
+          <li>Séries : données <a href="https://www.tvmaze.com" target="_blank" rel="noreferrer">TVmaze.com</a>, sous licence CC BY-SA.</li>
+          <li>
+            Films et disponibilités : <a href="https://www.themoviedb.org" target="_blank" rel="noreferrer">TMDB</a> et JustWatch.
+            Ce produit utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB.
+          </li>
+          <li>
+            Livres : <a href="https://books.google.com" target="_blank" rel="noreferrer">Google Books</a> et{' '}
+            <a href="https://openlibrary.org" target="_blank" rel="noreferrer">Open Library</a>.
+          </li>
+          <li>Astuce : tape cinq fois vite sur le logo Zapping.</li>
+        </ul>
+      </section>
     </div>
   )
 }
