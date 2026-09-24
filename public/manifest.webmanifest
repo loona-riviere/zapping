@@ -1,7 +1,7 @@
 {
   "name": "Zapping",
   "short_name": "Zapping",
-  "description": "Coche les épisodes que tu regardes et retrouve toujours où tu en es.",
+  "description": "Séries, films, livres : retrouve toujours où tu en es.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -116,7 +116,7 @@ export function Auth() {
       <main className="auth auth--card">
         <h1 className="wordmark wordmark--big">Zapping</h1>
         <Mire />
-        <p className="auth__lede">Coche les épisodes que tu regardes et retrouve toujours où tu en es.</p>
+        <p className="auth__lede">Séries, films, livres : retrouve toujours où tu en es.</p>
 
         {mode === 'password' && (
           <>

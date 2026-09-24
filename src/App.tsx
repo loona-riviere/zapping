@@ -14,7 +14,7 @@ import { Settings } from './components/Settings'
 import { ShowPage } from './components/ShowPage'
 import { Stats } from './components/Stats'
 import { AppProvider, useApp } from './lib/appState'
-import { BooksProvider } from './lib/booksState'
+import { BooksProvider, useBooks } from './lib/booksState'
 import { href, useRoute } from './lib/route'
 import { favoritePosters, saveWallPosters } from './lib/wall'
 import { supabase, supabaseConfigured } from './lib/supabase'
@@ -77,12 +77,13 @@ function WithBooks({ userId }: { userId: string }) {
 function Shell() {
   const route = useRoute()
   const { notice, dismissNotice, tracked, movies, loading } = useApp()
+  const { books, booksLoading } = useBooks()
   const { onTap, message } = useLogoEasterEgg()
 
   // Garde les affiches préférées pour le mur du prochain lancement.
   useEffect(() => {
-    if (!loading) saveWallPosters(favoritePosters(tracked, movies))
-  }, [loading, tracked, movies])
+    if (!loading && !booksLoading) saveWallPosters(favoritePosters(tracked, movies, books))
+  }, [loading, booksLoading, tracked, movies, books])
 
   return (
     <>
