@@ -3,7 +3,6 @@
 
 import type { WatchedEpisodes } from './appState'
 import type { TrackedBook } from './bookStore'
-import { knownGenre } from './genres'
 import type { ShowStatus, TrackedShow, WatchedMovie } from './store'
 import type { ShowWithEpisodes } from './tvmaze'
 
@@ -273,17 +272,12 @@ export type ReadingStats = {
   readNoPages: number
   /** Livres terminés par année de fin de lecture, la plus récente d'abord. */
   byYear: { year: string; books: number; pages: number }[]
-  /** Livres terminés par genre, le plus lu d'abord ; sans genre connu à part. */
-  byGenre: { genre: string; books: number; pages: number }[]
-  readNoGenre: number
 }
 
 export function computeReadingStats(books: TrackedBook[]): ReadingStats {
   let pages = 0
   let readNoPages = 0
   const years = new Map<string, { year: string; books: number; pages: number }>()
-  const genres = new Map<string, { genre: string; books: number; pages: number }>()
-  let readNoGenre = 0
   for (const b of books) {
     if (b.status === 'read') {
       if (b.page_count) pages += b.page_count
@@ -295,13 +289,6 @@ export function computeReadingStats(books: TrackedBook[]): ReadingStats {
         y.pages += b.page_count ?? 0
         years.set(year, y)
       }
-      const genre = knownGenre(b.genre)
-      if (genre) {
-        const g = genres.get(genre) ?? { genre, books: 0, pages: 0 }
-        g.books++
-        g.pages += b.page_count ?? 0
-        genres.set(genre, g)
-      } else readNoGenre++
     } else if (b.status === 'reading' || b.status === 'dropped') {
       pages += b.current_page
     }
@@ -313,7 +300,28 @@ export function computeReadingStats(books: TrackedBook[]): ReadingStats {
     pages,
     readNoPages,
     byYear: [...years.values()].sort((a, b) => b.year.localeCompare(a.year)),
-    byGenre: [...genres.values()].sort((a, b) => b.books - a.books || b.pages - a.pages),
-    readNoGenre,
+  }
+}
+
+export type BookBucket = { key: string; books: number; pages: number }
+
+/** Livres terminés par mois et par année de fin de lecture, les plus récents d'abord. */
+export function computeBookTimeline(books: TrackedBook[]): { months: BookBucket[]; years: BookBucket[] } {
+  const byMonth = new Map<string, BookBucket>()
+  const byYear = new Map<string, BookBucket>()
+  const add = (map: Map<string, BookBucket>, key: string, pages: number) => {
+    const b = map.get(key) ?? { key, books: 0, pages: 0 }
+    b.books++
+    b.pages += pages
+    map.set(key, b)
+  }
+  for (const b of books) {
+    if (b.status !== 'read' || !b.finished_at) continue
+    add(byMonth, b.finished_at.slice(0, 7), b.page_count ?? 0)
+    add(byYear, b.finished_at.slice(0, 4), b.page_count ?? 0)
+  }
+  return {
+    months: [...byMonth.values()].sort((a, b) => b.key.localeCompare(a.key)),
+    years: [...byYear.values()].sort((a, b) => b.key.localeCompare(a.key)),
   }
 }

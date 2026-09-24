@@ -1,16 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useApp } from '../lib/appState'
 import { useBooks } from '../lib/booksState'
 import { usePrefs } from '../lib/prefs'
-import { bookDetails } from '../lib/books'
-import { guessGenre, knownGenre } from '../lib/genres'
 import { buildBackup, downloadBackup } from '../lib/backup'
 import { findActivityIssues, findSeasonIssues, type ActivityIssue, type SeasonIssue } from '../lib/diagnostics'
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import {
-  computeReadingStats, computeStats, computeTimeline, countByStatus, formatNumber, humanBreakdown, humanDuration, monthLabel,
-  shortUnit, totalHours, type ReadingStats, type ShowTotal, type TimeBucket,
+  computeBookTimeline, computeReadingStats, computeStats, computeTimeline, countByStatus, formatNumber, humanBreakdown, humanDuration, monthLabel,
+  shortUnit, totalHours, type ReadingStats, type ShowTotal,
 } from '../lib/stats'
 import { STATUS_LABEL } from '../lib/store'
 import { useShowEpisodes } from '../lib/useShows'
@@ -34,10 +32,11 @@ export function Stats() {
     [tracked, historyFor, data, movies],
   )
   const byStatus = useMemo(() => countByStatus(tracked), [tracked])
-  const timeline = useMemo(
-    () => computeTimeline(tracked, historyFor, data, movies),
-    [tracked, historyFor, data, movies],
-  )
+  // Un graphique par type : additionner des heures de séries, de films et
+  // des pages de livres dans une même barre ne voudrait rien dire.
+  const showTimeline = useMemo(() => computeTimeline(tracked, historyFor, data, []), [tracked, historyFor, data])
+  const movieTimeline = useMemo(() => computeTimeline([], historyFor, {}, movies), [historyFor, movies])
+  const bookTimeline = useMemo(() => computeBookTimeline(books), [books])
   const [report, setReport] = useState<{ activity: ActivityIssue[]; season: SeasonIssue[] } | null>(null)
   const [fixingAll, setFixingAll] = useState(false)
 
@@ -126,10 +125,41 @@ export function Stats() {
 
       <TopShows shows={stats.topShows} />
 
-      <Timeline months={timeline.months} years={timeline.years} />
+      {has('show') && (
+        <Timeline
+          title="Séries par année"
+          months={showTimeline.months}
+          years={showTimeline.years}
+          measure={(b) => b.minutes}
+          label={(b) => {
+            const d = humanDuration(b.minutes)
+            return <>{d.value} {shortUnit(d.unit)}<span className="muted"> · {formatNumber(b.episodes)} ép.</span></>
+          }}
+        />
+      )}
+      {has('movie') && (
+        <Timeline
+          title="Films par année"
+          months={movieTimeline.months}
+          years={movieTimeline.years}
+          measure={(b) => b.movies}
+          label={(b) => {
+            const d = humanDuration(b.minutes)
+            return <>{formatNumber(b.movies)} film{b.movies > 1 ? 's' : ''}{b.minutes > 0 && <span className="muted"> · {d.value} {shortUnit(d.unit)}</span>}</>
+          }}
+        />
+      )}
 
       {books.length > 0 && <Reading stats={reading} />}
-      {books.length > 0 && <ReadingByGenre stats={reading} />}
+      {books.length > 0 && (
+        <Timeline
+          title="Livres par année"
+          months={bookTimeline.months}
+          years={bookTimeline.years}
+          measure={(b) => b.books}
+          label={(b) => <>{formatNumber(b.books)} livre{b.books > 1 ? 's' : ''}{b.pages > 0 && <span className="muted"> · {formatNumber(b.pages)} p.</span>}</>}
+        />
+      )}
 
       {has('show') && (
       <section className="diag">
@@ -265,7 +295,6 @@ function Tile({ label, value }: { label: string; value: string }) {
 /* ------------------------------------------------------------------ lecture -- */
 
 function Reading({ stats }: { stats: ReadingStats }) {
-  const peak = stats.byYear.reduce((m, y) => Math.max(m, y.books), 0) || 1
   return (
     <section className="chart">
       <div className="chart__head">
@@ -277,22 +306,6 @@ function Reading({ stats }: { stats: ReadingStats }) {
         <Tile label="En cours" value={formatNumber(stats.reading)} />
         <Tile label="À lire" value={formatNumber(stats.toRead)} />
       </ul>
-      {stats.byYear.length > 0 && (
-        <ul className="hbars" style={{ marginTop: '1rem' }}>
-          {stats.byYear.map((y) => (
-            <li key={y.year} className="hbars__row">
-              <span className="hbars__name">{y.year}</span>
-              <span className="hbars__track">
-                <span className="hbars__bar" style={{ width: `${(y.books / peak) * 100}%` }} />
-              </span>
-              <span className="hbars__value">
-                {formatNumber(y.books)} livre{y.books > 1 ? 's' : ''}
-                {y.pages > 0 && <span className="muted"> · {formatNumber(y.pages)} p.</span>}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
       {stats.readNoPages > 0 && (
         <p className="muted" style={{ fontSize: '.85rem' }}>
           {formatNumber(stats.readNoPages)} livre{stats.readNoPages > 1 ? 's' : ''} lu
@@ -303,99 +316,30 @@ function Reading({ stats }: { stats: ReadingStats }) {
   )
 }
 
-const GENRE_TRIED_KEY = 'zapping:genre-tried'
-
-function ReadingByGenre({ stats }: { stats: ReadingStats }) {
-  const { books, updateBook } = useBooks()
-  const [unit, setUnit] = useState<'books' | 'pages'>('books')
-
-  // Livres lus sans vrai genre : on relit leur fiche détail (plus précise que
-  // la recherche), en silence et une seule fois par livre. Ce que le
-  // catalogue ne classe pas reste sans genre, sans rien réclamer.
-  const missingKey = books
-    .filter((b) => b.status === 'read' && !knownGenre(b.genre))
-    .map((b) => b.book_id)
-    .join('|')
-  useEffect(() => {
-    let tried: string[] = []
-    try {
-      tried = JSON.parse(localStorage.getItem(GENRE_TRIED_KEY) ?? '[]')
-    } catch {
-      /* rien de noté */
-    }
-    const todo = books.filter((b) => b.status === 'read' && !knownGenre(b.genre) && !tried.includes(b.book_id))
-    if (!todo.length) return
-    let alive = true
-    ;(async () => {
-      for (const b of todo) {
-        if (!alive) return
-        try {
-          const d = b.book_id.startsWith('manual:') ? null : await bookDetails(b.book_id)
-          const g = d ? guessGenre(d.categories) : null
-          // Un ancien genre qui n'en est plus un (« Roman », « Essai ») est effacé.
-          if (g || b.genre) await updateBook(b.book_id, { genre: g })
-        } catch {
-          /* fiche introuvable : le livre reste sans genre */
-        }
-        tried.push(b.book_id)
-        try {
-          localStorage.setItem(GENRE_TRIED_KEY, JSON.stringify(tried))
-        } catch {
-          /* stockage plein : on retentera à la prochaine visite */
-        }
-      }
-    })()
-    return () => {
-      alive = false
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [missingKey])
-
-  if (!stats.byGenre.length) return null
-  const value = (g: ReadingStats['byGenre'][number]) => (unit === 'books' ? g.books : g.pages)
-  const peak = stats.byGenre.reduce((m, g) => Math.max(m, value(g)), 0) || 1
-
-  return (
-    <section className="chart">
-      <div className="chart__head">
-        <h3 className="chart__title">Lecture par genre</h3>
-      </div>
-      <div className="subtabs" role="tablist">
-        <button role="tab" aria-selected={unit === 'books'} onClick={() => setUnit('books')}>Livres</button>
-        <button role="tab" aria-selected={unit === 'pages'} onClick={() => setUnit('pages')}>Pages</button>
-      </div>
-      <ul className="hbars">
-        {stats.byGenre.map((g) => (
-          <li key={g.genre} className="hbars__row">
-            <span className="hbars__name">{g.genre}</span>
-            <span className="hbars__track">
-              <span className="hbars__bar" style={{ width: `${(value(g) / peak) * 100}%` }} />
-            </span>
-            <span className="hbars__value">
-              {unit === 'books' ? `${formatNumber(g.books)} livre${g.books > 1 ? 's' : ''}` : `${formatNumber(g.pages)} p.`}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  )
-}
-
 /* ------------------------------------------------------------ mois / année -- */
 
 const RECENT_MONTHS = 12
 
-function Timeline({ months, years }: { months: TimeBucket[]; years: TimeBucket[] }) {
+function Timeline<B extends { key: string }>({
+  title, months, years, measure, label,
+}: {
+  title: string
+  months: B[]
+  years: B[]
+  /** Longueur de la barre : minutes, nombre de films, de livres… */
+  measure: (b: B) => number
+  label: (b: B) => ReactNode
+}) {
   const [unit, setUnit] = useState<'month' | 'year'>('year')
   if (!months.length) return null
 
   const buckets = unit === 'year' ? years : months.slice(0, RECENT_MONTHS)
-  const peak = buckets.reduce((m, b) => Math.max(m, b.minutes), 0) || 1
+  const peak = buckets.reduce((m, b) => Math.max(m, measure(b)), 0) || 1
 
   return (
     <section className="chart">
       <div className="chart__head">
-        <h3 className="chart__title">Par mois et par année</h3>
+        <h3 className="chart__title">{title}</h3>
       </div>
       <div className="subtabs" role="tablist">
         <button role="tab" aria-selected={unit === 'year'} onClick={() => setUnit('year')}>
@@ -407,26 +351,19 @@ function Timeline({ months, years }: { months: TimeBucket[]; years: TimeBucket[]
       </div>
       {unit === 'month' && months.length > RECENT_MONTHS && (
         <p className="muted" style={{ fontSize: '.85rem', marginTop: '-.25rem' }}>
-          Les {RECENT_MONTHS} derniers mois avec au moins un visionnage.
+          Les {RECENT_MONTHS} derniers mois avec de l'activité.
         </p>
       )}
       <ul className="hbars">
-        {buckets.map((b) => {
-          const d = humanDuration(b.minutes)
-          const count = b.episodes + b.movies
-          return (
-            <li key={b.key} className="hbars__row">
-              <span className="hbars__name">{unit === 'year' ? b.key : monthLabel(b.key)}</span>
-              <span className="hbars__track">
-                <span className="hbars__bar" style={{ width: `${(b.minutes / peak) * 100}%` }} />
-              </span>
-              <span className="hbars__value">
-                {d.value} {shortUnit(d.unit)}
-                <span className="muted"> · {formatNumber(count)}</span>
-              </span>
-            </li>
-          )
-        })}
+        {buckets.map((b) => (
+          <li key={b.key} className="hbars__row">
+            <span className="hbars__name">{unit === 'year' ? b.key : monthLabel(b.key)}</span>
+            <span className="hbars__track">
+              <span className="hbars__bar" style={{ width: `${(measure(b) / peak) * 100}%` }} />
+            </span>
+            <span className="hbars__value">{label(b)}</span>
+          </li>
+        ))}
       </ul>
     </section>
   )

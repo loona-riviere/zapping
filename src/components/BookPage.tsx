@@ -3,7 +3,6 @@ import { bookDetails, type Book } from '../lib/books'
 import { finishPatch, startPatch, useBooks } from '../lib/booksState'
 import { BOOK_STATUSES, BOOK_STATUS_LABEL, type BookPatch, type BookStatus, type TrackedBook } from '../lib/bookStore'
 import { href } from '../lib/route'
-import { GENRES, guessGenre, knownGenre } from '../lib/genres'
 import { PageInput } from './PageInput'
 import { Poster } from './Poster'
 import { RatingPicker } from './RatingPicker'
@@ -45,14 +44,9 @@ export function BookPage({ id }: { id: string }) {
     const patch: BookPatch = {}
     if (!book.cover_url && details.cover_url) patch.cover_url = details.cover_url
     if (!book.page_count && details.page_count) patch.page_count = details.page_count
-    // La fiche détail a des catégories plus fines que la recherche.
-    if (!knownGenre(book.genre)) {
-      const g = guessGenre(details.categories)
-      if (g) patch.genre = g
-    }
     if (Object.keys(patch).length) updateBook(book.book_id, patch)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [details, book?.book_id, book?.cover_url, book?.page_count, book?.genre])
+  }, [details, book?.book_id, book?.cover_url, book?.page_count])
 
   // Un livre suivi s'affiche même si la source ne répond plus : tout ce qu'il
   // faut est déjà en base.
@@ -89,19 +83,6 @@ export function BookPage({ id }: { id: string }) {
             >
               {BOOK_STATUSES.map((s) => (
                 <option key={s} value={s}>{BOOK_STATUS_LABEL[s]}</option>
-              ))}
-            </select>
-          )}
-          {book && (
-            <select
-              className="status-picker"
-              aria-label="Genre"
-              value={knownGenre(book.genre) ?? ''}
-              onChange={(e) => updateBook(book.book_id, { genre: e.target.value || null })}
-            >
-              <option value="">Genre ?</option>
-              {GENRES.map((g) => (
-                <option key={g} value={g}>{g}</option>
               ))}
             </select>
           )}

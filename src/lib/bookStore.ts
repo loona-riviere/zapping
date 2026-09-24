@@ -1,5 +1,4 @@
 import type { Book } from './books'
-import { guessGenre } from './genres'
 import type { Rating } from './store'
 import { isMissingSchema } from './store'
 import { supabase } from './supabase'
@@ -80,7 +79,6 @@ export function bookRow(book: Book, status: BookStatus, at: { started_at?: strin
     rating: null,
     added_at: now,
     updated_at: now,
-    genre: guessGenre(book.categories),
   }
 }
 
