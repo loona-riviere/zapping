@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
 import { useBooks } from '../lib/booksState'
+import { usePrefs } from '../lib/prefs'
 
 /**
  * Un petit easter egg façon vieille télé : cliquer sur le témoin change de
@@ -11,6 +12,7 @@ import { useBooks } from '../lib/booksState'
 export function Footer({ tmdbConfigured }: { tmdbConfigured: boolean }) {
   const { tracked, movies, watched } = useApp()
   const { books } = useBooks()
+  const { has } = usePrefs()
   const booksRead = books.filter((b) => b.status === 'read').length
   const [channel, setChannel] = useState(0)
   const [flicker, setFlicker] = useState(false)
@@ -21,15 +23,21 @@ export function Footer({ tmdbConfigured }: { tmdbConfigured: boolean }) {
   )
 
   const channels = useMemo(() => {
+    const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`
+    const counts = [
+      has('show') && `${plural(totalEpisodes, 'épisode')} coché${totalEpisodes > 1 ? 's' : ''}, ${plural(tracked.length, 'série')} suivie${tracked.length > 1 ? 's' : ''}`,
+      has('movie') && `${plural(movies.length, 'film')} vu${movies.length > 1 ? 's' : ''}`,
+      has('book') && `${plural(booksRead, 'livre')} lu${booksRead > 1 ? 's' : ''}`,
+    ].filter(Boolean)
     const list = [
-      `📊 ${totalEpisodes} épisode${totalEpisodes > 1 ? 's' : ''} coché${totalEpisodes > 1 ? 's' : ''}, ${tracked.length} série${tracked.length > 1 ? 's' : ''} suivie${tracked.length > 1 ? 's' : ''}, ${movies.length} film${movies.length > 1 ? 's' : ''} vu${movies.length > 1 ? 's' : ''}, ${booksRead} livre${booksRead > 1 ? 's' : ''} lu${booksRead > 1 ? 's' : ''}. Zapping ne dort jamais.`,
-      "💬 « Juste un épisode » — toi, il y a trois heures.",
-      '📖 « Encore un chapitre » — toi, à deux heures du matin.',
+      `📊 ${counts.join(', ')}. Zapping ne dort jamais.`,
+      has('show') && "💬 « Juste un épisode » — toi, il y a trois heures.",
+      has('book') && '📖 « Encore un chapitre » — toi, à deux heures du matin.',
       "📡 Signal perdu... rebranche l'antenne, ou va plutôt te coucher.",
       '💜 Fait avec beaucoup trop de café, pour ne plus jamais perdre le fil.',
-    ]
+    ].filter((c): c is string => !!c)
     return list
-  }, [totalEpisodes, tracked.length, movies.length, booksRead])
+  }, [totalEpisodes, tracked.length, movies.length, booksRead, has])
 
   function next() {
     setFlicker(true)
@@ -51,7 +59,7 @@ export function Footer({ tmdbConfigured }: { tmdbConfigured: boolean }) {
         aria-label="Changer de chaîne"
         title="Changer de chaîne"
       >
-        📺 <span className="footer__tv-text">{channels[channel]}</span>
+        📺 <span className="footer__tv-text">{channels[channel % channels.length]}</span>
       </button>
     </footer>
   )

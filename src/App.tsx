@@ -15,6 +15,7 @@ import { ShowPage } from './components/ShowPage'
 import { Stats } from './components/Stats'
 import { AppProvider, useApp } from './lib/appState'
 import { BooksProvider, useBooks } from './lib/booksState'
+import { PrefsProvider, usePrefs } from './lib/prefs'
 import { href, useRoute } from './lib/route'
 import { favoritePosters, saveWallPosters } from './lib/wall'
 import { supabase, supabaseConfigured } from './lib/supabase'
@@ -59,9 +60,11 @@ function AppContent() {
   if (!session) return <Auth />
 
   return (
-    <AppProvider userId={session.user.id}>
-      <WithBooks userId={session.user.id} />
-    </AppProvider>
+    <PrefsProvider user={session.user}>
+      <AppProvider userId={session.user.id}>
+        <WithBooks userId={session.user.id} />
+      </AppProvider>
+    </PrefsProvider>
   )
 }
 
@@ -78,12 +81,15 @@ function Shell() {
   const route = useRoute()
   const { notice, dismissNotice, tracked, movies, loading } = useApp()
   const { books, booksLoading } = useBooks()
+  const { has } = usePrefs()
   const { onTap, message } = useLogoEasterEgg()
 
   // Garde les affiches préférées pour le mur du prochain lancement.
   useEffect(() => {
-    if (!loading && !booksLoading) saveWallPosters(favoritePosters(tracked, movies, books))
-  }, [loading, booksLoading, tracked, movies, books])
+    if (!loading && !booksLoading) saveWallPosters(
+        favoritePosters(has('show') ? tracked : [], has('movie') ? movies : [], has('book') ? books : []),
+      )
+  }, [loading, booksLoading, tracked, movies, books, has])
 
   return (
     <>

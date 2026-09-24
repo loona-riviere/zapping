@@ -6,6 +6,7 @@ import { href, type SearchKind } from '../lib/route'
 import { googleBooksError, manualBook, searchBooks, type Book } from '../lib/books'
 import type { BookStatus } from '../lib/bookStore'
 import { useBooks } from '../lib/booksState'
+import { KIND_LABEL, usePrefs } from '../lib/prefs'
 import { buildEnvNames, searchMovies, tmdbConfigured, type Movie } from '../lib/tmdb'
 import type { TvShow } from '../lib/tvmaze'
 import { useShowEpisodes } from '../lib/useShows'
@@ -29,7 +30,10 @@ const PLACEHOLDER: Record<Kind, string> = {
  * type cherché, la recherche elle-même reste la même pour les deux.
  */
 export function Search({ initialQuery, initialKind }: { initialQuery?: string; initialKind?: Kind } = {}) {
-  const [kind, setKind] = useState<Kind>(initialKind ?? 'show')
+  const { kinds, has } = usePrefs()
+  // Un type décoché dans les paramètres ne se cherche plus, même par lien direct.
+  const [picked, setKind] = useState<Kind>(initialKind && has(initialKind) ? initialKind : kinds[0])
+  const kind = has(picked) ? picked : kinds[0]
   const [query, setQuery] = useState(initialQuery ?? '')
   const input = useRef<HTMLInputElement>(null)
 
@@ -39,32 +43,15 @@ export function Search({ initialQuery, initialKind }: { initialQuery?: string; i
 
   return (
     <div className="search">
-      <div className="subtabs" role="tablist" aria-label="Type recherché">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={kind === 'show'}
-          onClick={() => setKind('show')}
-        >
-          Séries
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={kind === 'movie'}
-          onClick={() => setKind('movie')}
-        >
-          Films
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={kind === 'book'}
-          onClick={() => setKind('book')}
-        >
-          Livres
-        </button>
-      </div>
+      {kinds.length > 1 && (
+        <div className="subtabs" role="tablist" aria-label="Type recherché">
+          {kinds.map((k) => (
+            <button key={k} type="button" role="tab" aria-selected={kind === k} onClick={() => setKind(k)}>
+              {KIND_LABEL[k]}
+            </button>
+          ))}
+        </div>
+      )}
 
       <label htmlFor="q" className="visually-hidden">
         {PLACEHOLDER[kind]}

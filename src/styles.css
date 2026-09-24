@@ -750,3 +750,11 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
   border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--bg);
 }
 .manual-book input:focus { outline: none; border-color: var(--accent); }
+.kinds { display: flex; flex-wrap: wrap; gap: .5rem; }
+.kinds__item {
+  display: flex; align-items: center; gap: .45rem; padding: .5rem .9rem; cursor: pointer;
+  border: 1.5px solid var(--line); border-radius: 999px; background: var(--surface); font-weight: 700;
+}
+.kinds__item:has(input:checked) { border-color: var(--accent); }
+.kinds__item input { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; margin: 0; }
+.kinds__item:has(input:disabled) { cursor: default; }

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
 import { useBooks } from '../lib/booksState'
+import { usePrefs } from '../lib/prefs'
 import { buildBackup, downloadBackup } from '../lib/backup'
 import { findActivityIssues, findSeasonIssues, type ActivityIssue, type SeasonIssue } from '../lib/diagnostics'
 import { formatShortDate } from '../lib/progress'
@@ -13,8 +14,15 @@ import { STATUS_LABEL } from '../lib/store'
 import { useShowEpisodes } from '../lib/useShows'
 
 export function Stats() {
-  const { tracked, movies, loading, historyFor, watchedFor, isRewatching, fillMovieRuntimes, fixActivity } = useApp()
-  const { books } = useBooks()
+  const app = useApp()
+  const { loading, historyFor, watchedFor, isRewatching, fillMovieRuntimes, fixActivity } = app
+  const { has } = usePrefs()
+  const booksState = useBooks()
+  // Un type décoché dans les paramètres sort des statistiques, comme de la
+  // bibliothèque : ses chiffres ne comptent plus nulle part.
+  const tracked = useMemo(() => (has('show') ? app.tracked : []), [has, app.tracked])
+  const movies = useMemo(() => (has('movie') ? app.movies : []), [has, app.movies])
+  const books = useMemo(() => (has('book') ? booksState.books : []), [has, booksState.books])
   const reading = useMemo(() => computeReadingStats(books), [books])
   const [filling, setFilling] = useState<{ done: number; total: number } | null>(null)
   const ids = useMemo(() => tracked.map((t) => t.show_id), [tracked])
@@ -72,6 +80,7 @@ export function Stats() {
             ` — ${formatNumber(stats.episodes)} épisodes distincts, le reste en revisionnages`}
           .
         </p>
+        {has('show') && has('movie') && (
         <ul className="split">
           <li>
             <span className="split__value">{series.value} <small>{series.unit}</small></span>
@@ -82,6 +91,7 @@ export function Stats() {
             <span className="split__label">de films</span>
           </li>
         </ul>
+        )}
       </section>
       )}
 
@@ -103,12 +113,14 @@ export function Stats() {
         </p>
       )}
 
-      <ul className="tiles-stat">
-        <Tile label="Séries suivies" value={formatNumber(stats.shows)} />
-        <Tile label="Séries terminées" value={formatNumber(stats.finished)} />
-        <Tile label="Films vus" value={formatNumber(stats.movies)} />
-        <Tile label="Séries revues" value={formatNumber(stats.rewatchedShows)} />
-      </ul>
+      {(has('show') || has('movie')) && (
+        <ul className="tiles-stat">
+          {has('show') && <Tile label="Séries suivies" value={formatNumber(stats.shows)} />}
+          {has('show') && <Tile label="Séries terminées" value={formatNumber(stats.finished)} />}
+          {has('movie') && <Tile label="Films vus" value={formatNumber(stats.movies)} />}
+          {has('show') && <Tile label="Séries revues" value={formatNumber(stats.rewatchedShows)} />}
+        </ul>
+      )}
 
       <TopShows shows={stats.topShows} />
 
@@ -116,6 +128,7 @@ export function Stats() {
 
       {books.length > 0 && <Reading stats={reading} />}
 
+      {has('show') && (
       <section className="diag">
         <div className="diag__head">
           <h3 className="chart__title">Vérifier les incohérences</h3>
@@ -201,6 +214,7 @@ export function Stats() {
           </>
         )}
       </section>
+      )}
 
       <section className="diag">
         <div className="diag__head">
@@ -208,7 +222,7 @@ export function Stats() {
           <button
             className="link-btn"
             onClick={() =>
-              downloadBackup(buildBackup(tracked, historyFor, watchedFor, isRewatching, data, movies, books))
+              downloadBackup(buildBackup(app.tracked, historyFor, watchedFor, isRewatching, data, app.movies, booksState.books))
             }
           >
             Exporter mes données (JSON)
@@ -220,6 +234,7 @@ export function Stats() {
         </p>
       </section>
 
+      {(has('show') || has('movie')) && (
       <p className="muted stats__caveat">
         Les durées viennent de TVmaze ; un épisode sans durée renseignée prend la durée médiane
         de sa série.
@@ -230,6 +245,7 @@ export function Stats() {
         {STATUS_LABEL.paused.toLowerCase()} {byStatus.paused}, {STATUS_LABEL.later.toLowerCase()}{' '}
         {byStatus.later}, {STATUS_LABEL.dropped.toLowerCase()} {byStatus.dropped}.
       </p>
+      )}
     </div>
   )
 }
