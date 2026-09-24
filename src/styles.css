@@ -737,3 +737,14 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 .swipe__bg--right { background: var(--accent); color: var(--accent-ink); justify-content: flex-start; }
 .swipe__bg--left { background: var(--danger); justify-content: flex-end; }
 .swipe__hint { font-size: .8rem; margin: 1.25rem 0 0; }
+.manual-book__toggle, .manual-book__done { font-size: .9rem; margin: 1rem 0; }
+.manual-book {
+  display: grid; gap: .6rem; margin: 1rem 0; padding: 1rem;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
+}
+.manual-book label { display: grid; gap: .25rem; font-size: .85rem; font-weight: 700; }
+.manual-book input {
+  font: inherit; font-weight: 400; padding: .55rem .7rem; color: var(--ink);
+  border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--bg);
+}
+.manual-book input:focus { outline: none; border-color: var(--accent); }

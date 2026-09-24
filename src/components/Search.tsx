@@ -3,7 +3,8 @@ import { useApp } from '../lib/appState'
 import { searchShowsWide } from '../lib/lookup'
 import { computeProgress, epCode, type Progress } from '../lib/progress'
 import { href, type SearchKind } from '../lib/route'
-import { searchBooks, type Book } from '../lib/books'
+import { manualBook, searchBooks, type Book } from '../lib/books'
+import type { BookStatus } from '../lib/bookStore'
 import { useBooks } from '../lib/booksState'
 import { buildEnvNames, searchMovies, tmdbConfigured, type Movie } from '../lib/tmdb'
 import type { TvShow } from '../lib/tvmaze'
@@ -367,8 +368,9 @@ function BookSearch({ query }: { query: string }) {
     <>
       {status === 'error' && <p className="error">La recherche de livres a échoué. Vérifie ta connexion et réessaie.</p>}
       {status === 'idle' && query.trim().length >= 2 && !results.length && (
-        <p className="muted">Aucun livre trouvé pour « {query.trim()} ». Essaie avec le nom de l'auteur.</p>
+        <p className="muted">Aucun livre trouvé pour « {query.trim()} ». Essaie avec le titre seul, ou ajoute-le à la main.</p>
       )}
+      {status === 'idle' && query.trim().length >= 2 && <ManualBook query={query.trim()} onAdd={addBook} />}
       {!query.trim() && reading.length > 0 && (
         <section>
           <h2 className="section-title">En cours de lecture</h2>
@@ -445,5 +447,79 @@ function BookSearch({ query }: { query: string }) {
         })}
       </ul>
     </>
+  )
+}
+
+/**
+ * Un livre absent des catalogues (petit éditeur, parution récente) : on le
+ * saisit soi-même plutôt que de rester bloqué. Le titre reprend la recherche.
+ */
+function ManualBook({ query, onAdd }: { query: string; onAdd: (b: Book, status: BookStatus) => Promise<void> }) {
+  const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState(query)
+  const [author, setAuthor] = useState('')
+  const [pages, setPages] = useState('')
+  const [done, setDone] = useState<string | null>(null)
+
+  useEffect(() => setTitle(query), [query])
+
+  if (done) {
+    return (
+      <p className="muted manual-book__done">
+        {done} ajouté à tes livres. <a href={href.books}>Voir mes livres</a>
+      </p>
+    )
+  }
+  if (!open) {
+    return (
+      <p className="muted manual-book__toggle">
+        Pas dans la liste ?{' '}
+        <button type="button" className="link-btn" onClick={() => setOpen(true)}>
+          Ajouter un livre à la main
+        </button>
+      </p>
+    )
+  }
+
+  const add = async (status: BookStatus) => {
+    if (!title.trim()) return
+    await onAdd(manualBook(title, author, Math.round(Number(pages)) || null), status)
+    setDone(title.trim())
+    setOpen(false)
+  }
+
+  return (
+    <form className="manual-book" onSubmit={(e) => e.preventDefault()}>
+      <label>
+        Titre
+        <input value={title} onChange={(e) => setTitle(e.target.value)} required />
+      </label>
+      <label>
+        Auteur
+        <input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="Facultatif" />
+      </label>
+      <label>
+        Pages
+        <input
+          type="number"
+          inputMode="numeric"
+          min={1}
+          value={pages}
+          onChange={(e) => setPages(e.target.value)}
+          placeholder="Facultatif"
+        />
+      </label>
+      <div className="movie__actions">
+        <button type="button" className="btn btn--primary" disabled={!title.trim()} onClick={() => add('reading')}>
+          Je le lis
+        </button>
+        <button type="button" className="btn btn--ghost" disabled={!title.trim()} onClick={() => add('later')}>
+          À lire
+        </button>
+        <button type="button" className="btn btn--ghost" disabled={!title.trim()} onClick={() => add('read')}>
+          Déjà lu
+        </button>
+      </div>
+    </form>
   )
 }

@@ -137,6 +137,7 @@ export function BookPage({ id }: { id: string }) {
         )}
 
         {book && book.status !== 'later' && (
+          <>
           <div className="book__dates">
             <label>
               Commencé le
@@ -146,6 +147,16 @@ export function BookPage({ id }: { id: string }) {
                 max={today()}
                 onChange={(e) => updateBook(book.book_id, { started_at: e.target.value ? atNoon(e.target.value) : null })}
               />
+              {book.started_at && (
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => updateBook(book.book_id, { started_at: null })}
+                  title="Je ne sais plus quand"
+                >
+                  oublier
+                </button>
+              )}
             </label>
             {book.status === 'read' && (
               <label>
@@ -156,9 +167,30 @@ export function BookPage({ id }: { id: string }) {
                   max={today()}
                   onChange={(e) => updateBook(book.book_id, { finished_at: e.target.value ? atNoon(e.target.value) : null })}
                 />
+                {book.finished_at && (
+                  <button
+                    type="button"
+                    className="link-btn"
+                    onClick={() => updateBook(book.book_id, { finished_at: null })}
+                    title="Je ne sais plus quand : le livre reste lu, sans date"
+                  >
+                    oublier
+                  </button>
+                )}
               </label>
             )}
           </div>
+          {(book.started_at || book.finished_at) && (
+            <button
+              type="button"
+              className="link-btn muted"
+              style={{ fontSize: '.85rem' }}
+              onClick={() => updateBook(book.book_id, { started_at: null, finished_at: null })}
+            >
+              Effacer les dates (lu il y a longtemps, sans savoir quand)
+            </button>
+          )}
+          </>
         )}
 
         {book?.status === 'read' && (

@@ -58,17 +58,28 @@ export async function searchBooks(query: string): Promise<Book[]> {
   const variants = new Set<string>(
     [...merged, ...merged.flatMap(dropOne), ...dropOne(words)].map((ws) => ws.join(' ')),
   )
+  // En dernier recours, chaque mot assez long seul (souvent le titre) : deux
+  // fautes dans le nom de l'auteur ne laissent que lui de fiable.
+  for (const w of words) if (w.length >= 4) variants.add(w)
   const batches = await Promise.all(
-    [...variants].slice(0, 12).map((v) => searchOnce(v).catch(() => [] as Book[])),
+    [...variants].slice(0, 14).map((v) => searchOnce(v).catch(() => [] as Book[])),
   )
   const byId = new Map<string, Book>()
   for (const b of batches.flat()) if (!byId.has(b.id)) byId.set(b.id, b)
 
   const tokens = new Set(words.map(fold))
   for (let i = 0; i < words.length - 1; i++) tokens.add(fold(words[i] + words[i + 1]))
+  // Un mot tapé colle à un mot du livre à une ou deux lettres près :
+  // « Hassaibe » retrouve « Hassaine », « Lila » retrouve « Lilia ».
   const score = (b: Book) => {
-    const hay = fold(`${b.title} ${b.authors.join(' ')}`)
-    return [...tokens].filter((t) => t.length >= 3 && hay.includes(t)).length
+    const hayWords = `${b.title} ${b.authors.join(' ')}`.split(/[\s,.'’-]+/).map(fold).filter(Boolean)
+    const hay = hayWords.join('')
+    return [...tokens].filter((t) => {
+      if (t.length < 3) return false
+      if (hay.includes(t)) return true
+      const tolerance = t.length >= 7 ? 2 : t.length >= 4 ? 1 : 0
+      return tolerance > 0 && hayWords.some((w) => Math.abs(w.length - t.length) <= tolerance && editDistance(w, t) <= tolerance)
+    }).length
   }
   return remember(
     [...byId.values()]
@@ -78,6 +89,19 @@ export async function searchBooks(query: string): Promise<Book[]> {
       .slice(0, 20)
       .map((x) => x.b),
   )
+}
+
+/** Nombre de lettres à changer, ajouter ou retirer pour passer d'un mot à l'autre. */
+function editDistance(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j)
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i]
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+    }
+    prev = cur
+  }
+  return prev[b.length]
 }
 
 /** Sans accents ni casse ni espaces : « Has Saine » et « Hassaine » se retrouvent. */
@@ -102,12 +126,29 @@ export async function bookDetails(id: string): Promise<Book | null> {
   // Une fiche déjà complète (Google donne tout dès la recherche) n'a pas
   // besoin d'une seconde requête.
   if (known?.description) return known
+  // Livre ajouté à la main : rien à aller chercher, tout est déjà en base.
+  if (id.startsWith('manual:')) return known ?? null
   const [source, raw] = splitId(id)
   const details = source === 'gb' ? await googleDetails(raw) : await openLibraryDetails(raw)
   if (!details) return known ?? null
   return remember([
     { ...details, page_count: details.page_count ?? known?.page_count ?? null, authors: details.authors.length ? details.authors : known?.authors ?? [] },
   ])[0]
+}
+
+/** Un livre que ni Google ni Open Library ne connaissent, saisi à la main. */
+export function manualBook(title: string, author: string, pages: number | null): Book {
+  const uid = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now())
+  return {
+    id: `manual:${uid}`,
+    title: title.trim(),
+    authors: author.trim() ? [author.trim()] : [],
+    cover_url: null,
+    page_count: pages && pages > 0 ? pages : null,
+    year: null,
+    description: null,
+    categories: [],
+  }
 }
 
 function splitId(id: string): ['gb' | 'ol', string] {
