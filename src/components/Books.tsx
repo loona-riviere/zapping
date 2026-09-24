@@ -33,7 +33,7 @@ export function Books() {
       b.status === 'read'
         ? undefined
         : {
-            label: b.status === 'reading' ? 'Terminé' : 'Déjà lu',
+            label: 'Lu',
             onSwipe: () => {
               setUndo({ row: b, text: `${b.title} — lu.` })
               updateBook(b.book_id, finishPatch(b, b.status === 'reading' ? new Date().toISOString() : null))
@@ -226,7 +226,7 @@ export function Books() {
 
       {visible.length > 0 && (
         <p className="muted swipe__hint">
-          Sur téléphone : glisse un livre vers la droite pour le marquer lu, vers la gauche pour le retirer.
+          Sur téléphone : glisse vers la droite pour marquer lu, vers la gauche pour retirer.
         </p>
       )}
 

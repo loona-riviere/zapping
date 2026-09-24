@@ -4,6 +4,7 @@ import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { buildEnvNames, movieDetails, tmdbConfigured } from '../lib/tmdb'
 import { Poster } from './Poster'
+import { SwipeRow } from './SwipeRow'
 import type { WatchedMovie } from '../lib/store'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -16,8 +17,30 @@ const normalize = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 export function Movies() {
-  const { movies, moviesReady, loading, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieMeta } = useApp()
+  const { movies, moviesReady, loading, markMovieWatched, markMovieUnwatched, removeMovie, restoreMovie, fillMovieMeta } = useApp()
   const [query, setQuery] = useState('')
+  const [undo, setUndo] = useState<{ text: string; revert: () => void } | null>(null)
+
+  /** Même règle que partout : à droite c'est vu, à gauche on le sort de la liste. */
+  const swipe = (m: WatchedMovie) => ({
+    right:
+      m.status === 'later' && !notYetReleased(m)
+        ? {
+            label: 'Vu',
+            onSwipe: () => {
+              markMovieWatched(m.movie_id, today())
+              setUndo({ text: `${m.title} — vu.`, revert: () => markMovieUnwatched(m.movie_id) })
+            },
+          }
+        : undefined,
+    left: {
+      label: 'Retirer',
+      onSwipe: () => {
+        removeMovie(m.movie_id)
+        setUndo({ text: `${m.title} — retiré.`, revert: () => restoreMovie(m) })
+      },
+    },
+  })
 
   // Les films « à voir » ajoutés avant ce champ n'ont pas de date de sortie
   // connue : on la relève une fois, tranquillement, pour savoir s'ils sont
@@ -120,7 +143,7 @@ export function Movies() {
       )}
       <ul className="rows">
         {toWatch.map((m) => (
-          <li key={m.movie_id} className="row">
+          <SwipeRow key={m.movie_id} {...swipe(m)}>
             <a href={href.movie(m.movie_id)} className="row__link">
               <Poster src={m.poster_url} alt={m.title} />
               <div className="row__body">
@@ -145,7 +168,7 @@ export function Movies() {
                 Retirer
               </button>
             </div>
-          </li>
+          </SwipeRow>
         ))}
       </ul>
 
@@ -167,7 +190,7 @@ export function Movies() {
       )}
       <ul className="rows">
         {watched.map((m) => (
-          <li key={m.movie_id} className="row">
+          <SwipeRow key={m.movie_id} {...swipe(m)}>
             <a href={href.movie(m.movie_id)} className="row__link">
               <Poster src={m.poster_url} alt={m.title} />
               <div className="row__body">
@@ -204,9 +227,33 @@ export function Movies() {
                 Retirer
               </button>
             </div>
-          </li>
+          </SwipeRow>
         ))}
       </ul>
+
+      {movies.length > 0 && (
+        <p className="muted swipe__hint">
+          Sur téléphone : glisse vers la droite pour marquer vu, vers la gauche pour retirer.
+        </p>
+      )}
+
+      {undo && (
+        <div className="catchup" role="status">
+          <p>{undo.text}</p>
+          <div className="catchup__actions">
+            <button className="btn btn--ghost" onClick={() => setUndo(null)}>Fermer</button>
+            <button
+              className="btn btn--primary"
+              onClick={() => {
+                undo.revert()
+                setUndo(null)
+              }}
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

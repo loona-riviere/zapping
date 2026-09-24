@@ -57,6 +57,8 @@ type AppState = {
   markMovieWatched: (movieId: number, watchedAt: string | null) => Promise<void>
   markMovieUnwatched: (movieId: number) => Promise<void>
   removeMovie: (movieId: number) => Promise<void>
+  /** Annule un retrait : remet le film tel qu'il était. */
+  restoreMovie: (movie: WatchedMovie) => Promise<void>
   /** Relève chez TMDB la durée des films qui n'en ont pas encore. */
   fillMovieRuntimes: (onProgress?: (done: number, total: number) => void) => Promise<void>
   /** Complète l'affiche et/ou la durée d'un film depuis sa fiche détail, si l'un des deux manque. */
@@ -586,6 +588,19 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     }
   }, [movies])
 
+  const restoreMovie = useCallback(
+    async (movie: WatchedMovie) => {
+      setMovies((prev) => (prev.some((m) => m.movie_id === movie.movie_id) ? prev : [movie, ...prev]))
+      try {
+        await store.restoreMovie(userId, movie)
+      } catch (e) {
+        setMovies((prev) => prev.filter((m) => m.movie_id !== movie.movie_id))
+        setNotice(`Annulation impossible : ${(e as Error).message}`)
+      }
+    },
+    [userId],
+  )
+
   const isDismissed = useCallback(
     (kind: 'show' | 'movie', id: number) => dismissed.some((d) => d.kind === kind && d.tmdb_id === id),
     [dismissed],
@@ -627,12 +642,12 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       isTracked, statusOf, watchedFor, historyFor, rewatchesOf, setRewatches,
       isRewatching, startRewatch, endRewatch,
       track, untrack, setStatus, setWatched,
-      addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
+      addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
       dismissed, isDismissed, dismissRec, undismissRec,
     }),
     [userId, tracked, watched, rewatch, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
      historyFor, rewatchesOf, setRewatches, isRewatching, startRewatch, endRewatch,
-     track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
+     track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
      dismissed, isDismissed, dismissRec, undismissRec],
   )
 

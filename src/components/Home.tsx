@@ -7,6 +7,7 @@ import type { ShowWithEpisodes } from '../lib/tvmaze'
 import { useShowEpisodes } from '../lib/useShows'
 import { Poster } from './Poster'
 import { StatusPicker } from './StatusPicker'
+import { SwipeRow } from './SwipeRow'
 
 type Row = {
   id: number
@@ -41,10 +42,34 @@ export function Home() {
   const { tracked, loading, watchedFor, setWatched, setStatus } = useApp()
   // Dernière série abandonnée, pour proposer d'annuler : un abandon se fait
   // d'un geste depuis la liste, autant qu'il se défasse pareil.
-  const [undo, setUndo] = useState<{ id: number; name: string } | null>(null)
+  const [undo, setUndo] = useState<{ text: string; revert: () => void } | null>(null)
   const [query, setQuery] = useState('')
   const ids = useMemo(() => tracked.map((t) => t.show_id), [tracked])
   const { data: cache, failed, ready } = useShowEpisodes(ids)
+
+  /** Glisser à gauche : abandonner (s'annule), jamais supprimer — l'historique d'une série ne se reconstruit pas. */
+  const dropAction = (r: Row) => ({
+    label: 'Abandonner',
+    onSwipe: () => {
+      const before = r.status
+      setStatus(r.id, 'dropped')
+      setUndo({ text: `${r.name} — abandonnée.`, revert: () => setStatus(r.id, before) })
+    },
+  })
+
+  /** Glisser à droite : cocher le prochain épisode, comme le bouton « Vu ». */
+  const seenAction = (r: Row) => {
+    const next = r.progress?.next
+    if (!next || !r.data) return undefined
+    const show = r.data.show
+    return {
+      label: `Vu ${epCode(next)}`,
+      onSwipe: () => {
+        setWatched(show, [next], true)
+        setUndo({ text: `${r.name} — ${epCode(next)} vu.`, revert: () => setWatched(show, [next], false) })
+      },
+    }
+  }
 
   // Squelette tant que la liste ou le cache des fiches n'est pas là : la
   // bibliothèque apparaît ensuite d'un seul bloc, sans séries qui sautent.
@@ -136,7 +161,7 @@ export function Home() {
           <h2 className="section-title">À voir</h2>
           <ul className="rows">
             {toWatch.map((r) => (
-              <li key={r.id} className="row">
+              <SwipeRow key={r.id} left={dropAction(r)} right={seenAction(r)}>
                 <a href={href.show(r.id)} className="row__link">
                   <Poster src={r.image} alt={r.name} />
                   <div className="row__body">
@@ -165,16 +190,13 @@ export function Home() {
                   )}
                   <button
                     className="link-btn row__drop"
-                    onClick={() => {
-                      setStatus(r.id, 'dropped')
-                      setUndo({ id: r.id, name: r.name })
-                    }}
+                    onClick={dropAction(r).onSwipe}
                     aria-label={`Abandonner ${r.name}`}
                   >
                     Abandonner
                   </button>
                 </div>
-              </li>
+              </SwipeRow>
             ))}
           </ul>
         </section>
@@ -194,7 +216,7 @@ export function Home() {
           <h2 className="section-title">Bientôt de retour</h2>
           <ul className="rows">
             {upcoming.map((r) => (
-              <li key={r.id} className="row">
+              <SwipeRow key={r.id} left={dropAction(r)}>
                 <a href={href.show(r.id)} className="row__link">
                   <Poster src={r.image} alt={r.name} />
                   <div className="row__body">
@@ -204,7 +226,7 @@ export function Home() {
                     </p>
                   </div>
                 </a>
-              </li>
+              </SwipeRow>
             ))}
           </ul>
         </section>
@@ -215,7 +237,7 @@ export function Home() {
           <h2 className="section-title">À jour</h2>
           <ul className="rows">
             {noDateYet.map((r) => (
-              <li key={r.id} className="row">
+              <SwipeRow key={r.id} left={dropAction(r)}>
                 <a href={href.show(r.id)} className="row__link">
                   <Poster src={r.image} alt={r.name} />
                   <div className="row__body">
@@ -223,14 +245,14 @@ export function Home() {
                     <p className="muted">Pas de nouvel épisode annoncé</p>
                   </div>
                 </a>
-              </li>
+              </SwipeRow>
             ))}
           </ul>
         </section>
       )}
 
-      <Parked title={STATUS_LABEL.paused} rows={paused} />
-      <Parked title={STATUS_LABEL.later} rows={later} />
+      <Parked title={STATUS_LABEL.paused} rows={paused} left={dropAction} right={seenAction} />
+      <Parked title={STATUS_LABEL.later} rows={later} left={dropAction} right={seenAction} />
 
       {finished.length > 0 && (
         <section>
@@ -241,15 +263,21 @@ export function Home() {
         </>
       )}
 
+      {!q && rows.length > 0 && (
+        <p className="muted swipe__hint">
+          Sur téléphone : glisse vers la droite pour marquer vu le prochain épisode, vers la gauche pour abandonner.
+        </p>
+      )}
+
       {undo && (
         <div className="catchup" role="status">
-          <p>{undo.name} — abandonnée.</p>
+          <p>{undo.text}</p>
           <div className="catchup__actions">
             <button className="btn btn--ghost" onClick={() => setUndo(null)}>Fermer</button>
             <button
               className="btn btn--primary"
               onClick={() => {
-                setStatus(undo.id, 'watching')
+                undo.revert()
                 setUndo(null)
               }}
             >
@@ -281,14 +309,23 @@ function airOf(r: Row): string | null {
 }
 
 /** Séries mises de côté : on garde le compteur et le bouton de statut à portée. */
-function Parked({ title, rows }: { title: string; rows: Row[] }) {
+type Swipe = { label: string; onSwipe: () => void }
+
+function Parked({
+  title, rows, left, right,
+}: {
+  title: string
+  rows: Row[]
+  left: (r: Row) => Swipe
+  right: (r: Row) => Swipe | undefined
+}) {
   if (!rows.length) return null
   return (
     <section>
       <h2 className="section-title">{title}</h2>
       <ul className="rows">
         {rows.map((r) => (
-          <li key={r.id} className="row">
+          <SwipeRow key={r.id} left={left(r)} right={right(r)}>
             <a href={href.show(r.id)} className="row__link">
               <Poster src={r.image} alt={r.name} />
               <div className="row__body">
@@ -303,7 +340,7 @@ function Parked({ title, rows }: { title: string; rows: Row[] }) {
               </div>
             </a>
             <StatusPicker showId={r.id} />
-          </li>
+          </SwipeRow>
         ))}
       </ul>
     </section>

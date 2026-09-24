@@ -336,6 +336,14 @@ export async function markMovieUnwatched(movieId: number): Promise<void> {
   if (error) throw error
 }
 
+/** Remet un film retiré tel qu'il était (annulation), note et date comprises. */
+export async function restoreMovie(userId: string, movie: WatchedMovie): Promise<void> {
+  const { error } = await supabase
+    .from('watched_movies')
+    .upsert({ ...movie, user_id: userId }, { onConflict: 'user_id,movie_id' })
+  if (error) throw error
+}
+
 export async function removeMovie(movieId: number): Promise<void> {
   const { error } = await supabase.from('watched_movies').delete().eq('movie_id', movieId)
   if (error) throw error
