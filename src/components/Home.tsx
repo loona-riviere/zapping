@@ -44,9 +44,11 @@ export function Home() {
   const [undo, setUndo] = useState<{ id: number; name: string } | null>(null)
   const [query, setQuery] = useState('')
   const ids = useMemo(() => tracked.map((t) => t.show_id), [tracked])
-  const { data: cache, failed } = useShowEpisodes(ids)
+  const { data: cache, failed, ready } = useShowEpisodes(ids)
 
-  if (loading) return <p className="muted pad">Chargement de tes séries…</p>
+  // Squelette tant que la liste ou le cache des fiches n'est pas là : la
+  // bibliothèque apparaît ensuite d'un seul bloc, sans séries qui sautent.
+  if (loading || (tracked.length > 0 && !ready)) return <HomeSkeleton />
 
   if (!tracked.length) {
     return (
@@ -79,7 +81,10 @@ export function Home() {
   })
   rows.sort(byActivity)
 
-  const active = rows.filter((r) => r.status === 'watching')
+  // Jamais chargée (série tout juste ajoutée, premier lancement) : squelette
+  // plutôt qu'une place provisoire dans « À voir » d'où elle sauterait ensuite.
+  const pending = rows.filter((r) => r.status === 'watching' && !r.data && !failed.has(r.id))
+  const active = rows.filter((r) => r.status === 'watching' && (r.data || failed.has(r.id)))
   const toWatch = active.filter((r) => !r.progress || r.progress.next)
   const upToDateAll = active.filter((r) => r.progress && !r.progress.next && r.data!.show.status !== 'Ended')
   // Une date de retour connue n'a rien à voir avec un renouvellement sans
@@ -172,6 +177,15 @@ export function Home() {
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {pending.length > 0 && (
+        <section aria-busy="true">
+          <h2 className="section-title muted">
+            Chargement de {pending.length} série{pending.length > 1 ? 's' : ''}…
+          </h2>
+          <SkeletonRows count={Math.min(pending.length, 4)} />
         </section>
       )}
 
@@ -284,7 +298,7 @@ function Parked({ title, rows }: { title: string; rows: Row[] }) {
                     ? r.progress.next
                       ? `Reprise à ${epCode(r.progress.next)} — ${r.progress.watched}/${r.progress.aired} vus`
                       : `${r.progress.watched}/${r.progress.aired} vus`
-                    : 'Chargement…'}
+                    : <span className="skeleton skeleton--text" />}
                 </p>
               </div>
             </a>
@@ -293,6 +307,35 @@ function Parked({ title, rows }: { title: string; rows: Row[] }) {
         ))}
       </ul>
     </section>
+  )
+}
+
+function SkeletonRows({ count }: { count: number }) {
+  return (
+    <ul className="rows" aria-hidden="true">
+      {Array.from({ length: count }, (_, i) => (
+        <li key={i} className="row">
+          <div className="row__link">
+            <span className="skeleton skeleton--poster" />
+            <div className="row__body">
+              <span className="skeleton skeleton--title" />
+              <span className="skeleton skeleton--text" />
+              <span className="skeleton skeleton--bar" />
+            </div>
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function HomeSkeleton() {
+  return (
+    <div className="home" aria-busy="true" aria-label="Chargement de tes séries">
+      <span className="skeleton skeleton--search" />
+      <span className="skeleton skeleton--heading" />
+      <SkeletonRows count={6} />
+    </div>
   )
 }
 

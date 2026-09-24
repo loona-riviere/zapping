@@ -1,7 +1,7 @@
 // Client minimal pour l'API publique TVmaze (sans clé, CORS ouvert).
 // Doc : https://www.tvmaze.com/api
 
-import { setCacheItem } from './storage'
+import { idbGetMany, idbSet } from './idb'
 
 export type TvShow = {
   id: number
@@ -54,53 +54,93 @@ export async function searchShows(query: string): Promise<TvShow[]> {
   return data.map((d) => ({ ...d.show, rating: d.show.rating?.average ?? null }))
 }
 
+type Cached = { at: number; data: ShowWithEpisodes }
+
+// v2 : même forme qu'avant (voir le numéro dans l'ancienne clé localStorage),
+// désormais rangée dans IndexedDB.
+const cacheKey = (id: number) => `tvmaze:show:v2:${id}`
+const memory = new Map<number, Cached>()
+
 /**
- * Fiche et épisodes d'une série, mis en cache 12 h. `force` ignore le cache :
- * c'est la sortie de secours quand TVmaze a été complété entre-temps (une
- * saison ajoutée, par exemple) et que le navigateur sert encore l'ancienne
- * version.
+ * Fiches déjà en cache, quel que soit leur âge — pour afficher tout de suite
+ * la bibliothèque d'un seul bloc, puis rafraîchir en arrière-plan ce qui est
+ * périmé. Au passage, déménage vers IndexedDB les fiches encore rangées dans
+ * le localStorage par les versions précédentes (et libère ce dernier).
  */
-export function getShowWithEpisodes(id: number, force = false): Promise<ShowWithEpisodes> {
-  // Le numéro de version change avec la forme de TvShow (leçon de movieDetails
-  // chez TMDB) : à rebumper si le type change encore.
-  const key = `tvmaze:show:v2:${id}`
-  if (!force) {
-    try {
-      const raw = localStorage.getItem(key)
-      if (raw) {
-        const cached = JSON.parse(raw) as { at: number; data: ShowWithEpisodes }
-        if (Date.now() - cached.at < CACHE_TTL) return Promise.resolve(cached.data)
+export async function peekShows(ids: number[]): Promise<Map<number, Cached>> {
+  const out = new Map<number, Cached>()
+  const missing = ids.filter((id) => {
+    const m = memory.get(id)
+    if (m) out.set(id, m)
+    return !m
+  })
+  const stored = await idbGetMany<Cached>(missing.map(cacheKey))
+  for (const id of missing) {
+    let c = stored.get(cacheKey(id))
+    if (!c) {
+      try {
+        const raw = localStorage.getItem(cacheKey(id))
+        if (raw) {
+          c = JSON.parse(raw) as Cached
+          void idbSet(cacheKey(id), c)
+          localStorage.removeItem(cacheKey(id))
+        }
+      } catch {
+        /* ancien cache illisible : la fiche sera rechargée */
       }
-    } catch {
-      /* cache illisible : on refetch */
+    }
+    if (c) {
+      memory.set(id, c)
+      out.set(id, c)
     }
   }
+  return out
+}
+
+export const isFresh = (c: Cached) => Date.now() - c.at < CACHE_TTL
+
+async function fetchShow(id: number): Promise<ShowWithEpisodes> {
+  const { _embedded, ...show } = await get<
+    RawTvShow & { _embedded: { episodes: (TvEpisode & { number: number | null })[] } }
+  >(`/shows/${id}?embed=episodes`)
+  const episodes = _embedded.episodes
+    .filter((e): e is TvEpisode => e.number !== null) // on ignore les épisodes spéciaux
+    .map(({ id, season, number, name, airdate, airstamp, runtime, summary }) => ({
+      id, season, number, name, airdate, airstamp, runtime, summary: summary ?? null,
+    }))
+  const s: TvShow = {
+    id: show.id, name: show.name, image: show.image, premiered: show.premiered,
+    status: show.status, summary: show.summary, genres: show.genres,
+    rating: show.rating?.average ?? null,
+    network: show.network, webChannel: show.webChannel,
+    externals: show.externals ?? null,
+  }
+  const data = { show: s, episodes }
+  const c = { at: Date.now(), data }
+  memory.set(id, c)
+  void idbSet(cacheKey(id), c)
+  return data
+}
+
+/**
+ * Fiche et épisodes d'une série, en cache 12 h (IndexedDB). `force` ignore le
+ * cache : c'est la sortie de secours quand TVmaze a été complété entre-temps
+ * (une saison ajoutée, par exemple). Si le réseau échoue, une fiche périmée
+ * vaut mieux que rien : on la renvoie.
+ */
+export async function getShowWithEpisodes(id: number, force = false): Promise<ShowWithEpisodes> {
+  const cached = force ? undefined : (await peekShows([id])).get(id)
+  if (cached && isFresh(cached)) return cached.data
 
   const pending = inflight.get(id)
   if (pending && !force) return pending
 
-  const p = get<RawTvShow & { _embedded: { episodes: (TvEpisode & { number: number | null })[] } }>(
-    `/shows/${id}?embed=episodes`,
-  )
-    .then(({ _embedded, ...show }) => {
-      const episodes = _embedded.episodes
-        .filter((e): e is TvEpisode => e.number !== null) // on ignore les épisodes spéciaux
-        .map(({ id, season, number, name, airdate, airstamp, runtime, summary }) => ({
-          id, season, number, name, airdate, airstamp, runtime, summary: summary ?? null,
-        }))
-      const s: TvShow = {
-        id: show.id, name: show.name, image: show.image, premiered: show.premiered,
-        status: show.status, summary: show.summary, genres: show.genres,
-        rating: show.rating?.average ?? null,
-        network: show.network, webChannel: show.webChannel,
-        externals: show.externals ?? null,
-      }
-      const data = { show: s, episodes }
-      setCacheItem(key, JSON.stringify({ at: Date.now(), data }))
-      return data
+  const p = fetchShow(id)
+    .catch((e) => {
+      if (cached) return cached.data
+      throw e
     })
     .finally(() => inflight.delete(id))
-
   inflight.set(id, p)
   return p
 }
