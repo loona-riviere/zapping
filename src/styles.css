@@ -781,3 +781,26 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 }
 .edit-toggle:hover { border-color: var(--line); color: var(--ink); }
 .edit-toggle--on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+/* Barre d'avancement d'un livre, réglable au doigt */
+.pages__pct { margin-left: auto; font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pages__slider {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 26px; margin: 0; background: none;
+  touch-action: pan-y; cursor: pointer;
+}
+.pages__slider::-webkit-slider-runnable-track {
+  height: 6px; border-radius: 3px;
+  background: linear-gradient(to right, var(--accent) var(--pct), var(--line) var(--pct));
+}
+.pages__slider::-moz-range-track { height: 6px; border-radius: 3px; background: var(--line); }
+.pages__slider::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--accent); }
+.pages__slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 22px; height: 22px; margin-top: -8px; border-radius: 50%;
+  background: var(--surface); border: 3px solid var(--accent); box-shadow: 0 1px 4px rgb(0 0 0 / .25);
+}
+.pages__slider::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%; background: var(--surface); border: 3px solid var(--accent);
+}
+.pages__slider:focus-visible { outline: none; }
+.pages__slider:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px color-mix(in srgb, var(--amber) 60%, transparent); }
+.pages--compact .pages__slider { height: 22px; }
