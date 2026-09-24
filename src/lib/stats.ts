@@ -272,12 +272,17 @@ export type ReadingStats = {
   readNoPages: number
   /** Livres terminés par année de fin de lecture, la plus récente d'abord. */
   byYear: { year: string; books: number; pages: number }[]
+  /** Livres terminés par genre, le plus lu d'abord ; sans genre connu à part. */
+  byGenre: { genre: string; books: number; pages: number }[]
+  readNoGenre: number
 }
 
 export function computeReadingStats(books: TrackedBook[]): ReadingStats {
   let pages = 0
   let readNoPages = 0
   const years = new Map<string, { year: string; books: number; pages: number }>()
+  const genres = new Map<string, { genre: string; books: number; pages: number }>()
+  let readNoGenre = 0
   for (const b of books) {
     if (b.status === 'read') {
       if (b.page_count) pages += b.page_count
@@ -289,6 +294,12 @@ export function computeReadingStats(books: TrackedBook[]): ReadingStats {
         y.pages += b.page_count ?? 0
         years.set(year, y)
       }
+      if (b.genre) {
+        const g = genres.get(b.genre) ?? { genre: b.genre, books: 0, pages: 0 }
+        g.books++
+        g.pages += b.page_count ?? 0
+        genres.set(b.genre, g)
+      } else readNoGenre++
     } else if (b.status === 'reading' || b.status === 'dropped') {
       pages += b.current_page
     }
@@ -300,5 +311,7 @@ export function computeReadingStats(books: TrackedBook[]): ReadingStats {
     pages,
     readNoPages,
     byYear: [...years.values()].sort((a, b) => b.year.localeCompare(a.year)),
+    byGenre: [...genres.values()].sort((a, b) => b.books - a.books || b.pages - a.pages),
+    readNoGenre,
   }
 }

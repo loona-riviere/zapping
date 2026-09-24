@@ -1,5 +1,7 @@
 import type { Book } from './books'
+import { guessGenre } from './genres'
 import type { Rating } from './store'
+import { isMissingSchema } from './store'
 import { supabase } from './supabase'
 
 /** Où en est un livre : en cours, lu, à lire, abandonné. */
@@ -33,15 +35,15 @@ export type TrackedBook = {
   updated_at: string
   /** Rang dans « à lire », plus petit = plus envie ; absent = pas rangé. */
   wish_rank?: number | null
+  /** Genre en français (lib/genres), deviné à l'ajout, corrigeable ; absent si inconnu. */
+  genre?: string | null
 }
 
 /** Colonnes modifiables après coup depuis l'app. */
 export type BookPatch = Partial<
-  Pick<TrackedBook, 'status' | 'current_page' | 'started_at' | 'finished_at' | 'rating' | 'page_count' | 'cover_url'>
+  Pick<TrackedBook, 'status' | 'current_page' | 'started_at' | 'finished_at' | 'rating' | 'page_count' | 'cover_url' | 'genre'>
 >
 
-const COLUMNS =
-  'book_id, title, authors, cover_url, page_count, published_year, status, current_page, started_at, finished_at, rating, added_at, updated_at'
 const PAGE = 1000
 
 export async function fetchBooks(): Promise<TrackedBook[]> {
@@ -49,7 +51,9 @@ export async function fetchBooks(): Promise<TrackedBook[]> {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from('tracked_books')
-      .select(COLUMNS)
+      // `*` : une colonne ajoutée depuis (genre, wish_rank) qui manquerait
+      // encore en base est juste absente des lignes, sans faire échouer la lecture.
+      .select('*')
       .order('updated_at', { ascending: false })
       .range(from, from + PAGE - 1)
     if (error) throw error
@@ -76,16 +80,21 @@ export function bookRow(book: Book, status: BookStatus, at: { started_at?: strin
     rating: null,
     added_at: now,
     updated_at: now,
+    genre: guessGenre(book.categories),
   }
 }
 
 export async function insertBook(userId: string, row: TrackedBook): Promise<void> {
-  // Sans rang, on n'envoie pas la colonne : elle peut manquer si le schéma n'a pas été relancé.
-  const { wish_rank, ...rest } = row
-  const { error } = await supabase
-    .from('tracked_books')
-    .upsert({ ...(wish_rank == null ? rest : row), user_id: userId }, { onConflict: 'user_id,book_id', ignoreDuplicates: true })
-  if (error) throw error
+  // Colonnes vides non envoyées : elles peuvent manquer si le schéma n'a pas été relancé.
+  const { wish_rank, genre, ...base } = row
+  const full = { ...base, ...(wish_rank != null ? { wish_rank } : {}), ...(genre ? { genre } : {}), user_id: userId }
+  const opts = { onConflict: 'user_id,book_id', ignoreDuplicates: true }
+  const { error } = await supabase.from('tracked_books').upsert(full, opts)
+  if (!error) return
+  if (!isMissingSchema(error)) throw error
+  // Colonne genre ou wish_rank absente : on enregistre le livre sans elles.
+  const retry = await supabase.from('tracked_books').upsert({ ...base, user_id: userId }, opts)
+  if (retry.error) throw retry.error
 }
 
 export async function updateBook(bookId: string, patch: BookPatch & { updated_at: string }): Promise<void> {

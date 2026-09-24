@@ -309,3 +309,8 @@ create policy "tracked_books: own rows" on public.tracked_books
 alter table public.tracked_shows add column if not exists wish_rank double precision;
 alter table public.watched_movies add column if not exists wish_rank double precision;
 alter table public.tracked_books add column if not exists wish_rank double precision;
+
+-- Genre d'un livre, en français (Roman, Policier & thriller, SF & fantasy…),
+-- deviné depuis les catégories du catalogue et corrigeable à la main : sert
+-- aux statistiques de lecture par genre.
+alter table public.tracked_books add column if not exists genre text;
