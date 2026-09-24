@@ -209,10 +209,22 @@ function fromGoogle(v: GoogleVolume): Book {
   }
 }
 
+/**
+ * Dernier refus de Google (clé restreinte à un autre domaine, API non
+ * activée, quota…), gardé pour l'afficher : sans ça, le repli sur Open
+ * Library est silencieux et on croit que la clé sert.
+ */
+export let googleBooksError: string | null = null
+
 async function searchGoogle(query: string): Promise<Book[]> {
   const params = new URLSearchParams({ q: query, maxResults: '20', printType: 'books', key: GB_KEY! })
   const res = await fetch(`https://www.googleapis.com/books/v1/volumes?${params}`)
-  if (!res.ok) throw new Error(`Google Books ${res.status}`)
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+    googleBooksError = `${res.status} — ${body?.error?.message ?? 'refus sans explication'}`
+    throw new Error(`Google Books ${res.status}`)
+  }
+  googleBooksError = null
   const body = (await res.json()) as { items?: GoogleVolume[] }
   return (body.items ?? []).map(fromGoogle)
 }

@@ -3,7 +3,7 @@ import { useApp } from '../lib/appState'
 import { searchShowsWide } from '../lib/lookup'
 import { computeProgress, epCode, type Progress } from '../lib/progress'
 import { href, type SearchKind } from '../lib/route'
-import { manualBook, searchBooks, type Book } from '../lib/books'
+import { googleBooksError, manualBook, searchBooks, type Book } from '../lib/books'
 import type { BookStatus } from '../lib/bookStore'
 import { useBooks } from '../lib/booksState'
 import { buildEnvNames, searchMovies, tmdbConfigured, type Movie } from '../lib/tmdb'
@@ -367,6 +367,12 @@ function BookSearch({ query }: { query: string }) {
   return (
     <>
       {status === 'error' && <p className="error">La recherche de livres a échoué. Vérifie ta connexion et réessaie.</p>}
+      {status === 'idle' && googleBooksError && query.trim().length >= 2 && (
+        <p className="muted diag">
+          Google Books refuse la clé, résultats d'Open Library à la place. Réponse de Google :{' '}
+          <code>{googleBooksError}</code>
+        </p>
+      )}
       {status === 'idle' && query.trim().length >= 2 && !results.length && (
         <p className="muted">Aucun livre trouvé pour « {query.trim()} ». Essaie avec le titre seul, ou ajoute-le à la main.</p>
       )}
