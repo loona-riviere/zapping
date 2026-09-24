@@ -5,6 +5,7 @@ import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { PageInput } from './PageInput'
 import { Poster } from './Poster'
+import { SwipeRow } from './SwipeRow'
 
 /** Insensible aux accents et à la casse : « etranger » retrouve « L'Étranger ». */
 const normalize = (s: string) =>
@@ -19,9 +20,33 @@ function byFinished(a: TrackedBook, b: TrackedBook): number {
 }
 
 export function Books() {
-  const { books, booksReady, booksLoading, updateBook, removeBook } = useBooks()
+  const { books, booksReady, booksLoading, updateBook, removeBook, restoreBook } = useBooks()
   const [query, setQuery] = useState('')
   const [showDropped, setShowDropped] = useState(false)
+  // Dernier geste de glissé, pour pouvoir l'annuler : un geste rapide se
+  // défait aussi vite, sans fenêtre de confirmation à chaque fois.
+  const [undo, setUndo] = useState<{ row: TrackedBook; text: string } | null>(null)
+
+  /** Glissé à droite : lu (fini aujourd'hui s'il était en cours, sans date sinon). À gauche : retiré. */
+  const swipe = (b: TrackedBook) => ({
+    right:
+      b.status === 'read'
+        ? undefined
+        : {
+            label: b.status === 'reading' ? 'Terminé' : 'Déjà lu',
+            onSwipe: () => {
+              setUndo({ row: b, text: `${b.title} — lu.` })
+              updateBook(b.book_id, finishPatch(b, b.status === 'reading' ? new Date().toISOString() : null))
+            },
+          },
+    left: {
+      label: 'Retirer',
+      onSwipe: () => {
+        setUndo({ row: b, text: `${b.title} — retiré.` })
+        removeBook(b.book_id)
+      },
+    },
+  })
 
   if (!booksReady) {
     return (
@@ -88,7 +113,7 @@ export function Books() {
           <h2 className="section-title">En cours <span className="muted">({reading.length})</span></h2>
           <ul className="rows">
             {reading.map((b) => (
-              <li key={b.book_id} className="row row--book">
+              <SwipeRow key={b.book_id} className="row row--book" {...swipe(b)}>
                 <a href={href.book(b.book_id)} className="row__link">
                   <Poster src={b.cover_url} alt={b.title} />
                   <div className="row__body">
@@ -107,7 +132,7 @@ export function Books() {
                 <div className="row__extra">
                   <PageInput book={b} compact />
                 </div>
-              </li>
+              </SwipeRow>
             ))}
           </ul>
         </section>
@@ -118,7 +143,7 @@ export function Books() {
           <h2 className="section-title">À lire <span className="muted">({later.length})</span></h2>
           <ul className="rows">
             {later.map((b) => (
-              <li key={b.book_id} className="row">
+              <SwipeRow key={b.book_id} {...swipe(b)}>
                 <a href={href.book(b.book_id)} className="row__link">
                   <Poster src={b.cover_url} alt={b.title} />
                   <div className="row__body">
@@ -137,7 +162,7 @@ export function Books() {
                     Retirer
                   </button>
                 </div>
-              </li>
+              </SwipeRow>
             ))}
           </ul>
         </section>
@@ -148,7 +173,7 @@ export function Books() {
           <h2 className="section-title">Lus <span className="muted">({read.length})</span></h2>
           <ul className="rows">
             {read.map((b) => (
-              <li key={b.book_id} className="row">
+              <SwipeRow key={b.book_id} {...swipe(b)}>
                 <a href={href.book(b.book_id)} className="row__link">
                   <Poster src={b.cover_url} alt={b.title} />
                   <div className="row__body">
@@ -160,7 +185,7 @@ export function Books() {
                     </p>
                   </div>
                 </a>
-              </li>
+              </SwipeRow>
             ))}
           </ul>
         </section>
@@ -182,7 +207,7 @@ export function Books() {
           {showDropped && (
             <ul className="rows">
               {dropped.map((b) => (
-                <li key={b.book_id} className="row">
+                <SwipeRow key={b.book_id} {...swipe(b)}>
                   <a href={href.book(b.book_id)} className="row__link">
                     <Poster src={b.cover_url} alt={b.title} />
                     <div className="row__body">
@@ -192,11 +217,35 @@ export function Books() {
                       </p>
                     </div>
                   </a>
-                </li>
+                </SwipeRow>
               ))}
             </ul>
           )}
         </section>
+      )}
+
+      {visible.length > 0 && (
+        <p className="muted swipe__hint">
+          Sur téléphone : glisse un livre vers la droite pour le marquer lu, vers la gauche pour le retirer.
+        </p>
+      )}
+
+      {undo && (
+        <div className="catchup" role="status">
+          <p>{undo.text}</p>
+          <div className="catchup__actions">
+            <button className="btn btn--ghost" onClick={() => setUndo(null)}>Fermer</button>
+            <button
+              className="btn btn--primary"
+              onClick={() => {
+                restoreBook(undo.row)
+                setUndo(null)
+              }}
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
       )}
 
       {!q && !reading.length && !booksLoading && (

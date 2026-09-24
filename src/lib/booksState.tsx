@@ -13,6 +13,8 @@ type BooksState = {
   addBook: (book: Book, status: BookStatus, at?: { started_at?: string | null; finished_at?: string | null }) => Promise<void>
   updateBook: (bookId: string, patch: BookPatch) => Promise<void>
   removeBook: (bookId: string) => Promise<void>
+  /** Remet un livre tel qu'il était (annulation d'un retrait ou d'un changement). */
+  restoreBook: (row: TrackedBook) => Promise<void>
 }
 
 const Ctx = createContext<BooksState | null>(null)
@@ -103,9 +105,27 @@ export function BooksProvider({
     [books, onError],
   )
 
+  const restoreBook = useCallback(
+    async (row: TrackedBook) => {
+      const exists = books.some((b) => b.book_id === row.book_id)
+      setBooks((prev) => (exists ? prev.map((b) => (b.book_id === row.book_id ? row : b)) : [row, ...prev]))
+      try {
+        if (exists) {
+          const { status, current_page, started_at, finished_at, rating, updated_at } = row
+          await store.updateBook(row.book_id, { status, current_page, started_at, finished_at, rating, updated_at })
+        } else {
+          await store.insertBook(userId, row)
+        }
+      } catch (e) {
+        onError(`Annulation impossible : ${(e as Error).message}`)
+      }
+    },
+    [books, onError, userId],
+  )
+
   const value = useMemo<BooksState>(
-    () => ({ books, booksReady, booksLoading, bookById, addBook, updateBook, removeBook }),
-    [books, booksReady, booksLoading, bookById, addBook, updateBook, removeBook],
+    () => ({ books, booksReady, booksLoading, bookById, addBook, updateBook, removeBook, restoreBook }),
+    [books, booksReady, booksLoading, bookById, addBook, updateBook, removeBook, restoreBook],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

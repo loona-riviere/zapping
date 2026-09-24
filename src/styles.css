@@ -282,6 +282,7 @@ button { font: inherit; color: inherit; }
   display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
   box-shadow: 0 10px 30px rgb(0 0 0 / .25);
   animation: rise .2s ease-out;
+  z-index: 30;
 }
 .catchup p, .notice p { margin: 0; }
 .catchup__actions { display: flex; gap: .5rem; }
@@ -428,6 +429,8 @@ button { font: inherit; color: inherit; }
     padding: .3rem 0; text-decoration: none; color: var(--muted); font-size: .68rem;
   }
   .bottomnav a[aria-current='page'] { color: var(--accent); }
+  /* Au-dessus de la barre du bas, sinon ses boutons (Annuler…) sont inatteignables. */
+  .catchup, .notice { bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -723,3 +726,14 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 }
 .book__authors { font-weight: 600; }
 .books .section-title .season__toggle { font-family: var(--display); }
+
+/* Lignes à glisser (livres) */
+.swipe { position: relative; overflow: hidden; touch-action: pan-y; }
+.swipe__content { position: relative; background: var(--bg); transition: transform .18s ease; }
+.swipe__bg {
+  position: absolute; inset: 0; display: flex; align-items: center; padding: 0 1.25rem;
+  font-weight: 700; color: #fff; transition: opacity .1s ease;
+}
+.swipe__bg--right { background: var(--accent); color: var(--accent-ink); justify-content: flex-start; }
+.swipe__bg--left { background: var(--danger); justify-content: flex-end; }
+.swipe__hint { font-size: .8rem; margin: 1.25rem 0 0; }

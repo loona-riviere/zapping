@@ -430,6 +430,13 @@ function BookSearch({ query }: { query: string }) {
                     <button className="btn btn--ghost" onClick={() => addBook(b, 'later')}>
                       À lire
                     </button>
+                    <button
+                      className="link-btn muted row__drop"
+                      onClick={() => addBook(b, 'read')}
+                      title="Déjà lu, sans date : tu pourras la préciser sur sa fiche"
+                    >
+                      Déjà lu
+                    </button>
                   </>
                 )}
               </div>
