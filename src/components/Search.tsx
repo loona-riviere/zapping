@@ -376,7 +376,6 @@ function BookSearch({ query }: { query: string }) {
       {status === 'idle' && query.trim().length >= 2 && !results.length && (
         <p className="muted">Aucun livre trouvé pour « {query.trim()} ». Essaie avec le titre seul, ou ajoute-le à la main.</p>
       )}
-      {status === 'idle' && query.trim().length >= 2 && <ManualBook query={query.trim()} onAdd={addBook} />}
       {!query.trim() && reading.length > 0 && (
         <section>
           <h2 className="section-title">En cours de lecture</h2>
@@ -452,6 +451,7 @@ function BookSearch({ query }: { query: string }) {
           )
         })}
       </ul>
+      {status === 'idle' && query.trim().length >= 2 && <ManualBook query={query.trim()} onAdd={addBook} />}
     </>
   )
 }

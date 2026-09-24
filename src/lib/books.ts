@@ -38,16 +38,21 @@ function remember(books: Book[]): Book[] {
 }
 
 export async function searchBooks(query: string): Promise<Book[]> {
-  const exact = await searchOnce(query)
-  if (exact.length) return remember(exact)
-
-  // Rien tel quel : souvent une faute sur le nom de l'auteur (« Lila » pour
-  // « Lilia »), ou une dictée qui coupe un nom en deux (« has saine » pour
-  // « Hassaine »). On retente avec des variantes — un mot en moins, deux mots
-  // voisins recollés — puis on garde en tête ce qui colle au plus de mots
-  // tapés, pour que « Panorama » seul ne noie pas le bon livre.
   const words = query.trim().split(/\s+/).filter(Boolean)
-  if (words.length < 2) return []
+  const exact = await searchOnce(query)
+  if (words.length < 2) return remember(exact)
+
+  const score = scorer(words)
+  // Mots significatifs tapés : un résultat qui les retrouve tous est le bon,
+  // inutile d'aller plus loin. Google renvoie toujours quelque chose, même
+  // pour une recherche pleine de fautes : un résultat non vide ne suffit pas.
+  const wanted = words.filter((w) => fold(w).length >= 3).length
+  if (exact.some((b) => score(b) >= wanted)) return remember(exact)
+
+  // Souvent une faute sur le nom de l'auteur (« Lila » pour « Lilia »), ou
+  // une dictée qui coupe un nom en deux (« has saine » pour « Hassaine ») :
+  // on retente avec des variantes — deux mots voisins recollés, un mot en
+  // moins — puis on garde en tête ce qui colle au plus de mots tapés.
   const merged: string[][] = []
   for (let i = 0; i < words.length - 1; i++) {
     merged.push([...words.slice(0, i), words[i] + words[i + 1], ...words.slice(i + 2)])
@@ -65,13 +70,27 @@ export async function searchBooks(query: string): Promise<Book[]> {
     [...variants].slice(0, 14).map((v) => searchOnce(v).catch(() => [] as Book[])),
   )
   const byId = new Map<string, Book>()
-  for (const b of batches.flat()) if (!byId.has(b.id)) byId.set(b.id, b)
+  for (const b of [...exact, ...batches.flat()]) if (!byId.has(b.id)) byId.set(b.id, b)
 
+  const ranked = [...byId.values()]
+    .map((b, i) => ({ b, i, s: score(b) }))
+    .filter((x) => x.s > 0)
+    .sort((a, b) => b.s - a.s || a.i - b.i)
+    .slice(0, 20)
+    .map((x) => x.b)
+  // Rien ne colle à aucun mot : autant montrer ce que le catalogue proposait.
+  return remember(ranked.length ? ranked : exact)
+}
+
+/**
+ * Combien de mots tapés un livre retrouve dans son titre et ses auteurs, à
+ * une ou deux lettres près : « Hassaibe » retrouve « Hassaine », « Lila »
+ * retrouve « Lilia », « has saine » recollé retrouve « Hassaine ».
+ */
+function scorer(words: string[]): (b: Book) => number {
   const tokens = new Set(words.map(fold))
   for (let i = 0; i < words.length - 1; i++) tokens.add(fold(words[i] + words[i + 1]))
-  // Un mot tapé colle à un mot du livre à une ou deux lettres près :
-  // « Hassaibe » retrouve « Hassaine », « Lila » retrouve « Lilia ».
-  const score = (b: Book) => {
+  return (b: Book) => {
     const hayWords = `${b.title} ${b.authors.join(' ')}`.split(/[\s,.'’-]+/).map(fold).filter(Boolean)
     const hay = hayWords.join('')
     return [...tokens].filter((t) => {
@@ -81,14 +100,6 @@ export async function searchBooks(query: string): Promise<Book[]> {
       return tolerance > 0 && hayWords.some((w) => Math.abs(w.length - t.length) <= tolerance && editDistance(w, t) <= tolerance)
     }).length
   }
-  return remember(
-    [...byId.values()]
-      .map((b, i) => ({ b, i, s: score(b) }))
-      .filter((x) => x.s > 0)
-      .sort((a, b) => b.s - a.s || a.i - b.i)
-      .slice(0, 20)
-      .map((x) => x.b),
-  )
 }
 
 /** Nombre de lettres à changer, ajouter ou retirer pour passer d'un mot à l'autre. */
