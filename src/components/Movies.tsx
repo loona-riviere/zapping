@@ -4,7 +4,7 @@ import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { buildEnvNames, movieDetails, tmdbConfigured } from '../lib/tmdb'
 import { Poster } from './Poster'
-import { DragHandle, WishRows } from './Reorder'
+import { DragHandle, EditToggle, WishRows } from './Reorder'
 import { SwipeRow } from './SwipeRow'
 import { byWish, type WatchedMovie } from '../lib/store'
 
@@ -21,6 +21,8 @@ export function Movies() {
   const { movies, moviesReady, loading, markMovieWatched, markMovieUnwatched, removeMovie, restoreMovie, fillMovieMeta, reorderMovies } = useApp()
   const [query, setQuery] = useState('')
   const [undo, setUndo] = useState<{ text: string; revert: () => void } | null>(null)
+  // Mode rangement de « À voir » : poignées à gauche, gestes et boutons de côté.
+  const [ordering, setOrdering] = useState(false)
 
   /** Même règle que partout : à droite c'est vu, à gauche on le sort de la liste. */
   const swipe = (m: WatchedMovie) => ({
@@ -129,6 +131,9 @@ export function Movies() {
 
       <h2 className="section-title">
         À voir {toWatch.length > 0 && <span className="muted">({toWatch.length})</span>}
+        {toWatch.length > 1 && !q && (
+          <EditToggle editing={ordering} onToggle={() => setOrdering((v) => !v)} label="tes films à voir" />
+        )}
       </h2>
       {loading && <p className="muted">Chargement…</p>}
       {!loading && !toWatch.length && (
@@ -147,9 +152,10 @@ export function Movies() {
         items={toWatch}
         idOf={(m) => m.movie_id}
         onCommit={reorderMovies}
-        enabled={!q}
+        enabled={ordering && !q}
         render={(m, row, handle) => (
-          <SwipeRow key={m.movie_id} {...swipe(m)} {...row}>
+          <SwipeRow key={m.movie_id} {...(handle ? {} : swipe(m))} {...row}>
+            {handle && <DragHandle {...handle} label={m.title} />}
             <a href={href.movie(m.movie_id)} className="row__link">
               <Poster src={m.poster_url} alt={m.title} />
               <div className="row__body">
@@ -159,17 +165,18 @@ export function Movies() {
                 </p>
               </div>
             </a>
-            <div className="row__actions">
-              {!notYetReleased(m) && (
-                <button className="btn btn--seen" onClick={swipe(m).right!.onSwipe}>
-                  Vu
+            {!handle && (
+              <div className="row__actions">
+                {!notYetReleased(m) && (
+                  <button className="btn btn--seen" onClick={swipe(m).right!.onSwipe}>
+                    Vu
+                  </button>
+                )}
+                <button className="link-btn muted row__drop" onClick={swipe(m).left.onSwipe}>
+                  Retirer
                 </button>
-              )}
-              <button className="link-btn muted row__drop" onClick={swipe(m).left.onSwipe}>
-                Retirer
-              </button>
-            </div>
-            {handle && <DragHandle {...handle} label={m.title} />}
+              </div>
+            )}
           </SwipeRow>
         )}
       />

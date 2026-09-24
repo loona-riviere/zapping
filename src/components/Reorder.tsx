@@ -156,3 +156,30 @@ export function WishRows<T, K extends string | number>({
     </ul>
   )
 }
+
+/**
+ * Le crayon à côté du titre d'une liste d'envie : passe en mode rangement
+ * (poignées à gauche, gestes et boutons des lignes mis de côté), puis
+ * « OK » pour en sortir.
+ */
+export function EditToggle({ editing, onToggle, label }: { editing: boolean; onToggle: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      className={`edit-toggle${editing ? ' edit-toggle--on' : ''}`}
+      onClick={onToggle}
+      aria-pressed={editing}
+      aria-label={editing ? 'Terminer le rangement' : `Ranger ${label} par envie`}
+      title={editing ? 'Terminer le rangement' : 'Ranger par envie'}
+    >
+      {editing ? (
+        'OK'
+      ) : (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+        </svg>
+      )}
+    </button>
+  )
+}

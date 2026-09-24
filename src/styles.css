@@ -746,7 +746,7 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 
 /* Poignée de rangement (listes d'envie) */
 .drag-handle {
-  flex: none; display: grid; place-items: center; width: 2.25rem; height: 2.75rem; margin-right: -.5rem;
+  flex: none; display: grid; place-items: center; width: 2.25rem; height: 2.75rem; margin-left: -.5rem;
   background: none; border: 0; padding: 0; color: var(--muted); cursor: grab;
   touch-action: none; -webkit-user-select: none; user-select: none;
 }
@@ -772,3 +772,12 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
   100% { transform: translate(var(--drift), 105vh) rotate(calc(var(--rot) + 540deg)); opacity: .9; }
 }
 .about { margin: 0; padding-left: 1.1rem; font-size: .88rem; display: grid; gap: .35rem; }
+
+.edit-toggle {
+  display: inline-grid; place-items: center; vertical-align: middle; margin-left: .4rem;
+  min-width: 1.9rem; height: 1.9rem; padding: 0 .5rem; border-radius: 999px; cursor: pointer;
+  background: none; border: 1.5px solid transparent; color: var(--muted);
+  font: 700 .8rem var(--body);
+}
+.edit-toggle:hover { border-color: var(--line); color: var(--ink); }
+.edit-toggle--on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }

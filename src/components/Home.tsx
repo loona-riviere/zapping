@@ -7,7 +7,7 @@ import type { ShowWithEpisodes } from '../lib/tvmaze'
 import { useShowEpisodes } from '../lib/useShows'
 import { Poster } from './Poster'
 import { StatusPicker } from './StatusPicker'
-import { DragHandle, WishRows } from './Reorder'
+import { DragHandle, EditToggle, WishRows } from './Reorder'
 import { SwipeRow } from './SwipeRow'
 
 type Row = {
@@ -325,17 +325,25 @@ function Parked({
   /** Donné pour « à regarder plus tard » : la liste se range par envie. */
   onReorder?: (ids: number[]) => void
 }) {
+  // Mode rangement : poignées à gauche, gestes et sélecteur de statut de côté.
+  const [ordering, setOrdering] = useState(false)
   if (!rows.length) return null
   return (
     <section>
-      <h2 className="section-title">{title}</h2>
+      <h2 className="section-title">
+        {title}
+        {onReorder && rows.length > 1 && (
+          <EditToggle editing={ordering} onToggle={() => setOrdering((v) => !v)} label={title.toLowerCase()} />
+        )}
+      </h2>
       <WishRows
         items={rows}
         idOf={(r) => r.id}
         onCommit={(ids) => onReorder?.(ids)}
-        enabled={!!onReorder}
+        enabled={!!onReorder && ordering}
         render={(r, row, handle) => (
-          <SwipeRow key={r.id} left={left(r)} right={right(r)} {...row}>
+          <SwipeRow key={r.id} {...(handle ? {} : { left: left(r), right: right(r) })} {...row}>
+            {handle && <DragHandle {...handle} label={r.name} />}
             <a href={href.show(r.id)} className="row__link">
               <Poster src={r.image} alt={r.name} />
               <div className="row__body">
@@ -349,8 +357,7 @@ function Parked({
                 </p>
               </div>
             </a>
-            <StatusPicker showId={r.id} />
-            {handle && <DragHandle {...handle} label={r.name} />}
+            {!handle && <StatusPicker showId={r.id} />}
           </SwipeRow>
         )}
       />

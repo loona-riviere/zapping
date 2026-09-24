@@ -6,7 +6,7 @@ import { byWish } from '../lib/store'
 import { href } from '../lib/route'
 import { PageInput } from './PageInput'
 import { Poster } from './Poster'
-import { DragHandle, WishRows } from './Reorder'
+import { DragHandle, EditToggle, WishRows } from './Reorder'
 import { SwipeRow } from './SwipeRow'
 
 /** Insensible aux accents et à la casse : « etranger » retrouve « L'Étranger ». */
@@ -25,6 +25,8 @@ export function Books() {
   const { books, booksReady, booksLoading, updateBook, removeBook, restoreBook, reorderBooks } = useBooks()
   const [query, setQuery] = useState('')
   const [showDropped, setShowDropped] = useState(false)
+  // Mode rangement de « À lire » : poignées à gauche, gestes et boutons de côté.
+  const [ordering, setOrdering] = useState(false)
   // Dernier geste de glissé, pour pouvoir l'annuler : un geste rapide se
   // défait aussi vite, sans fenêtre de confirmation à chaque fois.
   const [undo, setUndo] = useState<{ row: TrackedBook; text: string } | null>(null)
@@ -155,14 +157,20 @@ export function Books() {
 
       {later.length > 0 && (
         <section>
-          <h2 className="section-title">À lire <span className="muted">({later.length})</span></h2>
+          <h2 className="section-title">
+            À lire <span className="muted">({later.length})</span>
+            {later.length > 1 && !q && (
+              <EditToggle editing={ordering} onToggle={() => setOrdering((v) => !v)} label="tes livres à lire" />
+            )}
+          </h2>
           <WishRows
             items={later}
             idOf={(b) => b.book_id}
             onCommit={reorderBooks}
-            enabled={!q}
+            enabled={ordering && !q}
             render={(b, row, handle) => (
-              <SwipeRow key={b.book_id} {...swipe(b)} {...row}>
+              <SwipeRow key={b.book_id} {...(handle ? {} : swipe(b))} {...row}>
+                {handle && <DragHandle {...handle} label={b.title} />}
                 <a href={href.book(b.book_id)} className="row__link">
                   <Poster src={b.cover_url} alt={b.title} />
                   <div className="row__body">
@@ -170,6 +178,7 @@ export function Books() {
                     <p className="muted">{byLine(b)}</p>
                   </div>
                 </a>
+                {!handle && (
                 <div className="row__actions">
                   <button className="btn btn--primary" onClick={swipe(b).right!.onSwipe}>
                     Commencer
@@ -178,7 +187,7 @@ export function Books() {
                     Retirer
                   </button>
                 </div>
-                {handle && <DragHandle {...handle} label={b.title} />}
+                )}
               </SwipeRow>
             )}
           />
@@ -234,7 +243,7 @@ export function Books() {
                       </p>
                     </div>
                   </a>
-                </SwipeRow>
+              </SwipeRow>
               ))}
             </ul>
           )}
