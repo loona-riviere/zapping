@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
 import { computeProgress, epCode, formatDate, type Progress } from '../lib/progress'
 import { href } from '../lib/route'
-import { STATUS_LABEL, type ShowStatus } from '../lib/store'
+import { STATUS_LABEL, byWish, type ShowStatus } from '../lib/store'
 import type { ShowWithEpisodes } from '../lib/tvmaze'
 import { useShowEpisodes } from '../lib/useShows'
 import { Poster } from './Poster'
 import { StatusPicker } from './StatusPicker'
+import { DragHandle, WishRows } from './Reorder'
 import { SwipeRow } from './SwipeRow'
 
 type Row = {
@@ -17,6 +18,7 @@ type Row = {
   lastWatchedAt: string | null
   addedAt: string
   status: ShowStatus
+  wish_rank?: number | null
   data?: ShowWithEpisodes
   progress?: Progress
 }
@@ -39,7 +41,7 @@ const normalize = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 export function Home() {
-  const { tracked, loading, watchedFor, setWatched, setStatus } = useApp()
+  const { tracked, loading, watchedFor, setWatched, setStatus, reorderShows } = useApp()
   // Dernière série abandonnée, pour proposer d'annuler : un abandon se fait
   // d'un geste depuis la liste, autant qu'il se défasse pareil.
   const [undo, setUndo] = useState<{ text: string; revert: () => void } | null>(null)
@@ -100,6 +102,7 @@ export function Home() {
       lastWatchedAt: t.last_watched_at,
       addedAt: t.added_at,
       status: t.status,
+      wish_rank: t.wish_rank,
       data,
       progress: data ? computeProgress(data.episodes, watchedFor(t.show_id)) : undefined,
     }
@@ -120,7 +123,8 @@ export function Home() {
   const noDateYet = upToDateAll.filter((r) => !airOf(r)).sort(byActivity)
   const finished = active.filter((r) => r.progress && !r.progress.next && r.data!.show.status === 'Ended')
   const paused = rows.filter((r) => r.status === 'paused')
-  const later = rows.filter((r) => r.status === 'later')
+  // Rangées à la main d'abord (ordre d'envie), puis par activité.
+  const later = byWish(rows.filter((r) => r.status === 'later'))
   const dropped = rows.filter((r) => r.status === 'dropped')
 
   const q = normalize(query.trim())
@@ -252,7 +256,7 @@ export function Home() {
       )}
 
       <Parked title={STATUS_LABEL.paused} rows={paused} left={dropAction} right={seenAction} />
-      <Parked title={STATUS_LABEL.later} rows={later} left={dropAction} right={seenAction} />
+      <Parked title={STATUS_LABEL.later} rows={later} left={dropAction} right={seenAction} onReorder={reorderShows} />
 
       {finished.length > 0 && (
         <section>
@@ -312,20 +316,26 @@ function airOf(r: Row): string | null {
 type Swipe = { label: string; onSwipe: () => void }
 
 function Parked({
-  title, rows, left, right,
+  title, rows, left, right, onReorder,
 }: {
   title: string
   rows: Row[]
   left: (r: Row) => Swipe
   right: (r: Row) => Swipe | undefined
+  /** Donné pour « à regarder plus tard » : la liste se range par envie. */
+  onReorder?: (ids: number[]) => void
 }) {
   if (!rows.length) return null
   return (
     <section>
       <h2 className="section-title">{title}</h2>
-      <ul className="rows">
-        {rows.map((r) => (
-          <SwipeRow key={r.id} left={left(r)} right={right(r)}>
+      <WishRows
+        items={rows}
+        idOf={(r) => r.id}
+        onCommit={(ids) => onReorder?.(ids)}
+        enabled={!!onReorder}
+        render={(r, row, handle) => (
+          <SwipeRow key={r.id} left={left(r)} right={right(r)} {...row}>
             <a href={href.show(r.id)} className="row__link">
               <Poster src={r.image} alt={r.name} />
               <div className="row__body">
@@ -340,9 +350,10 @@ function Parked({
               </div>
             </a>
             <StatusPicker showId={r.id} />
+            {handle && <DragHandle {...handle} label={r.name} />}
           </SwipeRow>
-        ))}
-      </ul>
+        )}
+      />
     </section>
   )
 }

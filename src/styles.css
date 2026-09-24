@@ -758,3 +758,11 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 .kinds__item:has(input:checked) { border-color: var(--accent); }
 .kinds__item input { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; margin: 0; }
 .kinds__item:has(input:disabled) { cursor: default; }
+
+/* Poignée de rangement (listes d'envie) */
+.drag-handle {
+  flex: none; display: grid; place-items: center; width: 2.25rem; height: 2.75rem; margin-right: -.5rem;
+  background: none; border: 0; padding: 0; color: var(--muted); cursor: grab;
+  touch-action: none; -webkit-user-select: none; user-select: none;
+}
+.drag-handle:active { cursor: grabbing; color: var(--accent); }

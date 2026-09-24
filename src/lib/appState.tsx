@@ -59,6 +59,11 @@ type AppState = {
   removeMovie: (movieId: number) => Promise<void>
   /** Annule un retrait : remet le film tel qu'il était. */
   restoreMovie: (movie: WatchedMovie) => Promise<void>
+  /** Faux tant que `supabase/schema.sql` n'a pas été relancé : pas de colonne wish_rank. */
+  ranksReady: boolean
+  /** Range « à voir » / « à regarder plus tard » dans l'ordre d'envie donné (identifiants). */
+  reorderMovies: (orderedIds: number[]) => Promise<void>
+  reorderShows: (orderedIds: number[]) => Promise<void>
   /** Relève chez TMDB la durée des films qui n'en ont pas encore. */
   fillMovieRuntimes: (onProgress?: (done: number, total: number) => void) => Promise<void>
   /** Complète l'affiche et/ou la durée d'un film depuis sa fiche détail, si l'un des deux manque. */
@@ -88,6 +93,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState<string | null>(null)
   const [dismissed, setDismissed] = useState<DismissedRec[]>([])
+  const [ranksReady, setRanksReady] = useState(true)
 
   useEffect(() => {
     let alive = true
@@ -122,6 +128,72 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       alive = false
     }
   }, [userId])
+
+  // Rangs d'envie, lus à part une fois les listes là : la colonne peut
+  // manquer sans empêcher le reste de se charger.
+  const [ranksLoaded, setRanksLoaded] = useState(false)
+  useEffect(() => {
+    if (loading || ranksLoaded) return
+    setRanksLoaded(true)
+    Promise.all([store.fetchRanks('tracked_shows'), store.fetchRanks('watched_movies')])
+      .then(([showRanks, movieRanks]) => {
+        if (!showRanks || !movieRanks) {
+          setRanksReady(false)
+          return
+        }
+        setTracked((prev) => prev.map((t) => ({ ...t, wish_rank: showRanks.get(t.show_id) ?? null })))
+        setMovies((prev) => prev.map((m) => ({ ...m, wish_rank: movieRanks.get(m.movie_id) ?? null })))
+      })
+      .catch(() => {
+        /* rangement indisponible pour cette fois : les listes restent dans leur ordre habituel */
+      })
+  }, [loading, ranksLoaded])
+
+  const reorderMovies = useCallback(
+    async (orderedIds: number[]) => {
+      if (!ranksReady) {
+        setNotice('Rangement indisponible : relance supabase/schema.sql dans ton projet Supabase.')
+        return
+      }
+      const byId = new Map(movies.map((m) => [m.movie_id, m]))
+      const ordered = orderedIds.map((id) => byId.get(id)).filter((m): m is WatchedMovie => !!m)
+      const changes = store.rerank(ordered, (m) => m.movie_id, (m) => m.wish_rank)
+      if (!changes.length) return
+      const snapshot = movies
+      const rankOf = new Map(changes.map((c) => [c.id, c.rank]))
+      setMovies((prev) => prev.map((m) => (rankOf.has(m.movie_id) ? { ...m, wish_rank: rankOf.get(m.movie_id) } : m)))
+      try {
+        await store.saveRanks('watched_movies', changes)
+      } catch (e) {
+        setMovies(snapshot)
+        setNotice(`Rangement impossible : ${(e as Error).message}`)
+      }
+    },
+    [movies, ranksReady],
+  )
+
+  const reorderShows = useCallback(
+    async (orderedIds: number[]) => {
+      if (!ranksReady) {
+        setNotice('Rangement indisponible : relance supabase/schema.sql dans ton projet Supabase.')
+        return
+      }
+      const byId = new Map(tracked.map((t) => [t.show_id, t]))
+      const ordered = orderedIds.map((id) => byId.get(id)).filter((t): t is TrackedShow => !!t)
+      const changes = store.rerank(ordered, (t) => t.show_id, (t) => t.wish_rank)
+      if (!changes.length) return
+      const snapshot = tracked
+      const rankOf = new Map(changes.map((c) => [c.id, c.rank]))
+      setTracked((prev) => prev.map((t) => (rankOf.has(t.show_id) ? { ...t, wish_rank: rankOf.get(t.show_id) } : t)))
+      try {
+        await store.saveRanks('tracked_shows', changes)
+      } catch (e) {
+        setTracked(snapshot)
+        setNotice(`Rangement impossible : ${(e as Error).message}`)
+      }
+    },
+    [tracked, ranksReady],
+  )
 
   const isTracked = useCallback((id: number) => tracked.some((t) => t.show_id === id), [tracked])
   const isRewatching = useCallback(
@@ -643,11 +715,13 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       isRewatching, startRewatch, endRewatch,
       track, untrack, setStatus, setWatched,
       addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
+      ranksReady, reorderMovies, reorderShows,
       dismissed, isDismissed, dismissRec, undismissRec,
     }),
     [userId, tracked, watched, rewatch, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
      historyFor, rewatchesOf, setRewatches, isRewatching, startRewatch, endRewatch,
      track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
+     ranksReady, reorderMovies, reorderShows,
      dismissed, isDismissed, dismissRec, undismissRec],
   )
 

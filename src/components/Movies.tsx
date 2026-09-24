@@ -4,8 +4,9 @@ import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { buildEnvNames, movieDetails, tmdbConfigured } from '../lib/tmdb'
 import { Poster } from './Poster'
+import { DragHandle, WishRows } from './Reorder'
 import { SwipeRow } from './SwipeRow'
-import type { WatchedMovie } from '../lib/store'
+import { byWish, type WatchedMovie } from '../lib/store'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -17,7 +18,7 @@ const normalize = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 export function Movies() {
-  const { movies, moviesReady, loading, markMovieWatched, markMovieUnwatched, removeMovie, restoreMovie, fillMovieMeta } = useApp()
+  const { movies, moviesReady, loading, markMovieWatched, markMovieUnwatched, removeMovie, restoreMovie, fillMovieMeta, reorderMovies } = useApp()
   const [query, setQuery] = useState('')
   const [undo, setUndo] = useState<{ text: string; revert: () => void } | null>(null)
 
@@ -98,7 +99,8 @@ export function Movies() {
 
   const q = normalize(query.trim())
   const matches = (title: string) => !q || normalize(title).includes(q)
-  const toWatch = movies.filter((m) => m.status === 'later' && matches(m.title))
+  // Rangés à la main d'abord (ordre d'envie), puis dans l'ordre d'ajout.
+  const toWatch = byWish(movies.filter((m) => m.status === 'later' && matches(m.title)))
   // Le tri à l'affichage, plutôt que se fier à l'ordre de la liste chargée :
   // corriger une date après coup (édition, « à sa sortie »…) ne la retrie pas
   // dans l'état en mémoire. Sans date connue, en dernier plutôt qu'en tête.
@@ -141,17 +143,19 @@ export function Movies() {
           )}
         </p>
       )}
-      <ul className="rows">
-        {toWatch.map((m) => (
-          <SwipeRow key={m.movie_id} {...swipe(m)}>
+      <WishRows
+        items={toWatch}
+        idOf={(m) => m.movie_id}
+        onCommit={reorderMovies}
+        enabled={!q}
+        render={(m, row, handle) => (
+          <SwipeRow key={m.movie_id} {...swipe(m)} {...row}>
             <a href={href.movie(m.movie_id)} className="row__link">
               <Poster src={m.poster_url} alt={m.title} />
               <div className="row__body">
                 <h3>{m.title}</h3>
                 <p className="muted">
-                  {notYetReleased(m)
-                    ? `Sort le ${formatShortDate(m.release_date!)}`
-                    : (m.release_year ?? 'Année inconnue')}
+                  {notYetReleased(m) ? `Sort le ${formatShortDate(m.release_date!)}` : m.release_year}
                 </p>
               </div>
             </a>
@@ -161,16 +165,14 @@ export function Movies() {
                   Vu
                 </button>
               )}
-              <button
-                className="link-btn muted row__drop"
-                onClick={swipe(m).left.onSwipe}
-              >
+              <button className="link-btn muted row__drop" onClick={swipe(m).left.onSwipe}>
                 Retirer
               </button>
             </div>
+            {handle && <DragHandle {...handle} label={m.title} />}
           </SwipeRow>
-        ))}
-      </ul>
+        )}
+      />
 
       <h2 className="section-title">
         Vus {watched.length > 0 && <span className="muted">({watched.length})</span>}

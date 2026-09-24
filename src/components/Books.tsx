@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { finishPatch, startPatch, useBooks } from '../lib/booksState'
 import type { TrackedBook } from '../lib/bookStore'
 import { formatShortDate } from '../lib/progress'
+import { byWish } from '../lib/store'
 import { href } from '../lib/route'
 import { PageInput } from './PageInput'
 import { Poster } from './Poster'
+import { DragHandle, WishRows } from './Reorder'
 import { SwipeRow } from './SwipeRow'
 
 /** Insensible aux accents et à la casse : « etranger » retrouve « L'Étranger ». */
@@ -20,7 +22,7 @@ function byFinished(a: TrackedBook, b: TrackedBook): number {
 }
 
 export function Books() {
-  const { books, booksReady, booksLoading, updateBook, removeBook, restoreBook } = useBooks()
+  const { books, booksReady, booksLoading, updateBook, removeBook, restoreBook, reorderBooks } = useBooks()
   const [query, setQuery] = useState('')
   const [showDropped, setShowDropped] = useState(false)
   // Dernier geste de glissé, pour pouvoir l'annuler : un geste rapide se
@@ -89,9 +91,10 @@ export function Books() {
   const reading = visible
     .filter((b) => b.status === 'reading')
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
-  const later = visible
-    .filter((b) => b.status === 'later')
-    .sort((a, b) => b.added_at.localeCompare(a.added_at))
+  // Rangés à la main d'abord (ordre d'envie), puis les plus récemment ajoutés.
+  const later = byWish(
+    visible.filter((b) => b.status === 'later').sort((a, b) => b.added_at.localeCompare(a.added_at)),
+  )
   const read = visible.filter((b) => b.status === 'read').sort(byFinished)
   const dropped = visible.filter((b) => b.status === 'dropped')
 
@@ -153,9 +156,13 @@ export function Books() {
       {later.length > 0 && (
         <section>
           <h2 className="section-title">À lire <span className="muted">({later.length})</span></h2>
-          <ul className="rows">
-            {later.map((b) => (
-              <SwipeRow key={b.book_id} {...swipe(b)}>
+          <WishRows
+            items={later}
+            idOf={(b) => b.book_id}
+            onCommit={reorderBooks}
+            enabled={!q}
+            render={(b, row, handle) => (
+              <SwipeRow key={b.book_id} {...swipe(b)} {...row}>
                 <a href={href.book(b.book_id)} className="row__link">
                   <Poster src={b.cover_url} alt={b.title} />
                   <div className="row__body">
@@ -167,16 +174,14 @@ export function Books() {
                   <button className="btn btn--primary" onClick={swipe(b).right!.onSwipe}>
                     Commencer
                   </button>
-                  <button
-                    className="link-btn muted row__drop"
-                    onClick={swipe(b).left.onSwipe}
-                  >
+                  <button className="link-btn muted row__drop" onClick={swipe(b).left.onSwipe}>
                     Retirer
                   </button>
                 </div>
+                {handle && <DragHandle {...handle} label={b.title} />}
               </SwipeRow>
-            ))}
-          </ul>
+            )}
+          />
         </section>
       )}
 

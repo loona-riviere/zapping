@@ -31,6 +31,8 @@ export type TrackedBook = {
   added_at: string
   /** Dernière activité (page avancée, statut changé) : sert au tri des livres en cours. */
   updated_at: string
+  /** Rang dans « à lire », plus petit = plus envie ; absent = pas rangé. */
+  wish_rank?: number | null
 }
 
 /** Colonnes modifiables après coup depuis l'app. */
@@ -78,9 +80,11 @@ export function bookRow(book: Book, status: BookStatus, at: { started_at?: strin
 }
 
 export async function insertBook(userId: string, row: TrackedBook): Promise<void> {
+  // Sans rang, on n'envoie pas la colonne : elle peut manquer si le schéma n'a pas été relancé.
+  const { wish_rank, ...rest } = row
   const { error } = await supabase
     .from('tracked_books')
-    .upsert({ ...row, user_id: userId }, { onConflict: 'user_id,book_id', ignoreDuplicates: true })
+    .upsert({ ...(wish_rank == null ? rest : row), user_id: userId }, { onConflict: 'user_id,book_id', ignoreDuplicates: true })
   if (error) throw error
 }
 

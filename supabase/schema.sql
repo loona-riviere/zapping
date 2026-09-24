@@ -302,3 +302,10 @@ create policy "tracked_books: own rows" on public.tracked_books
   for all to authenticated
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
+
+-- Ordre d'envie dans les listes « à voir / à lire », rangé à la main (glisser
+-- la poignée). Plus petit = plus envie ; vide = pas encore rangé, en fin de
+-- liste.
+alter table public.tracked_shows add column if not exists wish_rank double precision;
+alter table public.watched_movies add column if not exists wish_rank double precision;
+alter table public.tracked_books add column if not exists wish_rank double precision;

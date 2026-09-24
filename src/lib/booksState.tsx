@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { Book } from './books'
 import * as store from './bookStore'
 import type { BookPatch, BookStatus, TrackedBook } from './bookStore'
-import { isMissingSchema } from './store'
+import { fetchRanks, isMissingSchema, rerank, saveRanks } from './store'
 
 type BooksState = {
   books: TrackedBook[]
@@ -15,6 +15,8 @@ type BooksState = {
   removeBook: (bookId: string) => Promise<void>
   /** Remet un livre tel qu'il était (annulation d'un retrait ou d'un changement). */
   restoreBook: (row: TrackedBook) => Promise<void>
+  /** Range « à lire » dans l'ordre d'envie donné (identifiants). */
+  reorderBooks: (orderedIds: string[]) => Promise<void>
 }
 
 const Ctx = createContext<BooksState | null>(null)
@@ -41,7 +43,13 @@ export function BooksProvider({
     let alive = true
     store
       .fetchBooks()
-      .then((b) => alive && setBooks(b))
+      .then(async (b) => {
+        if (!alive) return
+        setBooks(b)
+        // Rangs lus à part : la colonne peut manquer sans bloquer les livres.
+        const ranks = await fetchRanks('tracked_books').catch(() => null)
+        if (alive && ranks) setBooks((prev) => prev.map((x) => ({ ...x, wish_rank: ranks.get(x.book_id) ?? null })))
+      })
       .catch((e) => {
         if (!alive) return
         if (isMissingSchema(e)) setBooksReady(false)
@@ -123,9 +131,32 @@ export function BooksProvider({
     [books, onError, userId],
   )
 
+  const reorderBooks = useCallback(
+    async (orderedIds: string[]) => {
+      const byId = new Map(books.map((b) => [b.book_id, b]))
+      const ordered = orderedIds.map((id) => byId.get(id)).filter((b): b is TrackedBook => !!b)
+      const changes = rerank(ordered, (b) => b.book_id, (b) => b.wish_rank)
+      if (!changes.length) return
+      const snapshot = books
+      const rankOf = new Map(changes.map((c) => [c.id, c.rank]))
+      setBooks((prev) => prev.map((b) => (rankOf.has(b.book_id) ? { ...b, wish_rank: rankOf.get(b.book_id) } : b)))
+      try {
+        await saveRanks('tracked_books', changes)
+      } catch (e) {
+        setBooks(snapshot)
+        onError(
+          isMissingSchema(e)
+            ? 'Rangement indisponible : relance supabase/schema.sql dans ton projet Supabase.'
+            : `Rangement impossible : ${(e as Error).message}`,
+        )
+      }
+    },
+    [books, onError],
+  )
+
   const value = useMemo<BooksState>(
-    () => ({ books, booksReady, booksLoading, bookById, addBook, updateBook, removeBook, restoreBook }),
-    [books, booksReady, booksLoading, bookById, addBook, updateBook, removeBook, restoreBook],
+    () => ({ books, booksReady, booksLoading, bookById, addBook, updateBook, removeBook, restoreBook, reorderBooks }),
+    [books, booksReady, booksLoading, bookById, addBook, updateBook, removeBook, restoreBook, reorderBooks],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useRef, useState, type CSSProperties, type ReactNode } from 'react'
 
 type Action = { label: string; onSwipe: () => void }
 
@@ -21,11 +21,16 @@ export function SwipeRow({
   left,
   right,
   children,
+  rowRef,
+  style,
 }: {
   className?: string
   left?: Action
   right?: Action
   children: ReactNode
+  /** Pour le glisser-déposer : la ligne se mesure et suit le doigt. */
+  rowRef?: (el: HTMLElement | null) => void
+  style?: CSSProperties
 }) {
   const [dx, setDx] = useState(0)
   const [leaving, setLeaving] = useState<'left' | 'right' | null>(null)
@@ -49,6 +54,8 @@ export function SwipeRow({
 
   return (
     <li
+      ref={rowRef}
+      style={style}
       className={`swipe${leaving ? ` swipe--leaving-${leaving}` : ''}`}
       onPointerDown={(e) => {
         if (e.pointerType !== 'touch' || leaving) return

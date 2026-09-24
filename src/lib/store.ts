@@ -34,6 +34,8 @@ export type TrackedShow = {
   /** Vrai pendant un revisionnage : la progression est suivie à part. */
   rewatching: boolean
   rating: Rating | null
+  /** Rang dans « à regarder plus tard », plus petit = plus envie ; absent = pas rangé. */
+  wish_rank?: number | null
 }
 
 export type WatchedMovie = {
@@ -50,6 +52,8 @@ export type WatchedMovie = {
   /** « later » : ajouté à voir, pas encore vu. */
   status: 'watched' | 'later'
   rating: Rating | null
+  /** Rang dans « à voir », plus petit = plus envie ; absent = pas rangé. */
+  wish_rank?: number | null
 }
 
 /**
@@ -338,9 +342,12 @@ export async function markMovieUnwatched(movieId: number): Promise<void> {
 
 /** Remet un film retiré tel qu'il était (annulation), note et date comprises. */
 export async function restoreMovie(userId: string, movie: WatchedMovie): Promise<void> {
+  // Sans rang, on n'envoie pas la colonne : elle peut manquer si le schéma n'a pas été relancé.
+  const { wish_rank, ...rest } = movie
+  const row = wish_rank == null ? rest : movie
   const { error } = await supabase
     .from('watched_movies')
-    .upsert({ ...movie, user_id: userId }, { onConflict: 'user_id,movie_id' })
+    .upsert({ ...row, user_id: userId }, { onConflict: 'user_id,movie_id' })
   if (error) throw error
 }
 
@@ -496,4 +503,62 @@ export async function undismissRec(kind: 'show' | 'movie', id: number): Promise<
     .eq('kind', kind)
     .eq('tmdb_id', id)
   if (error) throw error
+}
+
+/* ------------------------------------------------------- ordre d'envie --- */
+
+type RankTable = 'tracked_shows' | 'watched_movies' | 'tracked_books'
+const RANK_ID: Record<RankTable, string> = {
+  tracked_shows: 'show_id',
+  watched_movies: 'movie_id',
+  tracked_books: 'book_id',
+}
+
+/**
+ * Rangs d'envie déjà posés, lus à part des listes elles-mêmes : si la
+ * colonne manque (schéma pas relancé), tout le reste se charge normalement
+ * et seul le rangement est indisponible — `null` le signale.
+ */
+export async function fetchRanks(table: RankTable): Promise<Map<string | number, number> | null> {
+  const id = RANK_ID[table]
+  const { data, error } = await supabase.from(table).select(`${id}, wish_rank`).not('wish_rank', 'is', null)
+  if (error) {
+    if (isMissingSchema(error)) return null
+    throw error
+  }
+  const rows = (data ?? []) as unknown as Record<string, string | number>[]
+  return new Map(rows.map((r) => [r[id], Number(r.wish_rank)]))
+}
+
+/** Enregistre un nouvel ordre : une mise à jour par ligne dont le rang a changé. */
+export async function saveRanks(table: RankTable, ranks: { id: string | number; rank: number }[]): Promise<void> {
+  const id = RANK_ID[table]
+  const results = await Promise.all(
+    ranks.map((r) => supabase.from(table).update({ wish_rank: r.rank }).eq(id, r.id)),
+  )
+  const failed = results.find((r) => r.error)
+  if (failed?.error) throw failed.error
+}
+
+/**
+ * Nouveaux rangs 1, 2, 3… pour une liste dans l'ordre voulu, en ne gardant
+ * que ceux qui changent : déplacer un élément ne réécrit que ce qui a bougé.
+ */
+export function rerank<T>(ordered: T[], idOf: (t: T) => string | number, rankOf: (t: T) => number | null | undefined) {
+  return ordered
+    .map((t, i) => ({ id: idOf(t), rank: i + 1, before: rankOf(t) }))
+    .filter((r) => r.before !== r.rank)
+    .map(({ id, rank }) => ({ id, rank }))
+}
+
+/** Tri d'une liste d'envie : les rangés d'abord, par rang ; les autres ensuite, dans l'ordre reçu. */
+export function byWish<T extends { wish_rank?: number | null }>(items: T[]): T[] {
+  return items
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => {
+      const ra = a.t.wish_rank ?? Infinity
+      const rb = b.t.wish_rank ?? Infinity
+      return ra === rb ? a.i - b.i : ra - rb
+    })
+    .map((x) => x.t)
 }
