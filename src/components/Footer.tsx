@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
+import { useBooks } from '../lib/booksState'
 
 /**
  * Un petit easter egg façon vieille télé : cliquer sur le témoin change de
@@ -9,6 +10,8 @@ import { useApp } from '../lib/appState'
  */
 export function Footer({ tmdbConfigured }: { tmdbConfigured: boolean }) {
   const { tracked, movies, watched } = useApp()
+  const { books } = useBooks()
+  const booksRead = books.filter((b) => b.status === 'read').length
   const [channel, setChannel] = useState(0)
   const [flicker, setFlicker] = useState(false)
 
@@ -19,13 +22,14 @@ export function Footer({ tmdbConfigured }: { tmdbConfigured: boolean }) {
 
   const channels = useMemo(() => {
     const list = [
-      `📊 ${totalEpisodes} épisode${totalEpisodes > 1 ? 's' : ''} coché${totalEpisodes > 1 ? 's' : ''}, ${tracked.length} série${tracked.length > 1 ? 's' : ''} suivie${tracked.length > 1 ? 's' : ''}, ${movies.length} film${movies.length > 1 ? 's' : ''} vu${movies.length > 1 ? 's' : ''}. Zapping ne dort jamais.`,
+      `📊 ${totalEpisodes} épisode${totalEpisodes > 1 ? 's' : ''} coché${totalEpisodes > 1 ? 's' : ''}, ${tracked.length} série${tracked.length > 1 ? 's' : ''} suivie${tracked.length > 1 ? 's' : ''}, ${movies.length} film${movies.length > 1 ? 's' : ''} vu${movies.length > 1 ? 's' : ''}, ${booksRead} livre${booksRead > 1 ? 's' : ''} lu${booksRead > 1 ? 's' : ''}. Zapping ne dort jamais.`,
       "💬 « Juste un épisode » — toi, il y a trois heures.",
+      '📖 « Encore un chapitre » — toi, à deux heures du matin.',
       "📡 Signal perdu... rebranche l'antenne, ou va plutôt te coucher.",
       '💜 Fait avec beaucoup trop de café, pour ne plus jamais perdre le fil.',
     ]
     return list
-  }, [totalEpisodes, tracked.length, movies.length])
+  }, [totalEpisodes, tracked.length, movies.length, booksRead])
 
   function next() {
     setFlicker(true)

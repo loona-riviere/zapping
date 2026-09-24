@@ -58,6 +58,7 @@ export function Stats() {
         </p>
       )}
 
+      {(tracked.length > 0 || movies.length > 0) && (
       <section className="hero">
         <p className="hero__value">{total.value}</p>
         <p className="hero__unit">{total.unit} de visionnage</p>
@@ -82,6 +83,7 @@ export function Stats() {
           </li>
         </ul>
       </section>
+      )}
 
       {stats.moviesNoRuntime > 0 && (
         <p className="muted stats__fill">
