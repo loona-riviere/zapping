@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
 import { useBooks } from '../lib/booksState'
 import { usePrefs } from '../lib/prefs'
 import { bookDetails } from '../lib/books'
-import { guessGenre } from '../lib/genres'
+import { guessGenre, knownGenre } from '../lib/genres'
 import { buildBackup, downloadBackup } from '../lib/backup'
 import { findActivityIssues, findSeasonIssues, type ActivityIssue, type SeasonIssue } from '../lib/diagnostics'
 import { formatShortDate } from '../lib/progress'
@@ -303,70 +303,80 @@ function Reading({ stats }: { stats: ReadingStats }) {
   )
 }
 
+const GENRE_TRIED_KEY = 'zapping:genre-tried'
+
 function ReadingByGenre({ stats }: { stats: ReadingStats }) {
   const { books, updateBook } = useBooks()
-  const [guessing, setGuessing] = useState<{ done: number; total: number } | null>(null)
   const [unit, setUnit] = useState<'books' | 'pages'>('books')
-  if (!stats.byGenre.length && !stats.readNoGenre) return null
+
+  // Livres lus sans vrai genre : on relit leur fiche détail (plus précise que
+  // la recherche), en silence et une seule fois par livre. Ce que le
+  // catalogue ne classe pas reste sans genre, sans rien réclamer.
+  const missingKey = books
+    .filter((b) => b.status === 'read' && !knownGenre(b.genre))
+    .map((b) => b.book_id)
+    .join('|')
+  useEffect(() => {
+    let tried: string[] = []
+    try {
+      tried = JSON.parse(localStorage.getItem(GENRE_TRIED_KEY) ?? '[]')
+    } catch {
+      /* rien de noté */
+    }
+    const todo = books.filter((b) => b.status === 'read' && !knownGenre(b.genre) && !tried.includes(b.book_id))
+    if (!todo.length) return
+    let alive = true
+    ;(async () => {
+      for (const b of todo) {
+        if (!alive) return
+        try {
+          const d = b.book_id.startsWith('manual:') ? null : await bookDetails(b.book_id)
+          const g = d ? guessGenre(d.categories) : null
+          // Un ancien genre qui n'en est plus un (« Roman », « Essai ») est effacé.
+          if (g || b.genre) await updateBook(b.book_id, { genre: g })
+        } catch {
+          /* fiche introuvable : le livre reste sans genre */
+        }
+        tried.push(b.book_id)
+        try {
+          localStorage.setItem(GENRE_TRIED_KEY, JSON.stringify(tried))
+        } catch {
+          /* stockage plein : on retentera à la prochaine visite */
+        }
+      }
+    })()
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [missingKey])
+
+  if (!stats.byGenre.length) return null
   const value = (g: ReadingStats['byGenre'][number]) => (unit === 'books' ? g.books : g.pages)
   const peak = stats.byGenre.reduce((m, g) => Math.max(m, value(g)), 0) || 1
-
-  // Les livres lus sans genre : on relit leur fiche détail, plus précise que
-  // la recherche, pour deviner le genre de chacun.
-  async function guessAll() {
-    const missing = books.filter((b) => b.status === 'read' && !b.genre)
-    setGuessing({ done: 0, total: missing.length })
-    for (const [i, b] of missing.entries()) {
-      try {
-        const d = await bookDetails(b.book_id)
-        const g = d ? guessGenre(d.categories) : null
-        if (g) await updateBook(b.book_id, { genre: g })
-      } catch {
-        /* fiche introuvable : le livre reste sans genre */
-      }
-      setGuessing({ done: i + 1, total: missing.length })
-    }
-    setGuessing(null)
-  }
 
   return (
     <section className="chart">
       <div className="chart__head">
         <h3 className="chart__title">Lecture par genre</h3>
       </div>
-      {stats.byGenre.length > 0 && (
-        <>
-          <div className="subtabs" role="tablist">
-            <button role="tab" aria-selected={unit === 'books'} onClick={() => setUnit('books')}>Livres</button>
-            <button role="tab" aria-selected={unit === 'pages'} onClick={() => setUnit('pages')}>Pages</button>
-          </div>
-          <ul className="hbars">
-            {stats.byGenre.map((g) => (
-              <li key={g.genre} className="hbars__row">
-                <span className="hbars__name">{g.genre}</span>
-                <span className="hbars__track">
-                  <span className="hbars__bar" style={{ width: `${(value(g) / peak) * 100}%` }} />
-                </span>
-                <span className="hbars__value">
-                  {unit === 'books'
-                    ? `${formatNumber(g.books)} livre${g.books > 1 ? 's' : ''}`
-                    : `${formatNumber(g.pages)} p.`}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-      {stats.readNoGenre > 0 && (
-        <p className="muted" style={{ fontSize: '.85rem' }}>
-          {formatNumber(stats.readNoGenre)} livre{stats.readNoGenre > 1 ? 's' : ''} lu
-          {stats.readNoGenre > 1 ? 's' : ''} sans genre.{' '}
-          <button className="link-btn" disabled={guessing !== null} onClick={guessAll}>
-            {guessing ? `Recherche… ${guessing.done} / ${guessing.total}` : 'Deviner les genres'}
-          </button>
-          {' '}— ou choisis-le sur la fiche du livre.
-        </p>
-      )}
+      <div className="subtabs" role="tablist">
+        <button role="tab" aria-selected={unit === 'books'} onClick={() => setUnit('books')}>Livres</button>
+        <button role="tab" aria-selected={unit === 'pages'} onClick={() => setUnit('pages')}>Pages</button>
+      </div>
+      <ul className="hbars">
+        {stats.byGenre.map((g) => (
+          <li key={g.genre} className="hbars__row">
+            <span className="hbars__name">{g.genre}</span>
+            <span className="hbars__track">
+              <span className="hbars__bar" style={{ width: `${(value(g) / peak) * 100}%` }} />
+            </span>
+            <span className="hbars__value">
+              {unit === 'books' ? `${formatNumber(g.books)} livre${g.books > 1 ? 's' : ''}` : `${formatNumber(g.pages)} p.`}
+            </span>
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }

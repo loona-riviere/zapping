@@ -3,6 +3,7 @@
 
 import type { WatchedEpisodes } from './appState'
 import type { TrackedBook } from './bookStore'
+import { knownGenre } from './genres'
 import type { ShowStatus, TrackedShow, WatchedMovie } from './store'
 import type { ShowWithEpisodes } from './tvmaze'
 
@@ -294,11 +295,12 @@ export function computeReadingStats(books: TrackedBook[]): ReadingStats {
         y.pages += b.page_count ?? 0
         years.set(year, y)
       }
-      if (b.genre) {
-        const g = genres.get(b.genre) ?? { genre: b.genre, books: 0, pages: 0 }
+      const genre = knownGenre(b.genre)
+      if (genre) {
+        const g = genres.get(genre) ?? { genre, books: 0, pages: 0 }
         g.books++
         g.pages += b.page_count ?? 0
-        genres.set(b.genre, g)
+        genres.set(genre, g)
       } else readNoGenre++
     } else if (b.status === 'reading' || b.status === 'dropped') {
       pages += b.current_page

@@ -2,10 +2,10 @@
 // les statistiques par genre veuillent dire quelque chose. Les catalogues
 // (Google Books, Open Library) donnent des catégories en anglais, parfois
 // fines (« Fiction / Thrillers / Suspense »), souvent juste « Fiction » :
-// on les ramène à l'un de ces genres, corrigeable à la main sur la fiche.
+// on les ramène à l'un de ces genres quand il y en a un vrai, corrigeable à
+// la main sur la fiche.
 
 export const GENRES = [
-  'Roman',
   'Policier & thriller',
   'SF & fantasy',
   'Romance',
@@ -22,14 +22,13 @@ export const GENRES = [
   'Théâtre',
   'Cuisine',
   'Voyage',
-  'Autre',
 ] as const
 
 export type Genre = (typeof GENRES)[number]
 
 // Du plus précis au plus large : « Fiction / Science Fiction » doit donner
 // « SF & fantasy », pas « Roman ».
-const RULES: [RegExp, Genre][] = [
+const RULES: [RegExp, Genre | null][] = [
   [/science.?fiction|fantasy|fantastique|dystopi|space opera|sf\b/, 'SF & fantasy'],
   [/thriller|mystery|myst[eè]re|detective|crime|suspense|policier|polar|noir\b/, 'Policier & thriller'],
   [/horror|horreur|epouvante|épouvante/, 'Horreur'],
@@ -44,11 +43,12 @@ const RULES: [RegExp, Genre][] = [
   [/cooking|cuisine|recette/, 'Cuisine'],
   [/travel|voyage/, 'Voyage'],
   [/histor|histoire/, 'Histoire'],
-  // « Social Science », « Political Science » : des essais, pas des sciences.
-  [/social science|political science|politique|philosoph|essay|essai|economics|[ée]conomie|religion|business/, 'Essai'],
+  // « Social Science », « Political Science » : pas des sciences au sens où on l'entend ici.
+  [/social science|political science/, null],
   [/science|nature|mathemat|technolog|medical|m[ée]decine/, 'Sciences'],
-  [/fiction|roman|literary|litt[ée]rature|novel|classics/, 'Roman'],
 ]
+// Pas de « Roman » ni d'« Essai » : ce sont des formes, pas des genres. Un
+// livre que le catalogue ne classe que « Fiction » reste sans genre.
 
 /** Le genre le plus probable d'après les catégories du catalogue ; null si rien n'y ressemble. */
 export function guessGenre(categories: string[]): Genre | null {
@@ -57,3 +57,7 @@ export function guessGenre(categories: string[]): Genre | null {
   for (const [re, genre] of RULES) if (re.test(text)) return genre
   return null
 }
+
+/** Un genre enregistré qui n'existe plus dans la liste (ancien « Roman », « Essai »…) compte comme inconnu. */
+export const knownGenre = (g: string | null | undefined): Genre | null =>
+  g && (GENRES as readonly string[]).includes(g) ? (g as Genre) : null

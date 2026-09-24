@@ -3,7 +3,7 @@ import { bookDetails, type Book } from '../lib/books'
 import { finishPatch, startPatch, useBooks } from '../lib/booksState'
 import { BOOK_STATUSES, BOOK_STATUS_LABEL, type BookPatch, type BookStatus, type TrackedBook } from '../lib/bookStore'
 import { href } from '../lib/route'
-import { GENRES, guessGenre } from '../lib/genres'
+import { GENRES, guessGenre, knownGenre } from '../lib/genres'
 import { PageInput } from './PageInput'
 import { Poster } from './Poster'
 import { RatingPicker } from './RatingPicker'
@@ -46,7 +46,7 @@ export function BookPage({ id }: { id: string }) {
     if (!book.cover_url && details.cover_url) patch.cover_url = details.cover_url
     if (!book.page_count && details.page_count) patch.page_count = details.page_count
     // La fiche détail a des catégories plus fines que la recherche.
-    if (!book.genre) {
+    if (!knownGenre(book.genre)) {
       const g = guessGenre(details.categories)
       if (g) patch.genre = g
     }
@@ -96,7 +96,7 @@ export function BookPage({ id }: { id: string }) {
             <select
               className="status-picker"
               aria-label="Genre"
-              value={book.genre ?? ''}
+              value={knownGenre(book.genre) ?? ''}
               onChange={(e) => updateBook(book.book_id, { genre: e.target.value || null })}
             >
               <option value="">Genre ?</option>
