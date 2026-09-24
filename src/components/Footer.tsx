@@ -35,7 +35,7 @@ export function Footer({ tmdbConfigured }: { tmdbConfigured: boolean }) {
 
   return (
     <footer className="footer muted">
-      <p>Données séries : TVmaze.com (CC BY-SA)</p>
+      <p>Données séries : TVmaze.com (CC BY-SA) · Livres : Open Library et Google Books</p>
       {/* Mention exigée par les conditions d'utilisation de l'API TMDB. */}
       {tmdbConfigured && (
         <p>Ce produit utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB.</p>

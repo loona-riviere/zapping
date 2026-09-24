@@ -1,18 +1,21 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
+import { useBooks } from '../lib/booksState'
 import { buildBackup, downloadBackup } from '../lib/backup'
 import { findActivityIssues, findSeasonIssues, type ActivityIssue, type SeasonIssue } from '../lib/diagnostics'
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import {
-  computeStats, computeTimeline, countByStatus, formatNumber, humanBreakdown, humanDuration, monthLabel,
-  shortUnit, totalHours, type ShowTotal, type TimeBucket,
+  computeReadingStats, computeStats, computeTimeline, countByStatus, formatNumber, humanBreakdown, humanDuration, monthLabel,
+  shortUnit, totalHours, type ReadingStats, type ShowTotal, type TimeBucket,
 } from '../lib/stats'
 import { STATUS_LABEL } from '../lib/store'
 import { useShowEpisodes } from '../lib/useShows'
 
 export function Stats() {
   const { tracked, movies, loading, historyFor, watchedFor, isRewatching, fillMovieRuntimes, fixActivity } = useApp()
+  const { books } = useBooks()
+  const reading = useMemo(() => computeReadingStats(books), [books])
   const [filling, setFilling] = useState<{ done: number; total: number } | null>(null)
   const ids = useMemo(() => tracked.map((t) => t.show_id), [tracked])
   const { data } = useShowEpisodes(ids)
@@ -29,11 +32,11 @@ export function Stats() {
   const [fixingAll, setFixingAll] = useState(false)
 
   if (loading) return <p className="muted pad">Chargement…</p>
-  if (!tracked.length && !movies.length) {
+  if (!tracked.length && !movies.length && !books.length) {
     return (
       <section className="empty">
         <h2>Rien à mesurer pour l'instant</h2>
-        <p>Coche des épisodes ou importe ton historique, les statistiques suivront.</p>
+        <p>Coche des épisodes, ajoute un livre ou importe ton historique, les statistiques suivront.</p>
         <a className="btn btn--primary" href={href.import}>Importer</a>
       </section>
     )
@@ -108,6 +111,8 @@ export function Stats() {
       <TopShows shows={stats.topShows} />
 
       <Timeline months={timeline.months} years={timeline.years} />
+
+      {books.length > 0 && <Reading stats={reading} />}
 
       <section className="diag">
         <div className="diag__head">
@@ -201,14 +206,14 @@ export function Stats() {
           <button
             className="link-btn"
             onClick={() =>
-              downloadBackup(buildBackup(tracked, historyFor, watchedFor, isRewatching, data, movies))
+              downloadBackup(buildBackup(tracked, historyFor, watchedFor, isRewatching, data, movies, books))
             }
           >
             Exporter mes données (JSON)
           </button>
         </div>
         <p className="muted">
-          Une copie de toutes tes séries suivies, épisodes vus et films, dans un fichier que tu peux
+          Une copie de toutes tes séries suivies, épisodes vus, films et livres, dans un fichier que tu peux
           garder de ton côté.
         </p>
       </section>
@@ -233,6 +238,47 @@ function Tile({ label, value }: { label: string; value: string }) {
       <p className="tile-stat__label">{label}</p>
       <p className="tile-stat__value">{value}</p>
     </li>
+  )
+}
+
+/* ------------------------------------------------------------------ lecture -- */
+
+function Reading({ stats }: { stats: ReadingStats }) {
+  const peak = stats.byYear.reduce((m, y) => Math.max(m, y.books), 0) || 1
+  return (
+    <section className="chart">
+      <div className="chart__head">
+        <h3 className="chart__title">Lecture</h3>
+      </div>
+      <ul className="tiles-stat">
+        <Tile label="Livres lus" value={formatNumber(stats.read)} />
+        <Tile label="Pages lues" value={formatNumber(stats.pages)} />
+        <Tile label="En cours" value={formatNumber(stats.reading)} />
+        <Tile label="À lire" value={formatNumber(stats.toRead)} />
+      </ul>
+      {stats.byYear.length > 0 && (
+        <ul className="hbars" style={{ marginTop: '1rem' }}>
+          {stats.byYear.map((y) => (
+            <li key={y.year} className="hbars__row">
+              <span className="hbars__name">{y.year}</span>
+              <span className="hbars__track">
+                <span className="hbars__bar" style={{ width: `${(y.books / peak) * 100}%` }} />
+              </span>
+              <span className="hbars__value">
+                {formatNumber(y.books)} livre{y.books > 1 ? 's' : ''}
+                {y.pages > 0 && <span className="muted"> · {formatNumber(y.pages)} p.</span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {stats.readNoPages > 0 && (
+        <p className="muted" style={{ fontSize: '.85rem' }}>
+          {formatNumber(stats.readNoPages)} livre{stats.readNoPages > 1 ? 's' : ''} lu
+          {stats.readNoPages > 1 ? 's' : ''} sans nombre de pages connu : ouvre sa fiche pour le préciser.
+        </p>
+      )}
+    </section>
   )
 }
 

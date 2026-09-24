@@ -1,9 +1,10 @@
 // Sauvegarde JSON de tout l'historique de visionnage : séries suivies,
-// épisodes vus (historique complet + revisionnage en cours), films. Un filet
+// épisodes vus (historique complet + revisionnage en cours), films, livres. Un filet
 // de sécurité après tant de corrections manuelles cette saison — une photo
 // lisible de l'état actuel, pas un format pensé pour être ré-importé.
 
 import { epCode } from './progress'
+import type { TrackedBook } from './bookStore'
 import type { TrackedShow, WatchedMovie } from './store'
 import type { ShowWithEpisodes } from './tvmaze'
 import type { WatchedEpisodes } from './appState'
@@ -32,6 +33,7 @@ export type Backup = {
   exportedAt: string
   shows: BackupShow[]
   movies: WatchedMovie[]
+  books: TrackedBook[]
 }
 
 function toBackupEpisodes(hist: WatchedEpisodes, show?: ShowWithEpisodes): BackupEpisode[] {
@@ -51,6 +53,7 @@ export function buildBackup(
   isRewatching: (id: number) => boolean,
   data: Record<number, ShowWithEpisodes>,
   movies: WatchedMovie[],
+  books: TrackedBook[],
 ): Backup {
   const shows: BackupShow[] = tracked.map((t) => {
     const show = data[t.show_id]
@@ -67,7 +70,7 @@ export function buildBackup(
       ...(rewatching ? { currentRewatch: toBackupEpisodes(watchedFor(t.show_id), show) } : {}),
     }
   })
-  return { exportedAt: new Date().toISOString(), shows, movies }
+  return { exportedAt: new Date().toISOString(), shows, movies, books }
 }
 
 /** Déclenche le téléchargement du fichier JSON côté client, sans passer par un serveur. */

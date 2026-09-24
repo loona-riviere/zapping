@@ -7,12 +7,14 @@ import { EasterEggOverlay, useLogoEasterEgg } from './components/EasterEgg'
 import { Footer } from './components/Footer'
 import { Import } from './components/Import'
 import { Library, isLibrary } from './components/Library'
+import { BookPage } from './components/BookPage'
 import { MoviePage } from './components/MoviePage'
 import { Search } from './components/Search'
 import { Settings } from './components/Settings'
 import { ShowPage } from './components/ShowPage'
 import { Stats } from './components/Stats'
 import { AppProvider, useApp } from './lib/appState'
+import { BooksProvider } from './lib/booksState'
 import { href, useRoute } from './lib/route'
 import { favoritePosters, saveWallPosters } from './lib/wall'
 import { supabase, supabaseConfigured } from './lib/supabase'
@@ -58,8 +60,17 @@ function AppContent() {
 
   return (
     <AppProvider userId={session.user.id}>
-      <Shell />
+      <WithBooks userId={session.user.id} />
     </AppProvider>
+  )
+}
+
+function WithBooks({ userId }: { userId: string }) {
+  const { showNotice } = useApp()
+  return (
+    <BooksProvider userId={userId} onError={showNotice}>
+      <Shell />
+    </BooksProvider>
   )
 }
 
@@ -93,6 +104,7 @@ function Shell() {
         {route.name === 'settings' && <Settings />}
         {route.name === 'show' && <ShowPage id={route.id} />}
         {route.name === 'movie' && <MoviePage id={route.id} />}
+        {route.name === 'book' && <BookPage id={route.id} />}
       </main>
 
       {notice && (

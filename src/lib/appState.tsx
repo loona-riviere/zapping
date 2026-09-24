@@ -21,6 +21,8 @@ type AppState = {
   loading: boolean
   notice: string | null
   dismissNotice: () => void
+  /** Affiche un message d'erreur en bas d'écran — sert aussi aux livres, qui ont leur propre état. */
+  showNotice: (message: string) => void
   isTracked: (showId: number) => boolean
   statusOf: (showId: number) => ShowStatus
   watchedFor: (showId: number) => WatchedEpisodes
@@ -621,6 +623,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     () => ({
       userId, tracked, watched, movies, moviesReady, loading, notice,
       dismissNotice: () => setNotice(null),
+      showNotice: setNotice,
       isTracked, statusOf, watchedFor, historyFor, rewatchesOf, setRewatches,
       isRewatching, startRewatch, endRewatch,
       track, untrack, setStatus, setWatched,

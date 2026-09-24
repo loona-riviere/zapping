@@ -1,9 +1,12 @@
 # Zapping
 
 Un suivi de séries façon TVTime : cherche une série, coche les épisodes vus, et l'accueil te dit quoi regarder ensuite.
+Les films et les livres ont leur onglet dans la même bibliothèque.
 
 - **Catalogue séries** : [API TVmaze](https://www.tvmaze.com/api) (gratuite, sans clé)
 - **Catalogue films** : [TMDB](https://www.themoviedb.org/) (gratuite, clé requise — facultatif)
+- **Catalogue livres** : [Open Library](https://openlibrary.org/developers/api) (gratuite, sans clé), ou
+  [Google Books](https://developers.google.com/books) si une clé est fournie (meilleure couverture des éditions françaises)
 - **Compte et progression** : Supabase (connexion par lien magique, données protégées par RLS)
 - **Front** : Vite, React, TypeScript, sans autre dépendance
 - **Hébergement** : Netlify, déployé automatiquement à chaque push sur `main`
@@ -29,6 +32,11 @@ Un suivi de séries façon TVTime : cherche une série, coche les épisodes vus,
   TVmaze ; un épisode sans durée prend la durée médiane de sa série. Le graphique a son
   équivalent en tableau
 - **Films** : recherche TMDB, marquage « vu le … » et liste « Mes films »
+- **Livres** : onglet Livres de la bibliothèque, recherche par titre, auteur ou ISBN. Sections
+  En cours (page atteinte et barre d'avancement, modifiable directement dans la liste), À lire,
+  Lus (avec date de fin et note) et Abandonnés. La fiche d'un livre garde les dates de début et de
+  fin, modifiables, et le nombre de pages quand le catalogue l'ignore. Les statistiques ajoutent une
+  section Lecture (livres lus, pages lues, livres par année)
 - **Où la regarder** : sur la fiche d'une série, les plateformes qui la proposent en abonnement
   en France (données JustWatch via TMDB, nécessite la clé)
 - **Import Netflix** : dépose le `NetflixViewingHistory.csv` de ton profil, l'app regroupe par
@@ -79,6 +87,18 @@ Leur page donne deux identifiants ; `VITE_TMDB_KEY` accepte l'un ou l'autre :
 Les variables `VITE_*` sont compilées dans le bundle : après en avoir ajouté une sur Netlify,
 il faut relancer un déploiement pour qu'elle soit prise en compte.
 
+### 2bis. Livres (facultatif)
+
+Sans rien configurer, les livres viennent d'Open Library. Pour de meilleurs résultats sur les
+éditions françaises, ajoute une clé Google Books : sur
+[console.cloud.google.com](https://console.cloud.google.com/apis/library/books.googleapis.com),
+active **Books API** puis crée une clé dans **Identifiants → Créer des identifiants → Clé API**
+(restreins-la à l'API Books et à l'URL du site). Ajoute-la en `VITE_GOOGLE_BOOKS_KEY`. Google
+refuse désormais les requêtes sans clé, d'où Open Library par défaut ; en cas de quota dépassé,
+l'app bascule d'elle-même sur Open Library.
+
+Après une mise à jour, relance `supabase/schema.sql` : il crée la table `tracked_books`.
+
 ### 3. En local
 
 ```bash
@@ -93,7 +113,7 @@ npm run dev
 2. Sur [netlify.com](https://netlify.com) : **Add new site → Import an existing project**, choisis le dépôt.
    La commande de build et le dossier publié sont lus dans `netlify.toml`, rien à saisir.
 3. **Site configuration → Environment variables** : ajoute `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
-   et, si tu veux les films, `VITE_TMDB_KEY`.
+   et, si tu veux les films, `VITE_TMDB_KEY` (et `VITE_GOOGLE_BOOKS_KEY` pour les livres).
 4. Redéploie une fois les variables ajoutées (**Deploys → Trigger deploy**), puis reporte l'URL du site
    dans la configuration Supabase de l'étape 1.
 
@@ -166,4 +186,5 @@ Astuce : sur iPhone ou Android, ajoute la page à l'écran d'accueil pour l'util
   TMDB. Une série sans identifiant IMDb n'affiche pas de badge, et une absence de badge signifie
   « pas en abonnement chez les plateformes suivies », pas « indisponible ».
 - Données séries fournies par TVmaze.com sous licence CC BY-SA. Données films et disponibilités
-  fournies par TMDB et JustWatch (ce produit n'est ni approuvé ni certifié par TMDB).
+  fournies par TMDB et JustWatch (ce produit n'est ni approuvé ni certifié par TMDB). Données
+  livres fournies par Open Library et Google Books.

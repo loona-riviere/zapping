@@ -257,3 +257,48 @@ create policy "ai_recommendations: own rows" on public.ai_recommendations
   for all to authenticated
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
+
+-- Livres : pile à lire, lecture en cours (avec la page atteinte), lus,
+-- abandonnés. L'identifiant porte sa source en préfixe : « gb:… » pour
+-- Google Books, « ol:… » pour Open Library.
+create table if not exists public.tracked_books (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  book_id text not null,
+  title text not null,
+  authors text,
+  cover_url text,
+  page_count integer,
+  published_year integer,
+  status text not null default 'later',
+  current_page integer not null default 0,
+  -- Dates inconnues permises : « lu, mais je ne sais plus quand ».
+  started_at timestamptz,
+  finished_at timestamptz,
+  rating text,
+  added_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, book_id)
+);
+
+alter table public.tracked_books drop constraint if exists tracked_books_status_check;
+alter table public.tracked_books
+  add constraint tracked_books_status_check check (status in ('reading', 'read', 'later', 'dropped'));
+
+alter table public.tracked_books drop constraint if exists tracked_books_rating_check;
+alter table public.tracked_books
+  add constraint tracked_books_rating_check check (rating is null or rating in ('dislike', 'like', 'love'));
+
+alter table public.tracked_books drop constraint if exists tracked_books_pages_check;
+alter table public.tracked_books
+  add constraint tracked_books_pages_check check (current_page >= 0 and (page_count is null or page_count > 0));
+
+create index if not exists tracked_books_user_updated_idx
+  on public.tracked_books (user_id, updated_at desc);
+
+alter table public.tracked_books enable row level security;
+
+drop policy if exists "tracked_books: own rows" on public.tracked_books;
+create policy "tracked_books: own rows" on public.tracked_books
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);

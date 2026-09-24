@@ -2,6 +2,7 @@
 // réseau ni à React, pour rester vérifiables.
 
 import type { WatchedEpisodes } from './appState'
+import type { TrackedBook } from './bookStore'
 import type { ShowStatus, TrackedShow, WatchedMovie } from './store'
 import type { ShowWithEpisodes } from './tvmaze'
 
@@ -257,3 +258,47 @@ export function monthLabel(key: string): string {
   })
 }
 
+
+/* ------------------------------------------------------------------ livres -- */
+
+export type ReadingStats = {
+  /** Livres terminés. */
+  read: number
+  reading: number
+  toRead: number
+  /** Pages des livres terminés, plus la page atteinte dans ceux en cours ou abandonnés. */
+  pages: number
+  /** Livres terminés sans nombre de pages connu : comptés, mais pas dans les pages. */
+  readNoPages: number
+  /** Livres terminés par année de fin de lecture, la plus récente d'abord. */
+  byYear: { year: string; books: number; pages: number }[]
+}
+
+export function computeReadingStats(books: TrackedBook[]): ReadingStats {
+  let pages = 0
+  let readNoPages = 0
+  const years = new Map<string, { year: string; books: number; pages: number }>()
+  for (const b of books) {
+    if (b.status === 'read') {
+      if (b.page_count) pages += b.page_count
+      else readNoPages++
+      const year = b.finished_at?.slice(0, 4)
+      if (year) {
+        const y = years.get(year) ?? { year, books: 0, pages: 0 }
+        y.books++
+        y.pages += b.page_count ?? 0
+        years.set(year, y)
+      }
+    } else if (b.status === 'reading' || b.status === 'dropped') {
+      pages += b.current_page
+    }
+  }
+  return {
+    read: books.filter((b) => b.status === 'read').length,
+    reading: books.filter((b) => b.status === 'reading').length,
+    toRead: books.filter((b) => b.status === 'later').length,
+    pages,
+    readNoPages,
+    byYear: [...years.values()].sort((a, b) => b.year.localeCompare(a.year)),
+  }
+}

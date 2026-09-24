@@ -700,3 +700,26 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 .skeleton--heading { width: 6rem; height: 1.1rem; margin: 1.75rem 0 .75rem; }
 @keyframes skeleton-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+
+/* Livres */
+.row--book { flex-wrap: wrap; }
+.row__extra { flex-basis: 100%; padding-left: calc(52px + .85rem); }
+.pages { display: flex; flex-direction: column; gap: .2rem; max-width: 24rem; }
+.pages__label { display: flex; align-items: center; gap: .45rem; font-size: .9rem; color: var(--muted); }
+.pages__label input {
+  width: 5.2rem; font: inherit; font-size: .95rem; padding: .35rem .5rem; color: var(--ink);
+  border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--surface);
+  font-variant-numeric: tabular-nums;
+}
+.pages__label input:focus { outline: none; border-color: var(--accent); }
+.pages--compact .pages__label { font-size: .82rem; }
+.pages--compact .pages__label input { width: 4.4rem; padding: .25rem .45rem; font-size: .88rem; }
+.pages--compact .progress { margin-top: .15rem; }
+.book__dates { display: flex; flex-wrap: wrap; gap: .4rem 1rem; font-size: .9rem; color: var(--muted); }
+.book__dates label { display: flex; align-items: center; gap: .4rem; }
+.book__dates input[type='date'] {
+  font: inherit; font-size: .88rem; padding: .3rem .5rem; color: var(--ink);
+  border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--surface);
+}
+.book__authors { font-weight: 600; }
+.books .section-title .season__toggle { font-family: var(--display); }

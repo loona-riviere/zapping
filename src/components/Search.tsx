@@ -2,17 +2,25 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../lib/appState'
 import { searchShowsWide } from '../lib/lookup'
 import { computeProgress, epCode, type Progress } from '../lib/progress'
-import { href } from '../lib/route'
+import { href, type SearchKind } from '../lib/route'
+import { searchBooks, type Book } from '../lib/books'
+import { useBooks } from '../lib/booksState'
 import { buildEnvNames, searchMovies, tmdbConfigured, type Movie } from '../lib/tmdb'
 import type { TvShow } from '../lib/tvmaze'
 import { useShowEpisodes } from '../lib/useShows'
 import { Poster } from './Poster'
 import { MovieRecommendations, ShowRecommendations } from './Recommendations'
 
-type Kind = 'show' | 'movie'
+type Kind = SearchKind
 type ContinuingRow = { id: number; name: string; image: string | null; next: NonNullable<Progress['next']> }
 
 const today = () => new Date().toISOString().slice(0, 10)
+
+const PLACEHOLDER: Record<Kind, string> = {
+  show: 'Nom de la série',
+  movie: 'Titre du film',
+  book: 'Titre, auteur ou ISBN',
+}
 
 /**
  * Un seul endroit pour trouver du nouveau contenu, séries ou films, plutôt
@@ -47,23 +55,33 @@ export function Search({ initialQuery, initialKind }: { initialQuery?: string; i
         >
           Films
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={kind === 'book'}
+          onClick={() => setKind('book')}
+        >
+          Livres
+        </button>
       </div>
 
       <label htmlFor="q" className="visually-hidden">
-        {kind === 'show' ? 'Nom de la série' : 'Titre du film'}
+        {PLACEHOLDER[kind]}
       </label>
       <input
         id="q"
         ref={input}
         type="search"
         className="search__input"
-        placeholder={kind === 'show' ? 'Nom de la série' : 'Titre du film'}
+        placeholder={PLACEHOLDER[kind]}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         autoComplete="off"
       />
 
-      {kind === 'show' ? <ShowSearch query={query} /> : <MovieSearch query={query} />}
+      {kind === 'show' && <ShowSearch query={query} />}
+      {kind === 'movie' && <MovieSearch query={query} />}
+      {kind === 'book' && <BookSearch query={query} />}
     </div>
   )
 }
@@ -306,6 +324,113 @@ function MovieSearch({ query }: { query: string }) {
                   <button className="btn btn--ghost" onClick={() => addToWatchlist(m)}>
                     À voir
                   </button>
+                )}
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </>
+  )
+}
+
+function BookSearch({ query }: { query: string }) {
+  const { books, addBook, updateBook } = useBooks()
+  const [results, setResults] = useState<Book[]>([])
+  const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+
+  useEffect(() => {
+    const q = query.trim()
+    if (q.length < 2) {
+      setResults([])
+      setStatus('idle')
+      return
+    }
+    setStatus('loading')
+    let alive = true
+    const t = setTimeout(() => {
+      searchBooks(q)
+        .then((r) => alive && (setResults(r), setStatus('idle')))
+        .catch(() => alive && setStatus('error'))
+    }, 350)
+    return () => {
+      alive = false
+      clearTimeout(t)
+    }
+  }, [query])
+
+  const byId = new Map(books.map((b) => [b.book_id, b]))
+  // Avant de chercher de nouveaux livres, on rappelle ceux déjà en cours.
+  const reading = books.filter((b) => b.status === 'reading').slice(0, 5)
+
+  return (
+    <>
+      {status === 'error' && <p className="error">La recherche de livres a échoué. Vérifie ta connexion et réessaie.</p>}
+      {status === 'idle' && query.trim().length >= 2 && !results.length && (
+        <p className="muted">Aucun livre trouvé pour « {query.trim()} ». Essaie avec le nom de l'auteur.</p>
+      )}
+      {!query.trim() && reading.length > 0 && (
+        <section>
+          <h2 className="section-title">En cours de lecture</h2>
+          <ul className="rows">
+            {reading.map((b) => (
+              <li key={b.book_id} className="row">
+                <a href={href.book(b.book_id)} className="row__link">
+                  <Poster src={b.cover_url} alt={b.title} />
+                  <div className="row__body">
+                    <h3>{b.title}</h3>
+                    <p className="muted">
+                      {b.page_count ? `Page ${b.current_page} / ${b.page_count}` : `Page ${b.current_page}`}
+                    </p>
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <ul className="rows">
+        {results.map((b) => {
+          const existing = byId.get(b.id)
+          return (
+            <li key={b.id} className="row">
+              <a href={href.book(b.id)} className="row__link">
+                <Poster src={b.cover_url} alt={b.title} />
+                <div className="row__body">
+                  <h3>{b.title}</h3>
+                  <p className="muted">
+                    {[b.authors.slice(0, 2).join(', '), b.year, b.page_count ? `${b.page_count} p.` : null]
+                      .filter(Boolean)
+                      .join(' · ') || 'Auteur inconnu'}
+                  </p>
+                </div>
+              </a>
+              <div className="row__actions">
+                {existing ? (
+                  existing.status === 'later' ? (
+                    <button
+                      className="btn btn--primary"
+                      onClick={() =>
+                        updateBook(existing.book_id, { status: 'reading', started_at: new Date().toISOString() })
+                      }
+                    >
+                      Commencer
+                    </button>
+                  ) : (
+                    <button className="btn btn--ghost" disabled>
+                      {existing.status === 'read' ? 'Lu' : existing.status === 'reading' ? 'En cours' : 'Abandonné'}
+                    </button>
+                  )
+                ) : (
+                  <>
+                    <button className="btn btn--primary" onClick={() => addBook(b, 'reading')}>
+                      Je le lis
+                    </button>
+                    <button className="btn btn--ghost" onClick={() => addBook(b, 'later')}>
+                      À lire
+                    </button>
+                  </>
                 )}
               </div>
             </li>
