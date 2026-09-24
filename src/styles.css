@@ -1,11 +1,12 @@
-/* Zapping : palette « mire TV » froide, cobalt pour le vu, ambre pour le prochain épisode. */
+/* Zapping : fond « mire TV » froid, corail pour l'accent (comme l'icône), ambre pour le prochain épisode. */
 :root {
   --bg: #e8ecef;
   --surface: #f7f9fa;
   --ink: #16222e;
   --muted: #5b6875;
   --line: #c9d1d8;
-  --accent: #2b45f5;
+  /* Corail foncé en clair : #d9404a garde 4,4:1 avec le blanc des boutons. */
+  --accent: #d9404a;
   --accent-ink: #ffffff;
   --amber: #f2a900;
   --danger: #b3261e;
@@ -24,8 +25,8 @@
     --ink: #e6ecf1;
     --muted: #93a0ad;
     --line: #2a3642;
-    --accent: #6c82ff;
-    --accent-ink: #0b1020;
+    --accent: #ff7a7f;
+    --accent-ink: #1a0b0c;
     --amber: #ffc23d;
     --danger: #ff8a80;
   }
@@ -734,7 +735,8 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
   position: absolute; inset: 0; display: flex; align-items: center; padding: 0 1.25rem;
   font-weight: 700; color: #fff; transition: opacity .1s ease;
 }
-.swipe__bg--right { background: var(--accent); color: var(--accent-ink); justify-content: flex-start; }
+/* Ambre comme le bouton « Vu » : le corail de l'accent se confondrait avec le rouge de « Retirer ». */
+.swipe__bg--right { background: var(--amber); color: #1a1300; justify-content: flex-start; }
 .swipe__bg--left { background: var(--danger); justify-content: flex-end; }
 .swipe__hint { font-size: .8rem; margin: 1.25rem 0 0; }
 .manual-book__toggle, .manual-book__done { font-size: .9rem; margin: 1rem 0; }
