@@ -148,7 +148,7 @@ export function Books() {
                   <Poster src={b.cover_url} alt={b.title} />
                   <div className="row__body">
                     <h3>{b.title}</h3>
-                    <p className="muted">{byLine(b) || 'Auteur inconnu'}</p>
+                    <p className="muted">{byLine(b)}</p>
                   </div>
                 </a>
                 <div className="row__actions">
@@ -179,7 +179,7 @@ export function Books() {
                   <div className="row__body">
                     <h3>{b.title}</h3>
                     <p className="muted">
-                      {[b.authors, b.finished_at ? `lu le ${formatShortDate(b.finished_at)}` : 'date inconnue']
+                      {[b.authors, b.finished_at ? `lu le ${formatShortDate(b.finished_at)}` : null]
                         .filter(Boolean)
                         .join(' — ')}
                     </p>
