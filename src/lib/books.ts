@@ -38,14 +38,63 @@ function remember(books: Book[]): Book[] {
 }
 
 export async function searchBooks(query: string): Promise<Book[]> {
+  const exact = await searchOnce(query)
+  if (exact.length) return remember(exact)
+
+  // Rien tel quel : souvent une faute sur le nom de l'auteur (« Lila » pour
+  // « Lilia »), ou une dictée qui coupe un nom en deux (« has saine » pour
+  // « Hassaine »). On retente avec des variantes — un mot en moins, deux mots
+  // voisins recollés — puis on garde en tête ce qui colle au plus de mots
+  // tapés, pour que « Panorama » seul ne noie pas le bon livre.
+  const words = query.trim().split(/\s+/).filter(Boolean)
+  if (words.length < 2) return []
+  const merged: string[][] = []
+  for (let i = 0; i < words.length - 1; i++) {
+    merged.push([...words.slice(0, i), words[i] + words[i + 1], ...words.slice(i + 2)])
+  }
+  const dropOne = (ws: string[]) =>
+    ws.map((_, i) => ws.filter((__, j) => j !== i)).filter((r) => r.join('').length >= 3)
+  // Recollés d'abord, puis recollés avec un mot en moins, puis un mot en moins.
+  const variants = new Set<string>(
+    [...merged, ...merged.flatMap(dropOne), ...dropOne(words)].map((ws) => ws.join(' ')),
+  )
+  const batches = await Promise.all(
+    [...variants].slice(0, 12).map((v) => searchOnce(v).catch(() => [] as Book[])),
+  )
+  const byId = new Map<string, Book>()
+  for (const b of batches.flat()) if (!byId.has(b.id)) byId.set(b.id, b)
+
+  const tokens = new Set(words.map(fold))
+  for (let i = 0; i < words.length - 1; i++) tokens.add(fold(words[i] + words[i + 1]))
+  const score = (b: Book) => {
+    const hay = fold(`${b.title} ${b.authors.join(' ')}`)
+    return [...tokens].filter((t) => t.length >= 3 && hay.includes(t)).length
+  }
+  return remember(
+    [...byId.values()]
+      .map((b, i) => ({ b, i, s: score(b) }))
+      .filter((x) => x.s > 0)
+      .sort((a, b) => b.s - a.s || a.i - b.i)
+      .slice(0, 20)
+      .map((x) => x.b),
+  )
+}
+
+/** Sans accents ni casse ni espaces : « Has Saine » et « Hassaine » se retrouvent. */
+const fold = (s: string) =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
+
+/** Une recherche : Google si la clé est là et qu'il trouve, sinon Open Library. */
+async function searchOnce(query: string): Promise<Book[]> {
   if (GB_KEY) {
     try {
-      return remember(await searchGoogle(query))
+      const found = await searchGoogle(query)
+      if (found.length) return found
     } catch {
       /* quota, clé invalide, réseau : Open Library prend le relais */
     }
   }
-  return remember(await searchOpenLibrary(query))
+  return searchOpenLibrary(query)
 }
 
 export async function bookDetails(id: string): Promise<Book | null> {
