@@ -157,13 +157,13 @@ export function Movies() {
             </a>
             <div className="row__actions">
               {!notYetReleased(m) && (
-                <button className="btn btn--seen" onClick={() => markMovieWatched(m.movie_id, today())}>
+                <button className="btn btn--seen" onClick={swipe(m).right!.onSwipe}>
                   Vu
                 </button>
               )}
               <button
                 className="link-btn muted row__drop"
-                onClick={() => confirm(`Retirer ${m.title} de tes films à voir ?`) && removeMovie(m.movie_id)}
+                onClick={swipe(m).left.onSwipe}
               >
                 Retirer
               </button>
@@ -208,21 +208,7 @@ export function Movies() {
             <div className="row__actions">
               <button
                 className="link-btn muted"
-                onClick={() =>
-                  confirm(`Marquer ${m.title} comme pas vu ? Sa date de visionnage sera perdue.`) &&
-                  markMovieUnwatched(m.movie_id)
-                }
-                title="Remet le film dans « à voir » (sans le supprimer), sa date de visionnage est perdue"
-              >
-                Pas vu
-              </button>
-              <button
-                className="link-btn muted"
-                onClick={() =>
-                  confirm(`Retirer ${m.title} de tes films ? Contrairement à « Pas vu », la fiche est supprimée pour de bon.`) &&
-                  removeMovie(m.movie_id)
-                }
-                title="Supprime le film de ta liste (contrairement à « Pas vu », qui le garde en « à voir »)"
+                onClick={swipe(m).left.onSwipe}
               >
                 Retirer
               </button>

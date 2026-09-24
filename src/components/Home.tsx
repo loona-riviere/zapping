@@ -182,7 +182,7 @@ export function Home() {
                   {r.progress?.next && r.data && (
                     <button
                       className="btn btn--seen"
-                      onClick={() => setWatched(r.data!.show, [r.progress!.next!], true)}
+                      onClick={seenAction(r)!.onSwipe}
                       aria-label={`Marquer ${epCode(r.progress.next)} de ${r.name} comme vu`}
                     >
                       Vu

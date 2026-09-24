@@ -27,26 +27,38 @@ export function Books() {
   // défait aussi vite, sans fenêtre de confirmation à chaque fois.
   const [undo, setUndo] = useState<{ row: TrackedBook; text: string } | null>(null)
 
-  /** Glissé à droite : lu (fini aujourd'hui s'il était en cours, sans date sinon). À gauche : retiré. */
-  const swipe = (b: TrackedBook) => ({
-    right:
-      b.status === 'read'
-        ? undefined
-        : {
-            label: 'Lu',
+  /**
+   * Glisser à droite : l'étape suivante, celle du bouton de la ligne (à lire
+   * → commencer, en cours → terminé, abandonné → reprendre). À gauche :
+   * retirer. Chaque geste s'annule.
+   */
+  const next = (b: TrackedBook) => {
+    if (b.status === 'later') return { label: 'Commencer', verb: 'commencé', patch: startPatch(b) }
+    if (b.status === 'reading') return { label: 'Terminé', verb: 'terminé', patch: finishPatch(b) }
+    if (b.status === 'dropped') return { label: 'Reprendre', verb: 'repris', patch: startPatch(b) }
+    return null
+  }
+  const swipe = (b: TrackedBook) => {
+    const step = next(b)
+    return {
+      right: step
+        ? {
+            label: step.label,
             onSwipe: () => {
-              setUndo({ row: b, text: `${b.title} — lu.` })
-              updateBook(b.book_id, finishPatch(b, b.status === 'reading' ? new Date().toISOString() : null))
+              setUndo({ row: b, text: `${b.title} — ${step.verb}.` })
+              updateBook(b.book_id, step.patch)
             },
-          },
-    left: {
-      label: 'Retirer',
-      onSwipe: () => {
-        setUndo({ row: b, text: `${b.title} — retiré.` })
-        removeBook(b.book_id)
+          }
+        : undefined,
+      left: {
+        label: 'Retirer',
+        onSwipe: () => {
+          setUndo({ row: b, text: `${b.title} — retiré.` })
+          removeBook(b.book_id)
+        },
       },
-    },
-  })
+    }
+  }
 
   if (!booksReady) {
     return (
@@ -122,11 +134,11 @@ export function Books() {
                   </div>
                 </a>
                 <div className="row__actions">
-                  <button
-                    className="btn btn--seen"
-                    onClick={() => confirm(`${b.title} est terminé ?`) && updateBook(b.book_id, finishPatch(b))}
-                  >
+                  <button className="btn btn--seen" onClick={swipe(b).right!.onSwipe}>
                     Terminé
+                  </button>
+                  <button className="link-btn muted row__drop" onClick={swipe(b).left.onSwipe}>
+                    Retirer
                   </button>
                 </div>
                 <div className="row__extra">
@@ -152,12 +164,12 @@ export function Books() {
                   </div>
                 </a>
                 <div className="row__actions">
-                  <button className="btn btn--primary" onClick={() => updateBook(b.book_id, startPatch(b))}>
+                  <button className="btn btn--primary" onClick={swipe(b).right!.onSwipe}>
                     Commencer
                   </button>
                   <button
                     className="link-btn muted row__drop"
-                    onClick={() => confirm(`Retirer ${b.title} de ta pile ?`) && removeBook(b.book_id)}
+                    onClick={swipe(b).left.onSwipe}
                   >
                     Retirer
                   </button>
@@ -226,7 +238,8 @@ export function Books() {
 
       {visible.length > 0 && (
         <p className="muted swipe__hint">
-          Sur téléphone : glisse vers la droite pour marquer lu, vers la gauche pour retirer.
+          Sur téléphone : glisse vers la droite pour passer à l'étape suivante (commencer, terminer),
+          vers la gauche pour retirer.
         </p>
       )}
 
