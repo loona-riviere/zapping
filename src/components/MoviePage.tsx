@@ -6,6 +6,8 @@ import { movieDetails, type MovieDetails } from '../lib/tmdb'
 import { DateField, History } from './History'
 import { Comments } from './Comments'
 import { Poster } from './Poster'
+import { FriendsOn } from './FriendsOn'
+import { friendsOnMovie } from '../lib/friendsOn'
 import { ActionBar, ActionButton, RatingAction } from './ActionBar'
 import { RecommendButton } from './Recommend'
 import { Summary } from './Summary'
@@ -146,6 +148,7 @@ export function MoviePage({ id }: { id: number }) {
             }}
           />
         </ActionBar>
+        <FriendsOn noun="vu" load={(ids) => friendsOnMovie(id, ids)} />
 
         {movie?.status === 'watched' && (
           <History

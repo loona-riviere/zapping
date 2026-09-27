@@ -5,6 +5,8 @@ import { computeProgress, epCode, formatDate, formatShortDate, isAired } from '.
 import { href } from '../lib/route'
 import { showDetailsFr } from '../lib/tmdb'
 import { getShowWithEpisodes, statusFr, stripHtml, type ShowWithEpisodes, type TvEpisode } from '../lib/tvmaze'
+import { FriendsOn } from './FriendsOn'
+import { friendsOnShow } from '../lib/friendsOn'
 import { ActionBar, ChoiceAction, RatingAction } from './ActionBar'
 import { RecommendButton } from './Recommend'
 import { ShowTogether } from './ShowTogether'
@@ -259,6 +261,7 @@ export function ShowPage({ id }: { id: number }) {
 
       {followed && (
         <NextEpisode
+          showId={show.id}
           next={progress.next}
           upcoming={progress.upcoming}
           imdbId={show.externals?.imdb}
@@ -304,6 +307,7 @@ export function ShowPage({ id }: { id: number }) {
             }}
           />
         </ActionBar>
+        <FriendsOn noun="vue" load={(ids) => friendsOnShow(show.id, ids, progress.aired)} />
         {followed && <Rewatches show={show} episodes={episodes} />}
       </div>
 
@@ -440,6 +444,7 @@ export function ShowPage({ id }: { id: number }) {
               })}
             </div>
 
+            <p className="muted season__hint">Touche un numéro pour le cocher, reste appuyé pour ouvrir l'épisode.</p>
             <button className="link-btn season__more" aria-expanded={open} onClick={() => toggleList(season)}>
               {open ? 'Masquer les titres' : 'Voir les titres'}
             </button>

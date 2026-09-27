@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { epCode, formatDate } from '../lib/progress'
+import { href } from '../lib/route'
 import { seasonOverviewsFr } from '../lib/tmdb'
 import { stripHtml, type TvEpisode } from '../lib/tvmaze'
 
@@ -14,8 +15,9 @@ const LONG = 120
  * annonce le prochain à sortir.
  */
 export function NextEpisode({
-  next, upcoming, imdbId, onSeen,
+  showId, next, upcoming, imdbId, onSeen,
 }: {
+  showId: number
   next: TvEpisode | null
   upcoming: TvEpisode | null
   imdbId: string | null | undefined
@@ -49,7 +51,9 @@ export function NextEpisode({
       <p className="next-ep__label muted">{next ? 'Prochain épisode' : 'Prochain à sortir'}</p>
       <div className="next-ep__head">
         <h2 className="next-ep__title">
-          <span className="next-ep__code">{epCode(ep)}</span> {ep.name}
+          <a href={href.episode(showId, ep.id)} className="next-ep__link">
+            <span className="next-ep__code">{epCode(ep)}</span> {ep.name} <span className="muted" aria-hidden="true">›</span>
+          </a>
         </h2>
         {next && (
           <button type="button" className="btn btn--seen" onClick={() => onSeen(ep)}>

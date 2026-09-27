@@ -1038,11 +1038,11 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 .actionbar > * { flex: 1 1 0; max-width: 7.5rem; }
 .action {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .3rem; min-width: 0;
-  padding: .65rem .3rem .55rem; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface);
+  padding: .65rem .1rem .55rem; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface);
   color: var(--ink); font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .action__icon { font-size: 1.35rem; line-height: 1; height: 1.4rem; display: grid; place-items: center; }
-.action__label { font-size: .72rem; letter-spacing: -.01em; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.action__label { font-size: .7rem; letter-spacing: -.02em; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .action--on { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
 .action:active { transform: scale(.97); }
 
@@ -1159,3 +1159,17 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
 .mentions__item + .mentions__item { border-top: 1px solid var(--line); }
 .mentions__avatar { width: 28px; height: 28px; font-size: .8rem; }
 .mention { color: var(--accent); font-weight: 700; }
+
+/* Amis qui ont ce titre */
+.friends-on {
+  display: flex; align-items: center; gap: .6rem; width: 100%; max-width: 30rem; padding: .45rem .7rem; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: .88rem; cursor: pointer; text-align: left;
+}
+.friends-on__faces { display: flex; flex: none; }
+.friends-on__face { width: 26px; height: 26px; font-size: .72rem; border: 2px solid var(--surface); }
+.friends-on__faces .friends-on__face + .friends-on__face { margin-left: -8px; }
+.friends-on__text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.choice { text-decoration: none; }
+
+.next-ep__link { color: inherit; text-decoration: none; }
+.season__hint { margin: .45rem 0 0; font-size: .78rem; }

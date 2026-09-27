@@ -4,6 +4,8 @@ import { finishPatch, startPatch, useBooks } from '../lib/booksState'
 import { type BookPatch, type BookStatus, type TrackedBook } from '../lib/bookStore'
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
+import { FriendsOn } from './FriendsOn'
+import { friendsOnBook } from '../lib/friendsOn'
 import { ActionBar, ChoiceAction, RatingAction } from './ActionBar'
 import { RecommendButton } from './Recommend'
 import { Summary } from './Summary'
@@ -181,6 +183,7 @@ export function BookPage({ id }: { id: string }) {
           </ActionBar>
         )}
         {!book && <ActionBar><RecommendButton item={recItem} /></ActionBar>}
+        <FriendsOn noun="lu" load={(ids) => friendsOnBook(id, ids)} />
 
 
         {book && (
