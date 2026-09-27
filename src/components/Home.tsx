@@ -232,7 +232,7 @@ export function Home() {
             {(visible) => (
           <ul className="rows">
             {visible.map((r) => (
-              <SwipeRow key={r.id} left={dropAction(r)}>
+              <SwipeRow key={r.id} left={dropAction(r)} buttonsFor={r.name}>
                 <a href={href.show(r.id)} className="row__link">
                   <Poster src={r.image} alt={r.name} />
                   <div className="row__body">
@@ -257,7 +257,7 @@ export function Home() {
             {(visible) => (
           <ul className="rows">
             {visible.map((r) => (
-              <SwipeRow key={r.id} left={dropAction(r)}>
+              <SwipeRow key={r.id} left={dropAction(r)} buttonsFor={r.name}>
                 <a href={href.show(r.id)} className="row__link">
                   <Poster src={r.image} alt={r.name} />
                   <div className="row__body">
@@ -363,7 +363,7 @@ function Parked({
         onCommit={(ids) => onReorder?.(ids)}
         enabled={!!onReorder && ordering}
         render={(r, row, handle) => (
-          <SwipeRow key={r.id} {...(handle ? {} : { left: left(r), right: right(r) })} {...row}>
+          <SwipeRow key={r.id} {...(handle ? {} : { left: left(r), right: right(r) })} {...row} buttonsFor={r.name}>
             {handle && <DragHandle {...handle} label={r.name} />}
             <a href={href.show(r.id)} className="row__link">
               <Poster src={r.image} alt={r.name} />

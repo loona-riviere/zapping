@@ -750,6 +750,19 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 /* Ambre comme le bouton « Vu » : le corail de l'accent se confondrait avec le rouge de « Retirer ». */
 .swipe__bg--right { background: var(--amber); color: #1a1300; justify-content: flex-start; }
 .swipe__bg--left { background: var(--danger); justify-content: flex-end; }
+/* Actions du glissé en boutons icônes : visibles à la souris, où l'on ne
+   glisse pas. Au doigt, hors de l'écran mais présents pour le clavier et
+   les lecteurs d'écran, et visibles dès qu'ils ont le focus. */
+.swipe__buttons { display: flex; gap: .35rem; flex: none; }
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2.25rem; height: 2.25rem; padding: 0; cursor: pointer;
+  border: 1.5px solid var(--line-strong); border-radius: 50%; background: var(--surface); color: var(--muted);
+}
+.icon-btn:hover { color: var(--ink); border-color: var(--ink); }
+@media (hover: none), (pointer: coarse) {
+  .swipe__buttons:not(:focus-within) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
 .swipe__hint { font-size: .8rem; margin: 1.25rem 0 0; }
 .manual-book__toggle, .manual-book__done { font-size: .9rem; margin: 1rem 0; }
 .manual-book {

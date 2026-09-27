@@ -1,6 +1,12 @@
 import { useRef, useState, type CSSProperties, type ReactNode } from 'react'
 
-type Action = { label: string; onSwipe: () => void }
+type Action = {
+  label: string
+  onSwipe: () => void
+  /** Icône du bouton (ordinateur) ; par défaut ✓ à droite, ✕ à gauche. */
+  icon?: IconName
+}
+type IconName = 'check' | 'remove' | 'resume'
 
 /** Au-delà de cette part de la largeur, lâcher déclenche l'action. */
 const THRESHOLD = 0.35
@@ -23,6 +29,7 @@ export function SwipeRow({
   children,
   rowRef,
   style,
+  buttonsFor,
 }: {
   className?: string
   left?: Action
@@ -31,6 +38,13 @@ export function SwipeRow({
   /** Pour le glisser-déposer : la ligne se mesure et suit le doigt. */
   rowRef?: (el: HTMLElement | null) => void
   style?: CSSProperties
+  /**
+   * Titre de la ligne, pour les lignes qui n'ont pas déjà leurs propres
+   * boutons : les actions du glissé s'affichent alors aussi en boutons
+   * icônes. Visibles à la souris ; au doigt, cachés à l'écran mais
+   * atteignables au clavier et par les lecteurs d'écran.
+   */
+  buttonsFor?: string
 }) {
   const [dx, setDx] = useState(0)
   const [leaving, setLeaving] = useState<'left' | 'right' | null>(null)
@@ -129,7 +143,29 @@ export function SwipeRow({
         }}
       >
         {children}
+        {buttonsFor && (right || left) && (
+          <div className="swipe__buttons">
+            {right && <IconButton action={right} name={buttonsFor} fallback="check" />}
+            {left && <IconButton action={left} name={buttonsFor} fallback="remove" />}
+          </div>
+        )}
       </div>
     </li>
   )
+}
+
+function IconButton({ action, name, fallback }: { action: Action; name: string; fallback: IconName }) {
+  return (
+    <button type="button" className="icon-btn" title={action.label} aria-label={`${action.label} : ${name}`} onClick={action.onSwipe}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        {ICONS[action.icon ?? fallback]}
+      </svg>
+    </button>
+  )
+}
+
+const ICONS: Record<IconName, ReactNode> = {
+  check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  remove: <path d="M6 6l12 12M18 6L6 18" />,
+  resume: <path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5" />,
 }
