@@ -1,76 +1,140 @@
+import { useState } from 'react'
 import { useApp } from '../lib/appState'
-import { isAired } from '../lib/progress'
+import { formatShortDate, isAired } from '../lib/progress'
+import type { Viewing } from '../lib/store'
 import type { TvEpisode, TvShow } from '../lib/tvmaze'
+import { DateField, History, type HistoryEntry } from './History'
+
+const span = (start: string | null, end: string | null) => {
+  const d = (x: string) => formatShortDate(x)
+  if (start && end) return start.slice(0, 10) === end.slice(0, 10) ? `le ${d(end)}` : `du ${d(start)} au ${d(end)}`
+  if (end) return `fini le ${d(end)}`
+  if (start) return `commencé le ${d(start)}`
+  return 'date inconnue'
+}
 
 /**
- * Compteur de revisionnages et conduite d'une passe en cours.
- *
- * Une série vue trois fois porte 2 en base : on compte les reprises, pas les
- * visionnages, mais l'écran affiche « vue 3 fois » pour qu'il n'y ait rien à
- * interpréter.
+ * Les visionnages d'une série, comme les lectures d'un livre : le premier
+ * (ses épisodes cochés), puis chaque revisionnage terminé avec ses dates, et
+ * celui en cours. `rewatches` compte les revisionnages terminés, datés ou non.
  */
 export function Rewatches({ show, episodes }: { show: TvShow; episodes: TvEpisode[] }) {
-  const { rewatchesOf, setRewatches, isRewatching, startRewatch, endRewatch, watchedFor } = useApp()
+  const { tracked, rewatchesOf, setShowViewings, isRewatching, startRewatch, endRewatch, watchedFor, historyFor } = useApp()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState<Viewing>({ started_at: null, finished_at: null })
   const n = rewatchesOf(show.id)
   const running = isRewatching(show.id)
+  const past = tracked.find((t) => t.show_id === show.id)?.past_viewings ?? []
+  const undated = Math.max(0, n - past.length)
+
   const seen = watchedFor(show.id)
-
   const aired = episodes.filter((e) => isAired(e))
-  const done = aired.filter((e) => seen.has(e.id)).length
-  const complete = aired.length > 0 && done === aired.length
+  const complete = aired.length > 0 && aired.every((e) => seen.has(e.id))
 
+  const firstDates = [...historyFor(show.id).values()].filter((d): d is string => !!d).sort()
+  const rewatchDates = running ? [...seen.values()].filter((d): d is string => !!d).sort() : []
+
+  const save = (next: Viewing[], count: number) => {
+    const sorted = [...next].sort((a, b) => (a.finished_at ?? '').localeCompare(b.finished_at ?? ''))
+    return setShowViewings(show.id, sorted, Math.max(count, sorted.length))
+  }
+
+  const entries: HistoryEntry[] = []
   if (running) {
-    return (
-      <div className="rewatch rewatch--live">
-        <p className="rewatch__state">
-          <strong>Revisionnage en cours</strong>
-        </p>
-        <div className="rewatch__actions">
+    entries.push({
+      key: 'running',
+      icon: '🔁',
+      text: rewatchDates.length ? `Revisionnage en cours, depuis le ${formatShortDate(rewatchDates[0])}` : 'Revisionnage en cours',
+    })
+  }
+  past
+    .map((v, i) => ({ v, i }))
+    .reverse()
+    .forEach(({ v, i }) =>
+      entries.push({
+        key: `past-${i}`,
+        icon: '✓',
+        text: `Revue ${span(v.started_at, v.finished_at)}`,
+        edit: (
+          <span className="hist__dates">
+            <DateField label="Du" value={v.started_at} onChange={(x) => save(past.map((p, j) => (j === i ? { ...p, started_at: x } : p)), n)} />
+            <DateField label="Au" value={v.finished_at} onChange={(x) => save(past.map((p, j) => (j === i ? { ...p, finished_at: x } : p)), n)} />
+          </span>
+        ),
+        onRemove: () => confirm('Supprimer ce visionnage ?') && save(past.filter((_, j) => j !== i), n - 1),
+      }),
+    )
+  for (let k = 0; k < undated; k++) {
+    entries.push({
+      key: `undated-${k}`,
+      icon: '✓',
+      text: 'Revue, date inconnue',
+      onRemove: () => confirm('Supprimer ce visionnage ?') && save(past, n - 1),
+    })
+  }
+  if (firstDates.length) {
+    entries.push({
+      key: 'first',
+      icon: '✓',
+      text: `${n || running ? '1er visionnage' : 'Vue'} ${span(firstDates[0], complete || n || running ? firstDates[firstDates.length - 1] : null)}`,
+    })
+  }
+
+  return (
+    <>
+      <History
+        title="Visionnages"
+        entries={entries}
+        editing={editing}
+        onToggle={() => setEditing((v) => !v)}
+        extra={
+          <div className="hist__add">
+            <span className="hist__dates">
+              <DateField label="Revue du" value={draft.started_at} onChange={(x) => setDraft((d) => ({ ...d, started_at: x }))} />
+              <DateField label="au" value={draft.finished_at} onChange={(x) => setDraft((d) => ({ ...d, finished_at: x }))} />
+            </span>
+            <button
+              type="button"
+              className="pill pill--small"
+              disabled={!draft.started_at && !draft.finished_at}
+              onClick={() => {
+                // Un revisionnage « date inconnue » qui existait prend ces dates plutôt que d'en créer un de plus.
+                save([...past, draft], undated > 0 ? n : n + 1)
+                setDraft({ started_at: null, finished_at: null })
+              }}
+            >
+              Ajouter
+            </button>
+          </div>
+        }
+      />
+      {running ? (
+        <div className="pills">
           {complete ? (
             <button className="btn btn--primary" onClick={() => endRewatch(show.id, true)}>
-              Terminer, ça fera {n + 2} fois
+              Terminer le revisionnage
             </button>
           ) : (
             <button
-              className="link-btn"
+              className="pill"
               onClick={() =>
                 confirm(`Arrêter le revisionnage de ${show.name} ? La progression de cette passe sera perdue, pas l'historique.`) &&
                 endRewatch(show.id, false)
               }
             >
-              Arrêter
+              Arrêter le revisionnage
             </button>
           )}
         </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="rewatch">
-      <p className="rewatch__label">
-        Vue <strong>{n + 1}</strong> fois
-        <span className="rewatch__buttons">
-          <button
-            className="rewatch__btn"
-            onClick={() => setRewatches(show.id, n - 1)}
-            disabled={n === 0}
-            aria-label="Retirer un visionnage"
-          >
-            −
-          </button>
-          <button
-            className="rewatch__btn"
-            onClick={() => setRewatches(show.id, n + 1)}
-            aria-label="Ajouter un visionnage"
-          >
-            +
-          </button>
-        </span>
-      </p>
-      <button className="link-btn rewatch__start" onClick={() => startRewatch(show.id)}>
-        Je la revois
-      </button>
-    </div>
+      ) : (
+        seen.size > 0 && (
+          <div className="pills">
+            <button className="pill" onClick={() => startRewatch(show.id)}>
+              🔁 Je la revois
+            </button>
+          </div>
+        )
+      )}
+    </>
   )
 }

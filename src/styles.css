@@ -910,3 +910,4 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
   border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--bg);
 }
 .hist__remove { background: none; border: 0; font: inherit; font-size: .8rem; color: #c0392b; cursor: pointer; padding: .2rem; }
+.hist__add { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .6rem; padding-top: .6rem; border-top: 1px dashed var(--line); }

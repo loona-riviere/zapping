@@ -664,3 +664,7 @@ $$;
 
 revoke all on function public.share_movie_viewing(uuid, integer, text, text, integer, date, integer, timestamptz) from public, anon;
 grant execute on function public.share_movie_viewing(uuid, integer, text, text, integer, date, integer, timestamptz) to authenticated;
+
+-- Revisionnages terminés d'une série, avec leurs dates : [{"started_at": …, "finished_at": …}].
+-- `rewatches` reste le compte total (certains peuvent ne pas être datés).
+alter table public.tracked_shows add column if not exists past_viewings jsonb not null default '[]'::jsonb;

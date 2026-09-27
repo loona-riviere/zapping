@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import * as store from './store'
-import type { DismissedRec, Rating, ShowStatus, TrackedShow, WatchedMap, WatchedMovie } from './store'
+import type { DismissedRec, Rating, ShowStatus, TrackedShow, Viewing, WatchedMap, WatchedMovie } from './store'
 import { movieRuntime, type Movie } from './tmdb'
 import { celebrate, checkMilestone, nightOwl } from './fun'
 import { computeProgress } from './progress'
@@ -35,6 +35,8 @@ type AppState = {
   setStatus: (showId: number, status: ShowStatus) => Promise<void>
   /** Nombre de revisionnages complets d'une série, en plus du premier. */
   rewatchesOf: (showId: number) => number
+  /** Revisionnages terminés datés, et leur nombre total (datés ou non). */
+  setShowViewings: (showId: number, past: Viewing[], rewatches: number) => Promise<void>
   setRewatches: (showId: number, count: number) => Promise<void>
   /** Un revisionnage est-il en cours sur cette série ? */
   isRewatching: (showId: number) => boolean
@@ -341,6 +343,25 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     setTracked((prev) => prev.map((t) => (t.show_id === showId ? { ...t, ...patch } : t)))
   }, [])
 
+  const setShowViewings = useCallback(
+    async (showId: number, past: Viewing[], rewatches: number) => {
+      const before = tracked.find((t) => t.show_id === showId)
+      if (!before) return
+      patchShow(showId, { past_viewings: past, rewatches })
+      try {
+        await store.setShowViewings(showId, past, rewatches)
+      } catch (e) {
+        patchShow(showId, { past_viewings: before.past_viewings, rewatches: before.rewatches })
+        setNotice(
+          store.isMissingSchema(e)
+            ? 'Dates des revisionnages : relance supabase/schema.sql dans ton projet Supabase.'
+            : `Enregistrement impossible : ${(e as Error).message}`,
+        )
+      }
+    },
+    [patchShow, tracked],
+  )
+
   const startRewatch = useCallback(
     async (showId: number) => {
       patchShow(showId, { rewatching: true })
@@ -365,14 +386,25 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     async (showId: number, completed: boolean) => {
       const before = tracked.find((t) => t.show_id === showId)
       const next = (before?.rewatches ?? 0) + (completed ? 1 : 0)
-      patchShow(showId, { rewatching: false, rewatches: next })
+      // Une passe terminée garde ses dates : du premier au dernier épisode recoché.
+      const dates = [...(rewatch.get(showId)?.values() ?? [])].filter((d): d is string => !!d).sort()
+      const past = completed
+        ? [...(before?.past_viewings ?? []), { started_at: dates[0] ?? null, finished_at: dates[dates.length - 1] ?? null }]
+        : before?.past_viewings ?? []
+      patchShow(showId, { rewatching: false, rewatches: next, past_viewings: past })
       setRewatch((prev) => {
         const m = new Map(prev)
         m.delete(showId)
         return m
       })
       try {
-        if (completed) await store.setRewatches(showId, next)
+        if (completed) {
+          await store.setShowViewings(showId, past, next).catch((e) => {
+            // Colonne des dates absente : on garde au moins le compte.
+            if (!store.isMissingSchema(e)) throw e
+            return store.setRewatches(showId, next)
+          })
+        }
         await store.setRewatching(showId, false)
         await store.clearRewatchProgress(showId)
         // Le visionnage à deux qui accompagnait ce revisionnage s'arrête avec lui.
@@ -382,7 +414,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
         setNotice(`Impossible de clore le revisionnage : ${(e as Error).message}`)
       }
     },
-    [patchShow, tracked],
+    [patchShow, tracked, rewatch],
   )
 
   /** Après avoir coché des épisodes : palier franchi, série bouclée, coche nocturne. */
@@ -858,7 +890,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       userId, tracked, watched, movies, moviesReady, loading, notice,
       dismissNotice: () => setNotice(null),
       showNotice: setNotice,
-      isTracked, statusOf, watchedFor, historyFor, rewatchesOf, setRewatches,
+      isTracked, statusOf, watchedFor, historyFor, rewatchesOf, setRewatches, setShowViewings,
       isRewatching, startRewatch, endRewatch,
       track, untrack, setStatus, setWatched,
       addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, rewatchMovie, removePastView, setMovieViews: setViews, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
@@ -866,7 +898,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       dismissed, isDismissed, dismissRec, undismissRec,
     }),
     [userId, tracked, watched, rewatch, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
-     historyFor, rewatchesOf, setRewatches, isRewatching, startRewatch, endRewatch,
+     historyFor, rewatchesOf, setRewatches, setShowViewings, isRewatching, startRewatch, endRewatch,
      track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, rewatchMovie, removePastView, setViews, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
      ranksReady, reorderMovies, reorderShows, patchHidden, reloadShows,
      dismissed, isDismissed, dismissRec, undismissRec],

@@ -175,12 +175,26 @@ export function computeTimeline(
     if (!show) continue
     const seen = watchedFor(t.show_id)
     const fallback = medianRuntime(show)
+    const runtimeOf = (ep: (typeof show.episodes)[number]) =>
+      (typeof ep.runtime === 'number' && ep.runtime > 0 ? ep.runtime : fallback) ?? 0
     for (const ep of show.episodes) {
       const at = seen.get(ep.id)
       if (!at) continue
-      const runtime = (typeof ep.runtime === 'number' && ep.runtime > 0 ? ep.runtime : fallback) ?? 0
-      addToBucket(byMonth, at.slice(0, 7), runtime, false)
-      addToBucket(byYear, at.slice(0, 4), runtime, false)
+      addToBucket(byMonth, at.slice(0, 7), runtimeOf(ep), false)
+      addToBucket(byYear, at.slice(0, 4), runtimeOf(ep), false)
+    }
+    // Revisionnages terminés et datés : les épisodes sont répartis
+    // régulièrement entre la première et la dernière date.
+    const rewatched = show.episodes.filter((ep) => seen.has(ep.id))
+    for (const v of t.past_viewings ?? []) {
+      const start = Date.parse(v.started_at ?? v.finished_at ?? '')
+      const end = Date.parse(v.finished_at ?? v.started_at ?? '')
+      if (Number.isNaN(start) || Number.isNaN(end) || !rewatched.length) continue
+      rewatched.forEach((ep, i) => {
+        const at = new Date(start + ((end - start) * i) / Math.max(1, rewatched.length - 1)).toISOString()
+        addToBucket(byMonth, at.slice(0, 7), runtimeOf(ep), false)
+        addToBucket(byYear, at.slice(0, 4), runtimeOf(ep), false)
+      })
     }
   }
 

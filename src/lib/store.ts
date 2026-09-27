@@ -38,7 +38,11 @@ export type TrackedShow = {
   wish_rank?: number | null
   /** Caché aux amis. */
   hidden?: boolean
+  /** Revisionnages terminés, datés (le premier visionnage vit dans watched_episodes). */
+  past_viewings?: Viewing[]
 }
+
+export type Viewing = { started_at: string | null; finished_at: string | null }
 
 export type WatchedMovie = {
   movie_id: number
@@ -88,7 +92,9 @@ export async function fetchTracked(): Promise<TrackedShow[]> {
   const uid = await me()
   const full = await supabase
     .from('tracked_shows')
-    .select(`${LEGACY_COLUMNS}, status, rewatches, rewatching, rating, hidden`)
+    // `*` : une colonne ajoutée depuis (past_viewings…) qui manquerait encore
+    // en base est juste absente des lignes.
+    .select('*')
     .eq('user_id', uid)
   if (!full.error) {
     return (full.data ?? []).map((r) => ({
@@ -189,6 +195,16 @@ export async function setRewatches(showId: number, rewatches: number): Promise<v
     .from('tracked_shows')
     .update({ rewatches })
     .eq('show_id', showId)
+  if (error) throw error
+}
+
+/** Revisionnages terminés : leurs dates et leur nombre, écrits ensemble. */
+export async function setShowViewings(showId: number, past: Viewing[], rewatches: number): Promise<void> {
+  const { error } = await supabase
+    .from('tracked_shows')
+    .update({ past_viewings: past, rewatches })
+    .eq('show_id', showId)
+    .eq('user_id', await me())
   if (error) throw error
 }
 
