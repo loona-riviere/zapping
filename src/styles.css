@@ -15,7 +15,6 @@
   --radius: 10px;
   color-scheme: light dark;
   box-sizing: border-box;
-  padding-top: env(safe-area-inset-top, 0px);
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -55,10 +54,12 @@ button { font: inherit; color: inherit; }
 
 /* Barre du haut */
 .topbar {
-  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
+  /* Collée tout en haut, zone de l'heure / batterie comprise (appli installée,
+     barre d'état translucide) : rien ne défile plus par transparence au-dessus. */
+  position: sticky; top: 0; z-index: 10;
   display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-  padding: .75rem 1rem;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  padding: calc(.75rem + env(safe-area-inset-top, 0px)) 1rem .75rem;
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
@@ -79,8 +80,8 @@ button { font: inherit; color: inherit; }
    sous la barre) ; un élément dans le flux de la page n'a pas ce défaut. */
 #root {
   display: flex; flex-direction: column;
-  min-height: calc(100vh - env(safe-area-inset-top, 0px));
-  min-height: calc(100dvh - env(safe-area-inset-top, 0px));
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 .main { flex: 1 0 auto; width: 100%; max-width: 44rem; margin: 0 auto; padding: 1rem 1rem 6rem; }
 
@@ -333,7 +334,7 @@ button { font: inherit; color: inherit; }
 /* Écran de connexion : mur d'affiches tendance qui défile derrière, voilé,
    et le formulaire dans une carte translucide par-dessus. */
 .auth-screen {
-  position: relative; min-height: 100vh; min-height: 100dvh; overflow: hidden;
+  position: relative; min-height: 100vh; min-height: 100dvh; overflow: hidden; padding-top: env(safe-area-inset-top, 0px);
   display: flex; align-items: center; justify-content: center; background: var(--bg);
 }
 .auth-screen__veil {
@@ -1074,7 +1075,7 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 .readcard__done { width: 100%; }
 
 .install-hint {
-  display: flex; gap: .7rem; align-items: center; margin: .75rem 1rem 0; padding: .65rem .75rem; border-radius: 16px;
+  display: flex; gap: .7rem; align-items: center; margin: calc(.75rem + env(safe-area-inset-top, 0px)) 1rem 0; padding: .65rem .75rem; border-radius: 16px;
   background: var(--surface); border: 1px solid var(--line); box-shadow: 0 4px 16px rgb(0 0 0 / .08);
 }
 .main .install-hint { margin: 0 0 1rem; }
