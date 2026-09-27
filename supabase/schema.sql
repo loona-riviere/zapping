@@ -787,3 +787,10 @@ drop policy if exists "comments: delete" on public.comments;
 create policy "comments: delete" on public.comments
   for delete to authenticated
   using ((select auth.uid()) = user_id);
+-- Modifier son commentaire : « modifié » s'affiche à côté de la date.
+alter table public.comments add column if not exists edited_at timestamptz;
+drop policy if exists "comments: edit" on public.comments;
+create policy "comments: edit" on public.comments
+  for update to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);

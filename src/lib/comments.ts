@@ -16,13 +16,14 @@ export type Comment = {
   body: string
   spoiler: boolean
   created_at: string
+  edited_at?: string | null
 }
 
 /** null : table absente (schéma pas relancé). */
 export async function fetchComments(kind: CommentKind, itemId: string): Promise<Comment[] | null> {
   const { data, error } = await supabase
     .from('comments')
-    .select('id, user_id, kind, item_id, show_id, title, body, spoiler, created_at')
+    .select('*')
     .eq('kind', kind)
     .eq('item_id', itemId)
     .order('created_at', { ascending: true })
@@ -44,10 +45,17 @@ export async function addComment(c: {
   const { data, error } = await supabase
     .from('comments')
     .insert({ kind: c.kind, item_id: c.itemId, show_id: c.showId ?? null, title: c.title, body: c.body.trim(), spoiler: c.spoiler })
-    .select('id, user_id, kind, item_id, show_id, title, body, spoiler, created_at')
+    .select('*')
     .single()
   if (error) throw error
   return data as Comment
+}
+
+export async function editComment(id: number, body: string): Promise<string> {
+  const edited_at = new Date().toISOString()
+  const { error } = await supabase.from('comments').update({ body: body.trim(), edited_at }).eq('id', id)
+  if (error) throw error
+  return edited_at
 }
 
 export async function deleteComment(id: number): Promise<void> {

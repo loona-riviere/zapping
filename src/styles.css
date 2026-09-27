@@ -1173,3 +1173,8 @@ a.choice { text-decoration: none; }
 
 .next-ep__link { color: inherit; text-decoration: none; }
 .season__hint { margin: .45rem 0 0; font-size: .78rem; }
+
+.comment__actions { display: flex; gap: .9rem; justify-content: flex-end; align-items: center; margin-top: .3rem; font-size: .78rem; }
+.comment__actions .link-btn { font-size: .78rem; }
+.comment__edit { display: flex; flex-direction: column; gap: .3rem; }
+.comment__save { padding: .35rem .8rem; font-size: .82rem; }

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { addComment, ago, deleteComment, fetchComments, type Comment, type CommentKind } from '../lib/comments'
+import { addComment, ago, deleteComment, editComment, fetchComments, type Comment, type CommentKind } from '../lib/comments'
 import { notify } from '../lib/notify'
 import { nameOf, type Profile } from '../lib/social'
 import { useSocial } from '../lib/socialState'
@@ -32,6 +32,7 @@ export function Comments({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [revealed, setRevealed] = useState<Set<number>>(new Set())
+  const [editing, setEditing] = useState<{ id: number; text: string } | null>(null)
   // @mention en cours de frappe : le mot qui suit « @ » juste avant le curseur.
   const [mention, setMention] = useState<string | null>(null)
   const box = useRef<HTMLTextAreaElement>(null)
@@ -96,10 +97,41 @@ export function Comments({
               <span className="avatar comment__avatar" aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>
               <div className="comment__bubble">
                 <p className="comment__meta">
-                  <strong>{mine ? 'Toi' : name}</strong> · <span className="muted">{ago(c.created_at)}</span>
+                  <strong>{mine ? 'Toi' : name}</strong> · <span className="muted">{ago(c.created_at)}{c.edited_at ? ' · modifié' : ''}</span>
                   {c.spoiler && kind !== 'episode' && <span className="comment__tag">spoiler</span>}
                 </p>
-                {hidden(c) ? (
+                {editing?.id === c.id ? (
+                  <div className="comment__edit">
+                    <textarea
+                      className="rec__note"
+                      rows={2}
+                      maxLength={1000}
+                      autoFocus
+                      value={editing.text}
+                      onChange={(e) => setEditing({ id: c.id, text: e.target.value })}
+                    />
+                    <div className="comment__actions">
+                      <button type="button" className="link-btn muted" onClick={() => setEditing(null)}>Annuler</button>
+                      <button
+                        type="button"
+                        className="btn btn--primary comment__save"
+                        disabled={!editing.text.trim()}
+                        onClick={async () => {
+                          const text = editing.text
+                          try {
+                            const at = await editComment(c.id, text)
+                            setList((prev) => (prev ?? []).map((x) => (x.id === c.id ? { ...x, body: text.trim(), edited_at: at } : x)))
+                            setEditing(null)
+                          } catch (e) {
+                            setError((e as Error).message)
+                          }
+                        }}
+                      >
+                        Enregistrer
+                      </button>
+                    </div>
+                  </div>
+                ) : hidden(c) ? (
                   <button type="button" className="comment__spoiler" onClick={() => setRevealed((s) => new Set(s).add(c.id))}>
                     <span className="comment__blur" aria-hidden="true">{c.body}</span>
                     <span className="comment__reveal">
@@ -109,18 +141,23 @@ export function Comments({
                 ) : (
                   <p className="comment__body">{withMentions(c.body)}</p>
                 )}
-                {mine && (
-                  <button
-                    type="button"
-                    className="link-btn muted comment__delete"
-                    onClick={async () => {
-                      if (!confirm('Supprimer ton commentaire ?')) return
-                      await deleteComment(c.id).catch(() => null)
-                      setList((prev) => (prev ?? []).filter((x) => x.id !== c.id))
-                    }}
-                  >
-                    Supprimer
-                  </button>
+                {mine && editing?.id !== c.id && (
+                  <div className="comment__actions">
+                    <button type="button" className="link-btn muted" onClick={() => setEditing({ id: c.id, text: c.body })}>
+                      Modifier
+                    </button>
+                    <button
+                      type="button"
+                      className="link-btn muted"
+                      onClick={async () => {
+                        if (!confirm('Supprimer ton commentaire ?')) return
+                        await deleteComment(c.id).catch(() => null)
+                        setList((prev) => (prev ?? []).filter((x) => x.id !== c.id))
+                      }}
+                    >
+                      Supprimer
+                    </button>
+                  </div>
                 )}
               </div>
             </li>
