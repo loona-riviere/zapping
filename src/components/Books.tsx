@@ -201,7 +201,7 @@ export function Books() {
       {read.length > 0 && (
         <section>
           <h2 className="section-title">Lus <span className="muted">({read.length})</span></h2>
-          <Limited items={read} limit={8} all={!!q}>
+          <Limited id="books-read" items={read} limit={8} all={!!q}>
             {(visible) => (
           <ul className="rows">
             {visible.map((b) => (

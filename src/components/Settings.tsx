@@ -108,7 +108,7 @@ export function Settings() {
         {dismissed.length === 0 ? (
           <p className="muted">Aucune suggestion écartée pour l'instant.</p>
         ) : (
-          <Limited items={dismissed} limit={5}>
+          <Limited id="dismissed" items={dismissed} limit={5}>
             {(visible) => (
           <ul className="rows">
             {visible.map((d) => (

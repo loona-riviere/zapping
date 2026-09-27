@@ -153,7 +153,7 @@ export function Home() {
             <h2 className="section-title">
               {results.length} résultat{results.length > 1 ? 's' : ''}
             </h2>
-            <Shelf rows={results} withLabel />
+            <Shelf id="search" rows={results} withLabel />
           </section>
         ) : (
           <p className="muted pad">
@@ -166,8 +166,10 @@ export function Home() {
       {toWatch.length > 0 && (
         <section>
           <h2 className="section-title">À voir</h2>
+          <Limited id="shows-watching" items={toWatch} limit={8} all={!!q}>
+            {(visible) => (
           <ul className="rows">
-            {toWatch.map((r) => (
+            {visible.map((r) => (
               <SwipeRow key={r.id} left={dropAction(r)} right={seenAction(r)}>
                 <a href={href.show(r.id)} className="row__link">
                   <Poster src={r.image} alt={r.name} />
@@ -209,6 +211,8 @@ export function Home() {
               </SwipeRow>
             ))}
           </ul>
+            )}
+          </Limited>
         </section>
       )}
 
@@ -224,8 +228,10 @@ export function Home() {
       {upcoming.length > 0 && (
         <section>
           <h2 className="section-title">Bientôt de retour</h2>
+          <Limited id="shows-upcoming" items={upcoming} limit={5} all={!!q}>
+            {(visible) => (
           <ul className="rows">
-            {upcoming.map((r) => (
+            {visible.map((r) => (
               <SwipeRow key={r.id} left={dropAction(r)}>
                 <a href={href.show(r.id)} className="row__link">
                   <Poster src={r.image} alt={r.name} />
@@ -239,14 +245,18 @@ export function Home() {
               </SwipeRow>
             ))}
           </ul>
+            )}
+          </Limited>
         </section>
       )}
 
       {noDateYet.length > 0 && (
         <section>
           <h2 className="section-title">À jour</h2>
+          <Limited id="shows-uptodate" items={noDateYet} limit={5} all={!!q}>
+            {(visible) => (
           <ul className="rows">
-            {noDateYet.map((r) => (
+            {visible.map((r) => (
               <SwipeRow key={r.id} left={dropAction(r)}>
                 <a href={href.show(r.id)} className="row__link">
                   <Poster src={r.image} alt={r.name} />
@@ -258,6 +268,8 @@ export function Home() {
               </SwipeRow>
             ))}
           </ul>
+            )}
+          </Limited>
         </section>
       )}
 
@@ -267,7 +279,7 @@ export function Home() {
       {finished.length > 0 && (
         <section>
           <h2 className="section-title">Terminées</h2>
-          <Shelf rows={finished} />
+          <Shelf id="shows-finished" rows={finished} />
         </section>
       )}
         </>
@@ -300,7 +312,7 @@ export function Home() {
       {dropped.length > 0 && (
         <section>
           <h2 className="section-title">{STATUS_LABEL.dropped}</h2>
-          <Shelf rows={dropped} />
+          <Shelf id="shows-dropped" rows={dropped} />
         </section>
       )}
     </div>
@@ -342,8 +354,11 @@ function Parked({
           <EditToggle editing={ordering} onToggle={() => setOrdering((v) => !v)} label={title.toLowerCase()} />
         )}
       </h2>
+      {/* En rangement, toute la liste ; sinon les premiers et « Voir plus ». */}
+      <Limited id={`shows-${title}`} items={rows} limit={5} all={ordering}>
+        {(visible) => (
       <WishRows
-        items={rows}
+        items={visible}
         idOf={(r) => r.id}
         onCommit={(ids) => onReorder?.(ids)}
         enabled={!!onReorder && ordering}
@@ -367,6 +382,8 @@ function Parked({
           </SwipeRow>
         )}
       />
+        )}
+      </Limited>
     </section>
   )
 }
@@ -400,10 +417,10 @@ function HomeSkeleton() {
   )
 }
 
-function Shelf({ rows, withLabel }: { rows: Row[]; withLabel?: boolean }) {
+function Shelf({ id, rows, withLabel }: { id: string; rows: Row[]; withLabel?: boolean }) {
   // Deux rangées d'affiches, le reste derrière « Voir plus ».
   return (
-    <Limited items={rows} limit={8}>
+    <Limited id={id} items={rows} limit={8}>
       {(visible) => (
     <ul className="shelf">
       {visible.map((r) => (

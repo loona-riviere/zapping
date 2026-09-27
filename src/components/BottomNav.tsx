@@ -1,5 +1,10 @@
 import { isLibrary } from './Library'
+import type React from 'react'
 import { href, type Route } from '../lib/route'
+
+// La bibliothèque a trois sous-onglets (séries, films, livres) : son bouton du
+// bas ramène en haut du sous-onglet ouvert au lieu de repartir sur les séries.
+const isLibraryHash = (h: string | null) => h === href.home
 
 /**
  * Barre de navigation mobile, en bas d'écran comme les apps natives : plus
@@ -8,8 +13,19 @@ import { href, type Route } from '../lib/route'
  * bascule l'un ou l'autre selon la largeur, pas le JS.
  */
 export function BottomNav({ route, pending = 0 }: { route: Route; pending?: number }) {
+  // Toucher l'onglet où l'on est déjà : retour en haut de l'écran, comme sur iPhone.
+  const onNav = (e: React.MouseEvent<HTMLElement>) => {
+    const a = (e.target as HTMLElement).closest('a')
+    if (a?.getAttribute('aria-current') === 'page' && a.getAttribute('href') === window.location.hash) {
+      e.preventDefault()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } else if (a?.getAttribute('aria-current') === 'page' && window.scrollY > 0 && isLibraryHash(a.getAttribute('href'))) {
+      e.preventDefault()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
   return (
-    <nav className="bottomnav" aria-label="Navigation principale">
+    <nav className="bottomnav" aria-label="Navigation principale" onClick={onNav}>
       <a href={href.home} aria-current={isLibrary(route) ? 'page' : undefined}>
         <LibraryIcon />
         <span>Bibliothèque</span>

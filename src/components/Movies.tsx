@@ -199,7 +199,7 @@ export function Movies() {
           )}
         </p>
       )}
-      <Limited items={watched} limit={8} all={!!q}>
+      <Limited id="movies-watched" items={watched} limit={8} all={!!q}>
         {(visible) => (
       <ul className="rows">
         {visible.map((m) => (

@@ -48,15 +48,46 @@ function parse(hash: string): Route {
   return { name: 'home' }
 }
 
+const positions = new Map<string, number>()
+
+/** Défile jusqu'à `y`, en réessayant le temps que l'écran se remplisse. */
+function restoreScroll(y: number) {
+  window.scrollTo(0, y)
+  if (!y) return
+  let tries = 0
+  const again = () => {
+    if (Math.abs(window.scrollY - y) < 2 || tries++ > 20) return
+    window.scrollTo(0, y)
+    setTimeout(again, 50)
+  }
+  setTimeout(again, 30)
+}
+
 export function useRoute(): Route {
   const [hash, setHash] = useState(window.location.hash)
   useEffect(() => {
+    // Position de défilement de chaque écran visité : « retour » y ramène,
+    // un nouvel écran s'ouvre en haut.
+    let back = false
+    let current = window.location.hash
+    const onPop = () => (back = true)
     const onChange = () => {
-      setHash(window.location.hash)
-      window.scrollTo(0, 0)
+      positions.set(current, window.scrollY)
+      current = window.location.hash
+      setHash(current)
+      const y = back ? positions.get(current) ?? 0 : 0
+      back = false
+      restoreScroll(y)
     }
+    const remember = () => positions.set(current, window.scrollY)
+    window.addEventListener('popstate', onPop)
     window.addEventListener('hashchange', onChange)
-    return () => window.removeEventListener('hashchange', onChange)
+    window.addEventListener('scroll', remember, { passive: true })
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      window.removeEventListener('hashchange', onChange)
+      window.removeEventListener('scroll', remember)
+    }
   }, [])
   return parse(hash)
 }

@@ -7,17 +7,37 @@ import { useState, type ReactNode } from 'react'
  * d'un écran.
  */
 export function Limited<T>({
+  id,
   items,
   limit,
   all = false,
   children,
 }: {
+  /** Pour se souvenir de « Voir plus » ouvert en revenant sur l'écran. */
+  id: string
   items: T[]
   limit: number
   all?: boolean
   children: (visible: T[]) => ReactNode
 }) {
-  const [open, setOpen] = useState(false)
+  const key = `zapping.more.${id}`
+  const [open, setOpenState] = useState(() => {
+    try {
+      return sessionStorage.getItem(key) === '1'
+    } catch {
+      return false
+    }
+  })
+  const setOpen = (f: (v: boolean) => boolean) =>
+    setOpenState((v) => {
+      const next = f(v)
+      try {
+        sessionStorage.setItem(key, next ? '1' : '0')
+      } catch {
+        /* rien */
+      }
+      return next
+    })
   const long = !all && items.length > limit + 2
   return (
     <>
