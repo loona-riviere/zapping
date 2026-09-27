@@ -20,8 +20,11 @@ export function History({
   editing,
   onToggle,
   extra,
+  actions,
 }: {
   title: string
+  /** Boutons à côté de « Modifier » (revu, relire…). */
+  actions?: ReactNode
   entries: HistoryEntry[]
   editing: boolean
   onToggle: () => void
@@ -33,9 +36,12 @@ export function History({
     <section className="hist">
       <div className="hist__head">
         <h3>{title}</h3>
-        <button type="button" className="pill pill--small" onClick={onToggle}>
-          {editing ? 'OK' : 'Modifier'}
-        </button>
+        <span className="hist__actions">
+          {!editing && actions}
+          <button type="button" className="pill pill--small" onClick={onToggle}>
+            {editing ? 'OK' : 'Modifier'}
+          </button>
+        </span>
       </div>
       <ul>
         {entries.map((e) => (

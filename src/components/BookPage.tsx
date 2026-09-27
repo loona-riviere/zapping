@@ -152,6 +152,25 @@ export function BookPage({ id }: { id: string }) {
         {book && (
           <History
             title="Lectures"
+            actions={
+              book.status === 'read' && (
+                <button
+                  type="button"
+                  className="pill pill--small"
+                  onClick={() =>
+                    updateBook(book.book_id, {
+                      past_reads: [...(book.past_reads ?? []), { started_at: book.started_at, finished_at: book.finished_at }],
+                      status: 'reading',
+                      started_at: new Date().toISOString(),
+                      finished_at: null,
+                      current_page: 0,
+                    })
+                  }
+                >
+                  🔁 Relire
+                </button>
+              )
+            }
             editing={editDates}
             onToggle={() => setEditDates((v) => !v)}
             entries={[
@@ -215,23 +234,6 @@ export function BookPage({ id }: { id: string }) {
         )}
 
         <div className="pills">
-          {book?.status === 'read' && (
-            <button
-              type="button"
-              className="pill"
-              onClick={() =>
-                updateBook(book.book_id, {
-                  past_reads: [...(book.past_reads ?? []), { started_at: book.started_at, finished_at: book.finished_at }],
-                  status: 'reading',
-                  started_at: new Date().toISOString(),
-                  finished_at: null,
-                  current_page: 0,
-                })
-              }
-            >
-              🔁 Relire
-            </button>
-          )}
           <RecommendButton
             item={{
               kind: 'book',

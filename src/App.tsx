@@ -4,6 +4,7 @@ import { Auth } from './components/Auth'
 import { LaunchScreen, Splash } from './components/Backdrop'
 import { BottomNav } from './components/BottomNav'
 import { EasterEggOverlay, useLogoEasterEgg } from './components/EasterEgg'
+import { NotifPrompt } from './components/NotifPrompt'
 import { Celebrations } from './components/Celebrations'
 import { Import } from './components/Import'
 import { Library, isLibrary } from './components/Library'
@@ -142,6 +143,7 @@ function Shell() {
       )}
 
       <Celebrations />
+      <NotifPrompt />
       <BottomNav route={route} pending={pending} />
       <EasterEggOverlay message={message} />
     </>

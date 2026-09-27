@@ -4,7 +4,6 @@ import { computeProgress, epCode, formatDate, formatShortDate, isAired } from '.
 import { href } from '../lib/route'
 import { seasonOverviewsFr, showDetailsFr } from '../lib/tmdb'
 import { getShowWithEpisodes, statusFr, stripHtml, type ShowWithEpisodes, type TvEpisode } from '../lib/tvmaze'
-import { DuoPanel } from './DuoPanel'
 import { RecommendButton } from './Recommend'
 import { ShowTogether } from './ShowTogether'
 import { NextEpisode } from './NextEpisode'
@@ -279,7 +278,6 @@ export function ShowPage({ id }: { id: number }) {
               watched={watched}
             />
           )}
-          <DuoPanel show={{ id: show.id, name: tracked.find((t) => t.show_id === show.id)?.name ?? show.name, image: show.image?.medium ?? null }} />
           <RecommendButton
             item={{
               kind: 'show',

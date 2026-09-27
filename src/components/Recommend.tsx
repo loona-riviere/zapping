@@ -7,6 +7,7 @@ import { nameOf } from '../lib/social'
 import { useSocial } from '../lib/socialState'
 import type { TvShow } from '../lib/tvmaze'
 import { Poster } from './Poster'
+import { Sheet } from './Sheet'
 
 type Item = { kind: RecKind; itemId: string; title: string; image: string | null; meta: RecMeta }
 
@@ -30,15 +31,6 @@ export function RecommendButton({ item }: { item: Item }) {
   }, [open, item.kind, item.itemId, friends.length])
 
   if (!socialReady || !profile || incomingRecs === null || !friends.length) return null
-  if (sent) return <p className="muted rec__sent">📨 Recommandé à {sent}.</p>
-  if (!open) {
-    return (
-      <button className="pill" onClick={() => setOpen(true)}>
-        📨 Recommander
-      </button>
-    )
-  }
-
   const toggle = (id: string) =>
     setPicked((prev) => {
       const next = new Set(prev)
@@ -46,52 +38,76 @@ export function RecommendButton({ item }: { item: Item }) {
       else next.add(id)
       return next
     })
+  const close = () => {
+    setOpen(false)
+    setSent(null)
+    setPicked(new Set())
+    setNote('')
+  }
 
   return (
-    <div className="duo rec">
-      <p>Recommander {item.title} à…</p>
-      {have === null && <p className="muted">Je regarde qui l'a déjà…</p>}
-      {have && (
-        <div className="kinds">
-          {friends.map((f) => {
-            const already = have.has(f.user_id)
-            return (
-              <label key={f.user_id} className="kinds__item" title={already ? "Déjà dans sa liste" : undefined}>
-                <input
-                  type="checkbox"
-                  checked={picked.has(f.user_id)}
-                  disabled={already}
-                  onChange={() => toggle(f.user_id)}
+    <>
+      <button className="pill" onClick={() => setOpen(true)}>
+        📨 Recommander
+      </button>
+      {open && (
+        <Sheet title={`Recommander ${item.title}`} onClose={close}>
+          {sent ? (
+            <>
+              <p className="together__done">📨 Envoyé à {sent}.</p>
+              <button className="btn btn--ghost sheet__cta" onClick={close}>Fermer</button>
+            </>
+          ) : (
+            <>
+              <section className="sheet__section">
+                <p className="sheet__label">À qui ?</p>
+                {have === null && <p className="muted">Je regarde qui l'a déjà…</p>}
+                {have && (
+                  <div className="chips">
+                    {friends.map((f) => {
+                      const already = have.has(f.user_id)
+                      return (
+                        <button
+                          key={f.user_id}
+                          className={`pill${picked.has(f.user_id) ? ' pill--on' : ''}`}
+                          disabled={already}
+                          onClick={() => toggle(f.user_id)}
+                          title={already ? 'Déjà dans sa liste' : undefined}
+                        >
+                          {nameOf(f)}
+                          {already && <span className="muted rec__has"> · l'a déjà</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </section>
+              <section className="sheet__section">
+                <p className="sheet__label">Un petit mot</p>
+                <textarea
+                  className="rec__note"
+                  placeholder="Facultatif"
+                  maxLength={280}
+                  rows={2}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
                 />
-                {nameOf(f)}
-                {already && <span className="muted rec__has">déjà dans sa liste</span>}
-              </label>
-            )
-          })}
-        </div>
+              </section>
+              <button
+                className="btn btn--primary sheet__cta"
+                disabled={!picked.size}
+                onClick={async () => {
+                  await sendRecs([...picked], item, note)
+                  setSent(friends.filter((f) => picked.has(f.user_id)).map(nameOf).join(', '))
+                }}
+              >
+                Envoyer
+              </button>
+            </>
+          )}
+        </Sheet>
       )}
-      <textarea
-        className="rec__note"
-        placeholder="Un petit mot ? (facultatif)"
-        maxLength={280}
-        rows={2}
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-      />
-      <div className="movie__actions">
-        <button
-          className="btn btn--primary"
-          disabled={!picked.size}
-          onClick={async () => {
-            await sendRecs([...picked], item, note)
-            setSent(friends.filter((f) => picked.has(f.user_id)).map(nameOf).join(', '))
-          }}
-        >
-          Envoyer
-        </button>
-        <button className="link-btn muted" onClick={() => setOpen(false)}>Annuler</button>
-      </div>
-    </div>
+    </>
   )
 }
 

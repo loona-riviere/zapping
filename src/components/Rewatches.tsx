@@ -82,6 +82,14 @@ export function Rewatches({ show, episodes }: { show: TvShow; episodes: TvEpisod
     <>
       <History
         title="Visionnages"
+        actions={
+          !running &&
+          seen.size > 0 && (
+            <button type="button" className="pill pill--small" onClick={() => startRewatch(show.id)}>
+              🔁 Je la revois
+            </button>
+          )
+        }
         entries={entries}
         editing={editing}
         onToggle={() => setEditing((v) => !v)}
@@ -124,15 +132,7 @@ export function Rewatches({ show, episodes }: { show: TvShow; episodes: TvEpisod
             </button>
           )}
         </div>
-      ) : (
-        seen.size > 0 && (
-          <div className="pills">
-            <button className="pill" onClick={() => startRewatch(show.id)}>
-              🔁 Je la revois
-            </button>
-          </div>
-        )
-      )}
+      ) : null}
     </>
   )
 }

@@ -145,6 +145,11 @@ export function MoviePage({ id }: { id: number }) {
         {movie?.status === 'watched' && (
           <History
             title="Visionnages"
+            actions={
+              <button type="button" className="pill pill--small" onClick={() => rewatchMovie(movie.movie_id, `${today()}T12:00:00.000Z`)}>
+                🔁 Revu
+              </button>
+            }
             editing={editViews}
             onToggle={() => setEditViews((v) => !v)}
             entries={[
@@ -202,11 +207,6 @@ export function MoviePage({ id }: { id: number }) {
 
 
         <div className="pills">
-          {movie?.status === 'watched' && (
-            <button type="button" className="pill" onClick={() => rewatchMovie(movie.movie_id, `${today()}T12:00:00.000Z`)}>
-              🔁 Revu
-            </button>
-          )}
           {movie?.status === 'watched' && <WatchedTogether movie={movie} />}
           <RecommendButton
             item={{
