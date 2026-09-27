@@ -5,6 +5,7 @@ import { href } from '../lib/route'
 import { movieDetails, type MovieDetails } from '../lib/tmdb'
 import { Poster } from './Poster'
 import { HideToggle } from './HideToggle'
+import { MoreButton, MorePanel } from './MoreMenu'
 import { RecommendButton } from './Recommend'
 import { RatingPicker } from './RatingPicker'
 
@@ -21,6 +22,7 @@ export function MoviePage({ id }: { id: number }) {
     useApp()
   const [details, setDetails] = useState<MovieDetails | null>(null)
   const [error, setError] = useState(false)
+  const [more, setMore] = useState(false)
   const movie = movies.find((m) => m.movie_id === id)
 
   useEffect(() => {
@@ -93,16 +95,6 @@ export function MoviePage({ id }: { id: number }) {
                   onChange={(e) => e.target.value && markMovieWatched(movie.movie_id, `${e.target.value}T12:00:00.000Z`)}
                 />
               </p>
-              {details?.releaseDate && (
-                <button
-                  type="button"
-                  className="link-btn season__dates"
-                  onClick={() => markMovieWatched(movie.movie_id, `${details.releaseDate}T12:00:00.000Z`)}
-                  title="Reprend la date de sortie du film"
-                >
-                  Dater à sa sortie
-                </button>
-              )}
             </>
           ) : (
             <p className="show__count muted">
@@ -110,6 +102,7 @@ export function MoviePage({ id }: { id: number }) {
             </p>
           )}
         </div>
+        <MoreButton open={more} onToggle={() => setMore((v) => !v)} />
       </header>
 
       <div className="show__controls">
@@ -153,6 +146,17 @@ export function MoviePage({ id }: { id: number }) {
           )}
         </div>
 
+        {more && (
+          <MorePanel>
+            {movie?.status === 'watched' && details?.releaseDate && (
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => markMovieWatched(movie.movie_id, `${details.releaseDate}T12:00:00.000Z`)}
+              >
+                Dater à sa sortie ({formatShortDate(details.releaseDate)})
+              </button>
+            )}
         <RecommendButton
           item={{
             kind: 'movie',
@@ -184,6 +188,8 @@ export function MoviePage({ id }: { id: number }) {
           >
             Retirer
           </button>
+        )}
+          </MorePanel>
         )}
       </div>
 

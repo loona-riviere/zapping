@@ -13,7 +13,14 @@ import { useSocial } from '../lib/socialState'
  * Qui a déjà vu des épisodes choisit si c'est un revisionnage (sa progression
  * repart de zéro, son historique ne bouge pas) ou la suite de son visionnage.
  */
-export function DuoPanel({ show }: { show: { id: number; name: string; image: string | null } }) {
+export function DuoPanel({
+  show,
+  mode = 'status',
+}: {
+  show: { id: number; name: string; image: string | null }
+  /** « status » : l'état en cours (à deux, invitation), sur la fiche ; « start » : proposer, dans le menu ⋯. */
+  mode?: 'status' | 'start'
+}) {
   const { socialReady, profile, friends, duos, duoFor, profileOf, inviteDuo, acceptDuo, stopDuo } = useSocial()
   const { historyFor, isRewatching, startRewatch } = useApp()
   const [picking, setPicking] = useState(false)
@@ -52,6 +59,9 @@ export function DuoPanel({ show }: { show: { id: number; name: string; image: st
       </div>
     )
   }
+
+  if (mode === 'start' && d) return null
+  if (mode === 'status' && !d) return null
 
   if (d?.status === 'accepted') {
     return (

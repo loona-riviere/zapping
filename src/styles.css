@@ -858,3 +858,22 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 }
 .rec__note:focus { outline: none; border-color: var(--accent); }
 .rec__quote { font-style: italic; font-size: .88rem; margin-top: .2rem !important; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+/* Fiches : actions rares derrière « ⋯ » */
+.show__head { position: relative; }
+.more-btn {
+  position: absolute; top: 0; right: 0; width: 2.4rem; height: 2.4rem; border-radius: 50%;
+  display: grid; place-items: center; font-size: 1.4rem; line-height: 1; cursor: pointer;
+  background: var(--surface); border: 1.5px solid var(--line); color: var(--ink);
+}
+.more-btn--on { border-color: var(--accent); color: var(--accent); }
+.show__head:has(.more-btn) .show__meta { padding-right: 2.6rem; }
+.more {
+  display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; width: 100%;
+  padding: .85rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
+}
+.more .show__untrack { margin-top: 0; }
+.more .duo, .more .rec { border: 0; padding: 0; background: none; }
+/* Dates d'une lecture : une ligne discrète, qu'on touche pour modifier. */
+.dates-line { background: none; border: 0; padding: 0; font: inherit; font-size: .92rem; color: var(--muted); cursor: pointer; text-align: left; }
+.dates-line span { text-decoration: underline dotted; text-underline-offset: 3px; }

@@ -7,6 +7,7 @@ import { getShowWithEpisodes, statusFr, stripHtml, type ShowWithEpisodes, type T
 import { DuoPanel } from './DuoPanel'
 import { RecommendButton } from './Recommend'
 import { HideToggle } from './HideToggle'
+import { MoreButton, MorePanel } from './MoreMenu'
 import { NextEpisode } from './NextEpisode'
 import { Poster } from './Poster'
 import { Rewatches } from './Rewatches'
@@ -23,6 +24,7 @@ export function ShowPage({ id }: { id: number }) {
   const [confirmUncheck, setConfirmUncheck] = useState<TvEpisode | null>(null)
   const [refresh, setRefresh] = useState<'idle' | 'busy' | 'done' | 'nochange' | 'failed'>('idle')
   const [openSeasons, setOpenSeasons] = useState<Set<number>>(new Set())
+  const [more, setMore] = useState(false)
   // Grilles repliées ou dépliées à la main ; sans choix explicite, seule la
   // saison en cours est dépliée (voir `isGridOpen`).
   const [gridChoice, setGridChoice] = useState<Map<number, boolean>>(new Map())
@@ -252,6 +254,7 @@ export function ShowPage({ id }: { id: number }) {
             </p>
           )}
         </div>
+        <MoreButton open={more} onToggle={() => setMore((v) => !v)} />
       </header>
 
       <div className="show__controls">
@@ -272,6 +275,9 @@ export function ShowPage({ id }: { id: number }) {
           </p>
         )}
         <DuoPanel show={{ id: show.id, name: tracked.find((t) => t.show_id === show.id)?.name ?? show.name, image: show.image?.medium ?? null }} />
+        {more && (
+          <MorePanel>
+            <DuoPanel show={{ id: show.id, name: tracked.find((t) => t.show_id === show.id)?.name ?? show.name, image: show.image?.medium ?? null }}  mode="start" />
         <RecommendButton
           item={{
             kind: 'show',
@@ -296,6 +302,8 @@ export function ShowPage({ id }: { id: number }) {
           >
             Retirer de mes séries
           </button>
+        )}
+          </MorePanel>
         )}
       </div>
 

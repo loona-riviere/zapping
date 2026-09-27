@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { bookDetails, type Book } from '../lib/books'
 import { finishPatch, startPatch, useBooks } from '../lib/booksState'
 import { BOOK_STATUSES, BOOK_STATUS_LABEL, type BookPatch, type BookStatus, type TrackedBook } from '../lib/bookStore'
+import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { HideToggle } from './HideToggle'
+import { MoreButton, MorePanel } from './MoreMenu'
 import { RecommendButton } from './Recommend'
 import { PageInput } from './PageInput'
 import { Poster } from './Poster'
@@ -12,6 +14,18 @@ import { RatingPicker } from './RatingPicker'
 const today = () => new Date().toISOString().slice(0, 10)
 /** Midi UTC : une date choisie au calendrier reste le même jour quel que soit le fuseau. */
 const atNoon = (day: string) => `${day}T12:00:00.000Z`
+
+/** « Lu du 3 au 10 août 2026 », « Commencé le 3 août 2026 »… en une ligne. */
+function datesLabel(status: BookStatus, start: string | null, end: string | null): string {
+  const d = (x: string) => formatShortDate(x)
+  if (status === 'read') {
+    if (start && end) return `Lu du ${d(start)} au ${d(end)}`
+    if (end) return `Lu le ${d(end)}`
+    if (start) return `Commencé le ${d(start)}`
+    return 'Lu, dates inconnues — ajouter'
+  }
+  return start ? `Commencé le ${d(start)}` : 'Date de début — ajouter'
+}
 
 /** Ce que change le passage d'un statut à l'autre, au-delà du statut lui-même. */
 function statusPatch(b: TrackedBook, status: BookStatus): BookPatch {
@@ -25,6 +39,8 @@ export function BookPage({ id }: { id: string }) {
   const [details, setDetails] = useState<Book | null>(null)
   const [error, setError] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  const [more, setMore] = useState(false)
+  const [editDates, setEditDates] = useState(false)
   const book = bookById(id)
 
   useEffect(() => {
@@ -89,6 +105,7 @@ export function BookPage({ id }: { id: string }) {
             </select>
           )}
         </div>
+        <MoreButton open={more} onToggle={() => setMore((v) => !v)} />
       </header>
 
       <div className="show__controls">
@@ -138,8 +155,12 @@ export function BookPage({ id }: { id: string }) {
           </label>
         )}
 
-        {book && book.status !== 'later' && (
-          <>
+        {book && book.status !== 'later' && !editDates && (
+          <button type="button" className="dates-line" onClick={() => setEditDates(true)} title="Modifier les dates">
+            <span>{datesLabel(book.status, book.started_at, book.finished_at)}</span>
+          </button>
+        )}
+        {book && book.status !== 'later' && editDates && (
           <div className="book__dates">
             <label>
               Commencé le
@@ -150,12 +171,7 @@ export function BookPage({ id }: { id: string }) {
                 onChange={(e) => updateBook(book.book_id, { started_at: e.target.value ? atNoon(e.target.value) : null })}
               />
               {book.started_at && (
-                <button
-                  type="button"
-                  className="link-btn"
-                  onClick={() => updateBook(book.book_id, { started_at: null })}
-                  title="Je ne sais plus quand"
-                >
+                <button type="button" className="link-btn" onClick={() => updateBook(book.book_id, { started_at: null })}>
                   oublier
                 </button>
               )}
@@ -170,35 +186,22 @@ export function BookPage({ id }: { id: string }) {
                   onChange={(e) => updateBook(book.book_id, { finished_at: e.target.value ? atNoon(e.target.value) : null })}
                 />
                 {book.finished_at && (
-                  <button
-                    type="button"
-                    className="link-btn"
-                    onClick={() => updateBook(book.book_id, { finished_at: null })}
-                    title="Je ne sais plus quand : le livre reste lu, sans date"
-                  >
+                  <button type="button" className="link-btn" onClick={() => updateBook(book.book_id, { finished_at: null })}>
                     oublier
                   </button>
                 )}
               </label>
             )}
+            <button type="button" className="link-btn" onClick={() => setEditDates(false)}>OK</button>
           </div>
-          {(book.started_at || book.finished_at) && (
-            <button
-              type="button"
-              className="link-btn muted"
-              style={{ fontSize: '.85rem' }}
-              onClick={() => updateBook(book.book_id, { started_at: null, finished_at: null })}
-            >
-              Effacer les dates (lu il y a longtemps, sans savoir quand)
-            </button>
-          )}
-          </>
         )}
 
         {book?.status === 'read' && (
           <RatingPicker rating={book.rating} onChange={(r) => updateBook(book.book_id, { rating: r })} />
         )}
 
+        {more && (
+          <MorePanel>
         <RecommendButton
           item={{
             kind: 'book',
@@ -238,6 +241,8 @@ export function BookPage({ id }: { id: string }) {
           >
             Retirer de mes livres
           </button>
+        )}
+          </MorePanel>
         )}
       </div>
 
