@@ -6,7 +6,9 @@ type Mode = 'password' | 'code'
 type Step = 'form' | 'sending' | 'sent' | 'verifying'
 
 export function Auth() {
-  const [mode, setMode] = useState<Mode>('password')
+  // Par défaut : le code par e-mail, rien à retenir (une clé d'accès Google ne
+  // marche pas partout, un mot de passe s'oublie).
+  const [mode, setMode] = useState<Mode>('code')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
@@ -118,74 +120,32 @@ export function Auth() {
         <Mire />
         <p className="auth__lede">Séries, films, livres : retrouve toujours où tu en es.</p>
 
-        {mode === 'password' && (
-          <>
-            <form onSubmit={signIn} className="auth__form">
-              <label htmlFor="email">Adresse e-mail</label>
-              <input
-                id="email"
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <label htmlFor="password">Mot de passe</label>
-              <input
-                id="password"
-                type="password"
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <button className="btn btn--primary" disabled={step === 'sending'}>
-                {step === 'sending' ? 'Connexion…' : 'Se connecter'}
-              </button>
-              {error && <p className="error">{error}</p>}
-            </form>
-
-            <button className="btn btn--google" onClick={signInWithGoogle} disabled={step === 'sending'}>
-              <GoogleG /> Continuer avec Google
-            </button>
-
-            <p className="auth__signup muted">
-              Pas encore de compte ?{' '}
-              <button type="button" className="link-btn" disabled={step === 'sending'} onClick={signUp}>
-                Créer un compte
-              </button>
-            </p>
-
-            <button className="link-btn auth__switch" onClick={() => switchMode('code')}>
-              Se connecter avec un code reçu par e-mail à la place
-            </button>
-          </>
-        )}
-
         {mode === 'code' && (
           <>
             {step !== 'sent' && step !== 'verifying' ? (
               <form onSubmit={sendCode} className="auth__form">
-                <label htmlFor="email-code">Adresse e-mail</label>
+                <label htmlFor="email-code">Ton adresse e-mail</label>
                 <input
                   id="email-code"
                   type="email"
                   required
                   autoComplete="email"
+                  placeholder="prenom@exemple.fr"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
                 <button className="btn btn--primary" disabled={step === 'sending'}>
                   {step === 'sending' ? 'Envoi…' : 'Recevoir un code'}
                 </button>
+                <p className="muted auth__hint">Pas de mot de passe : on t'envoie un code à 6 chiffres. Nouveau ? Ton compte est créé au passage.</p>
                 {error && <p className="error">Envoi impossible : {error}</p>}
               </form>
             ) : (
               <form onSubmit={verify} className="auth__form">
                 <p className="auth__sent">
-                  Un code à 6 chiffres a été envoyé à <strong>{email}</strong>.
+                  Code envoyé à <strong>{email}</strong>. Regarde aussi dans les spams.
                 </p>
-                <label htmlFor="code">Code reçu par e-mail</label>
+                <label htmlFor="code">Code à 6 chiffres</label>
                 <input
                   id="code"
                   type="text"
@@ -202,10 +162,55 @@ export function Auth() {
                   {step === 'verifying' ? 'Vérification…' : 'Se connecter'}
                 </button>
                 {error && <p className="error">{error}</p>}
+                <button type="button" className="link-btn muted" onClick={() => switchMode('code')}>
+                  Changer d'adresse ou renvoyer un code
+                </button>
               </form>
             )}
-            <button className="link-btn auth__switch" onClick={() => switchMode('password')}>
-              Se connecter avec un mot de passe à la place
+          </>
+        )}
+
+        {mode === 'password' && (
+          <form onSubmit={signIn} className="auth__form">
+            <label htmlFor="email">Adresse e-mail</label>
+            <input
+              id="email"
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <label htmlFor="password">Mot de passe</label>
+            <input
+              id="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <button className="btn btn--primary" disabled={step === 'sending'}>
+              {step === 'sending' ? 'Connexion…' : 'Se connecter'}
+            </button>
+            {error && <p className="error">{error}</p>}
+            <p className="auth__signup muted">
+              Pas encore de compte ?{' '}
+              <button type="button" className="link-btn" disabled={step === 'sending'} onClick={signUp}>
+                Créer un compte avec ce mot de passe
+              </button>
+            </p>
+          </form>
+        )}
+
+        {step !== 'sent' && step !== 'verifying' && (
+          <>
+            <div className="auth__or"><span>ou</span></div>
+            <button className="btn btn--google" onClick={signInWithGoogle} disabled={step === 'sending'}>
+              <GoogleG /> Continuer avec Google
+            </button>
+            <button className="link-btn auth__switch" onClick={() => switchMode(mode === 'code' ? 'password' : 'code')}>
+              {mode === 'code' ? "J'ai un mot de passe" : 'Recevoir un code par e-mail à la place'}
             </button>
           </>
         )}

@@ -1103,3 +1103,7 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
   box-shadow: 0 1px 4px rgb(0 0 0 / .3);
 }
 .shelf__item > a { text-decoration: none; color: inherit; }
+
+.auth__hint { margin: 0; font-size: .82rem; }
+.auth__or { display: flex; align-items: center; gap: .7rem; color: var(--muted); font-size: .82rem; margin: .3rem 0; }
+.auth__or::before, .auth__or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
