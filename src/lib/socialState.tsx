@@ -79,7 +79,13 @@ export function SocialProvider({
     refresh()
     const onVisible = () => document.visibilityState === 'visible' && refresh()
     document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
+    // Appli laissée ouverte : une recommandation ou une demande reçue entre-temps
+    // arrive quand même, à la minute près.
+    const tick = window.setInterval(() => document.visibilityState === 'visible' && refresh(), 60_000)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      clearInterval(tick)
+    }
   }, [refresh])
 
   const run = useCallback(

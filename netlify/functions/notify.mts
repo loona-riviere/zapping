@@ -19,9 +19,13 @@ export default async (req: Request) => {
   const vapidPublic = Netlify.env.get('VAPID_PUBLIC_KEY')
   const vapidPrivate = Netlify.env.get('VAPID_PRIVATE_KEY')
   const vapidSubject = Netlify.env.get('VAPID_SUBJECT')
+  const missing = Object.entries({
+    SUPABASE_URL: supabaseUrl, SUPABASE_SERVICE_ROLE_KEY: serviceKey,
+    VAPID_PUBLIC_KEY: vapidPublic, VAPID_PRIVATE_KEY: vapidPrivate, VAPID_SUBJECT: vapidSubject,
+  }).filter(([, v]) => !v).map(([k]) => k)
   if (!supabaseUrl || !serviceKey || !vapidPublic || !vapidPrivate || !vapidSubject) {
-    console.error('notify: variables manquantes')
-    return new Response(null, { status: 204 })
+    console.error(`notify: variables manquantes : ${missing.join(', ')}`)
+    return Response.json({ sent: 0, reason: `Variables Netlify manquantes : ${missing.join(', ')}` }, { status: 500 })
   }
   const db = createClient(supabaseUrl, serviceKey)
 
@@ -38,14 +42,17 @@ export default async (req: Request) => {
     return new Response(null, { status: 400 })
   }
   const to = body.to
-  if (!to || to === me || !/^[0-9a-f-]{36}$/i.test(to)) return new Response(null, { status: 400 })
+  const isTest = body.event === 'test'
+  if (!to || (to === me && !isTest) || !/^[0-9a-f-]{36}$/i.test(to)) return new Response(null, { status: 400 })
 
   const { data: sender } = await db.from('profiles').select('username, display_name').eq('user_id', me).maybeSingle()
   const who = sender?.display_name?.trim() || (sender ? `@${sender.username}` : 'Quelqu’un')
 
   let payload: { title: string; body: string; url: string } | null = null
 
-  if (body.event === 'friend_request') {
+  if (isTest) {
+    if (to === me) payload = { title: 'Zapping', body: 'Les notifications marchent 🎉', url: '/#/parametres' }
+  } else if (body.event === 'friend_request') {
     const { data } = await db
       .from('friendships')
       .select('status')
@@ -121,20 +128,29 @@ export default async (req: Request) => {
     }
   }
 
-  if (!payload) return new Response(null, { status: 204 })
+  if (!payload) return Response.json({ sent: 0, reason: 'Rien à notifier' })
 
   webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate)
   const { data: subs } = await db.from('push_subscriptions').select('endpoint, p256dh, auth_key').eq('user_id', to)
+  let sent = 0
+  const errors: string[] = []
   for (const sub of (subs ?? []) as SubRow[]) {
     try {
       await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
         JSON.stringify(payload),
       )
+      sent++
     } catch (e) {
       const status = (e as { statusCode?: number }).statusCode
+      const detail = (e as { body?: string }).body ?? (e as Error).message
+      console.error(`notify: envoi refusé (${status ?? '?'}) ${detail}`)
+      errors.push(`${status ?? '?'} ${detail}`.slice(0, 200))
       if (status === 404 || status === 410) await db.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
     }
   }
-  return new Response(null, { status: 204 })
+  return Response.json({
+    sent,
+    reason: !subs?.length ? 'Aucun appareil abonné' : sent ? undefined : `Envoi refusé : ${errors.join(' | ')}`,
+  })
 }

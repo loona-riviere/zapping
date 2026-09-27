@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { testNotification } from '../lib/notify'
 import {
   currentSubscription, disableNotifications, enableNotifications, pushConfigured, pushSupported,
 } from '../lib/push'
@@ -14,6 +15,7 @@ type State = 'checking' | 'off' | 'on' | 'unsupported' | 'denied'
  */
 export function Notifications() {
   const [state, setState] = useState<State>('checking')
+  const [test, setTest] = useState<string | null>(null)
 
   useEffect(() => {
     if (!pushConfigured || !pushSupported()) {
@@ -60,6 +62,19 @@ export function Notifications() {
           >
             {state === 'on' ? 'Désactiver les notifications' : 'Activer les notifications'}
           </button>
+          {state === 'on' && (
+            <button
+              type="button"
+              className="link-btn"
+              onClick={async () => {
+                setTest('Envoi…')
+                setTest(await testNotification())
+              }}
+            >
+              M'envoyer une notif de test
+            </button>
+          )}
+          {test && <p className="muted" style={{ fontSize: '.85rem' }}>{test}</p>}
         </>
       )}
     </section>

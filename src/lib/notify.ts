@@ -6,6 +6,7 @@ type Event =
   | { event: 'duo'; to: string; showId: number }
   | { event: 'movie_together'; to: string; movieId: number }
   | { event: 'show_together'; to: string; showId: number }
+  | { event: 'test'; to: string }
 
 /**
  * Prévient l'autre sur son téléphone (s'il a activé les notifications).
@@ -27,4 +28,25 @@ export function notify(e: Event): void {
       /* hors ligne, fonction absente en local… tant pis pour la notif */
     }
   })()
+}
+
+/** Envoie une notif de test sur ses propres appareils ; renvoie le diagnostic. */
+export async function testNotification(): Promise<string> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  const uid = data.session?.user.id
+  if (!token || !uid) return 'Pas connecté'
+  try {
+    const res = await fetch('/.netlify/functions/notify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: JSON.stringify({ event: 'test', to: uid }),
+    })
+    const json = (await res.json().catch(() => null)) as { sent?: number; reason?: string } | null
+    if (!json) return `Fonction de notification injoignable (${res.status})`
+    if (json.sent) return `Envoyée à ${json.sent} appareil${json.sent > 1 ? 's' : ''}. Elle arrive dans quelques secondes.`
+    return json.reason ?? 'Non envoyée'
+  } catch (e) {
+    return `Échec : ${(e as Error).message}`
+  }
 }
