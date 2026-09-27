@@ -43,3 +43,12 @@ function realignAfterKeyboard() {
 document.addEventListener('focusout', realignAfterKeyboard)
 window.visualViewport?.addEventListener('resize', realignAfterKeyboard)
 window.visualViewport?.addEventListener('scroll', () => setTimeout(clampScroll, 50))
+
+// Pincer pour zoomer : Safari ignore « user-scalable=no » dans un onglet, mais
+// on peut bloquer le geste. Seulement dans l'appli installée, pour laisser le
+// zoom à qui en a besoin dans le navigateur.
+if (window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone) {
+  for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
+    document.addEventListener(type, (e) => e.preventDefault(), { passive: false })
+  }
+}
