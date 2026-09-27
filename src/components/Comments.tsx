@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { addComment, ago, deleteComment, fetchComments, type Comment, type CommentKind } from '../lib/comments'
 import { notify } from '../lib/notify'
-import { nameOf } from '../lib/social'
+import { nameOf, type Profile } from '../lib/social'
 import { useSocial } from '../lib/socialState'
 
 /**
@@ -32,6 +32,17 @@ export function Comments({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [revealed, setRevealed] = useState<Set<number>>(new Set())
+  // @mention en cours de frappe : le mot qui suit « @ » juste avant le curseur.
+  const [mention, setMention] = useState<string | null>(null)
+  const box = useRef<HTMLTextAreaElement>(null)
+  // Position du curseur à remettre juste après l'insertion d'un @pseudo.
+  const caretAfter = useRef<number | null>(null)
+  useLayoutEffect(() => {
+    if (caretAfter.current === null || !box.current) return
+    box.current.focus()
+    box.current.setSelectionRange(caretAfter.current, caretAfter.current)
+    caretAfter.current = null
+  }, [text])
 
   useEffect(() => {
     let alive = true
@@ -96,7 +107,7 @@ export function Comments({
                     </span>
                   </button>
                 ) : (
-                  <p className="comment__body">{c.body}</p>
+                  <p className="comment__body">{withMentions(c.body)}</p>
                 )}
                 {mine && (
                   <button
@@ -122,10 +133,31 @@ export function Comments({
           className="rec__note"
           rows={2}
           maxLength={1000}
-          placeholder={kind === 'episode' ? 'Ton avis sur cet épisode…' : 'Ton avis…'}
+          placeholder={kind === 'episode' ? 'Ton avis sur cet épisode… (@ pour taguer un ami)' : 'Ton avis… (@ pour taguer un ami)'}
+          ref={box}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value)
+            const before = e.target.value.slice(0, e.target.selectionStart ?? e.target.value.length)
+            const m = before.match(/(?:^|\s)@([\p{L}0-9._]*)$/u)
+            setMention(m ? m[1].toLowerCase() : null)
+          }}
         />
+        {mention !== null && (
+          <MentionPicker
+            friends={friends}
+            query={mention}
+            onPick={(f) => {
+              const el = box.current
+              const caret = el?.selectionStart ?? text.length
+              const before = text.slice(0, caret).replace(/@([\p{L}0-9._]*)$/u, `@${f.username} `)
+              const next = before + text.slice(caret)
+              caretAfter.current = before.length
+              setText(next)
+              setMention(null)
+            }}
+          />
+        )}
         <div className="comments__row">
           {kind !== 'episode' ? (
             <label className="comments__spoiler">
@@ -142,5 +174,41 @@ export function Comments({
         {error && <p className="error">{error}</p>}
       </div>
     </section>
+  )
+}
+
+/** Amis à taguer : ceux dont le pseudo ou le nom commence par ce qui est tapé après « @ ». */
+function MentionPicker({ friends, query, onPick }: { friends: Profile[]; query: string; onPick: (f: Profile) => void }) {
+  const fold = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const q = fold(query)
+  const matches = friends.filter((f) => fold(f.username).startsWith(q) || fold(nameOf(f)).split(/\s+/).some((w) => w.startsWith(q))).slice(0, 6)
+  if (!matches.length) return null
+  return (
+    <div className="mentions" role="listbox" aria-label="Taguer un ami">
+      {matches.map((f) => (
+        <button
+          key={f.user_id}
+          type="button"
+          className="mentions__item"
+          // mousedown plutôt que click : le champ ne perd pas le focus (le clavier reste ouvert).
+          onMouseDown={(e) => {
+            e.preventDefault()
+            onPick(f)
+          }}
+        >
+          <span className="avatar mentions__avatar" aria-hidden="true">{nameOf(f).slice(0, 1).toUpperCase()}</span>
+          <span>
+            <strong>{nameOf(f)}</strong> <span className="muted">@{f.username}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Le texte d'un commentaire, avec les @pseudo mis en valeur. */
+function withMentions(body: string): ReactNode[] {
+  return body.split(/(@[a-z0-9._]{3,20})/gi).map((part, i) =>
+    part.startsWith('@') && i % 2 === 1 ? <span key={i} className="mention">{part}</span> : part,
   )
 }

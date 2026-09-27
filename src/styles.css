@@ -1147,3 +1147,15 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
 .comments__spoiler { display: flex; align-items: center; gap: .4rem; font-size: .85rem; color: var(--muted); }
 .comments__spoiler input { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; }
 .comments__hint { font-size: .8rem; }
+
+.mentions {
+  display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+  background: var(--surface); box-shadow: 0 6px 20px rgb(0 0 0 / .12);
+}
+.mentions__item {
+  display: flex; align-items: center; gap: .6rem; padding: .5rem .7rem; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: .9rem; color: var(--ink); text-align: left;
+}
+.mentions__item + .mentions__item { border-top: 1px solid var(--line); }
+.mentions__avatar { width: 28px; height: 28px; font-size: .8rem; }
+.mention { color: var(--accent); font-weight: 700; }

@@ -72,6 +72,8 @@ async function handle(req: Request): Promise<Response> {
   let payload: { title: string; body: string; url: string } | null = null
   // Par défaut un seul destinataire ; un commentaire va à plusieurs amis.
   let recipients: string[] = [to]
+  // Envois supplémentaires, avec leur propre texte (amis tagués dans un commentaire).
+  const extra: { to: string[]; payload: { title: string; body: string; url: string } }[] = []
 
   if (body.event === 'comment' && typeof body.commentId === 'number') {
     // Mon commentaire, tout juste publié : on prévient mes amis qui ont ce titre.
@@ -99,7 +101,14 @@ async function handle(req: Request): Promise<Response> {
         const { data: rows } = await q.in('user_id', friendIds)
         having = [...new Set((rows ?? []).map((r) => r.user_id as string))]
       }
-      recipients = having
+      // Amis tagués (@pseudo) : leur propre notif, qu'ils aient le titre ou non.
+      const tags = [...new Set([...c.body.matchAll(/@([a-z0-9._]{3,20})/gi)].map((m) => m[1].toLowerCase()))]
+      let tagged: string[] = []
+      if (tags.length && friendIds.length) {
+        const { data: ps } = await db.from('profiles').select('user_id, username').in('user_id', friendIds)
+        tagged = (ps ?? []).filter((p) => tags.includes(String(p.username).toLowerCase())).map((p) => p.user_id as string)
+      }
+      recipients = having.filter((u) => !tagged.includes(u))
       const url =
         c.kind === 'episode' ? `/#/show/${c.show_id}/ep/${c.item_id}` : c.kind === 'movie' ? `/#/movie/${c.item_id}` : `/#/livre/${encodeURIComponent(c.item_id)}`
       payload = {
@@ -107,6 +116,16 @@ async function handle(req: Request): Promise<Response> {
         // Un épisode peut divulgâcher : on ne recopie pas le texte dans la notif.
         body: c.kind === 'episode' || c.spoiler ? 'Ouvre pour lire (attention aux spoilers).' : c.body.slice(0, 140),
         url,
+      }
+      if (tagged.length) {
+        extra.push({
+          to: tagged,
+          payload: {
+            title: `${who} t’a mentionné·e`,
+            body: `Dans un commentaire sur ${c.title}${c.kind === 'episode' || c.spoiler ? ' (attention aux spoilers)' : ` : ${c.body.slice(0, 120)}`}`,
+            url,
+          },
+        })
       }
     }
   } else if (isTest) {
@@ -190,27 +209,32 @@ async function handle(req: Request): Promise<Response> {
   if (!payload) return Response.json({ sent: 0, reason: 'Rien à notifier' })
 
   webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate)
-  if (!recipients.length) return Response.json({ sent: 0, reason: 'Personne à prévenir' })
-  const { data: subs } = await db.from('push_subscriptions').select('endpoint, p256dh, auth_key').in('user_id', recipients)
+  const batches = [{ to: recipients, payload }, ...extra].filter((x) => x.to.length)
+  if (!batches.length) return Response.json({ sent: 0, reason: 'Personne à prévenir' })
   let sent = 0
+  let devices = 0
   const errors: string[] = []
-  for (const sub of (subs ?? []) as SubRow[]) {
-    try {
-      await webpush.sendNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
-        JSON.stringify(payload),
-      )
-      sent++
-    } catch (e) {
-      const status = (e as { statusCode?: number }).statusCode
-      const detail = (e as { body?: string }).body ?? (e as Error).message
-      console.error(`notify: envoi refusé (${status ?? '?'}) ${detail}`)
-      errors.push(`${status ?? '?'} ${detail}`.slice(0, 200))
-      if (status === 404 || status === 410) await db.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
+  for (const batch of batches) {
+    const { data: subs } = await db.from('push_subscriptions').select('endpoint, p256dh, auth_key').in('user_id', batch.to)
+    devices += subs?.length ?? 0
+    for (const sub of (subs ?? []) as SubRow[]) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
+          JSON.stringify(batch.payload),
+        )
+        sent++
+      } catch (e) {
+        const status = (e as { statusCode?: number }).statusCode
+        const detail = (e as { body?: string }).body ?? (e as Error).message
+        console.error(`notify: envoi refusé (${status ?? '?'}) ${detail}`)
+        errors.push(`${status ?? '?'} ${detail}`.slice(0, 200))
+        if (status === 404 || status === 410) await db.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
+      }
     }
   }
   return Response.json({
     sent,
-    reason: !subs?.length ? 'Aucun appareil abonné' : sent ? undefined : `Envoi refusé : ${errors.join(' | ')}`,
+    reason: !devices ? 'Aucun appareil abonné' : sent ? undefined : `Envoi refusé : ${errors.join(' | ')}`,
   })
 }
