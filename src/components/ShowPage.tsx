@@ -29,7 +29,7 @@ export function ShowPage({ id }: { id: number }) {
   const [error, setError] = useState(false)
   const [catchUp, setCatchUp] = useState<TvEpisode[] | null>(null)
   const [confirmUncheck, setConfirmUncheck] = useState<TvEpisode | null>(null)
-  // Appui long sur une case : ouvre la page de l'épisode au lieu de le cocher.
+  // Toucher une case ouvre la page de l'épisode ; appui long : la cocher / décocher.
   const pressed = useRef(false)
   const pressTimer = useRef<number | null>(null)
   const longPress = (open: () => void) => ({
@@ -423,7 +423,6 @@ export function ShowPage({ id }: { id: number }) {
                     key={ep.id}
                     className={`tile${on ? ' tile--on' : ''}${!out ? ' tile--future' : ''}${isNext ? ' tile--next' : ''}`}
                     aria-pressed={on}
-                    disabled={!out}
                     title={`${epCode(ep)} ${ep.name}${
                       on
                         ? watched.get(ep.id)
@@ -434,8 +433,8 @@ export function ShowPage({ id }: { id: number }) {
                           : `, le ${formatDate(ep.airstamp ?? ep.airdate)}`
                     }`}
                     aria-label={`${epCode(ep)} ${ep.name}${!out ? ', pas encore diffusé' : on ? ', vu' : ''}`}
-                    {...longPress(() => (window.location.hash = href.episode(show.id, ep.id)))}
-                    onClick={() => (pressed.current ? (pressed.current = false) : toggle(ep))}
+                    {...longPress(() => toggle(ep))}
+                    onClick={() => (pressed.current ? (pressed.current = false) : (window.location.hash = href.episode(show.id, ep.id)))}
                     onContextMenu={(e) => e.preventDefault()}
                   >
                     {ep.number}
@@ -444,7 +443,7 @@ export function ShowPage({ id }: { id: number }) {
               })}
             </div>
 
-            <p className="muted season__hint">Touche un numéro pour le cocher, reste appuyé pour ouvrir l'épisode.</p>
+            <p className="muted season__hint">Touche un numéro pour ouvrir l'épisode, reste appuyé pour le cocher.</p>
             <button className="link-btn season__more" aria-expanded={open} onClick={() => toggleList(season)}>
               {open ? 'Masquer les titres' : 'Voir les titres'}
             </button>
