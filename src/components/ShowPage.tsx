@@ -6,8 +6,6 @@ import { seasonOverviewsFr, showDetailsFr } from '../lib/tmdb'
 import { getShowWithEpisodes, statusFr, stripHtml, type ShowWithEpisodes, type TvEpisode } from '../lib/tvmaze'
 import { DuoPanel } from './DuoPanel'
 import { RecommendButton } from './Recommend'
-import { HideToggle } from './HideToggle'
-import { MoreButton, MorePanel } from './MoreMenu'
 import { NextEpisode } from './NextEpisode'
 import { Poster } from './Poster'
 import { Rewatches } from './Rewatches'
@@ -16,7 +14,7 @@ import { RatingPicker } from './RatingPicker'
 import { WhereToWatch } from './WhereToWatch'
 
 export function ShowPage({ id }: { id: number }) {
-  const { isTracked, track, untrack, watchedFor, historyFor, setWatched, isRewatching, tracked, renameShow, rateShow, patchHidden } =
+  const { isTracked, track, untrack, watchedFor, historyFor, setWatched, isRewatching, tracked, renameShow, rateShow } =
     useApp()
   const [data, setData] = useState<ShowWithEpisodes | null>(null)
   const [error, setError] = useState(false)
@@ -24,7 +22,6 @@ export function ShowPage({ id }: { id: number }) {
   const [confirmUncheck, setConfirmUncheck] = useState<TvEpisode | null>(null)
   const [refresh, setRefresh] = useState<'idle' | 'busy' | 'done' | 'nochange' | 'failed'>('idle')
   const [openSeasons, setOpenSeasons] = useState<Set<number>>(new Set())
-  const [more, setMore] = useState(false)
   // Grilles repliées ou dépliées à la main ; sans choix explicite, seule la
   // saison en cours est dépliée (voir `isGridOpen`).
   const [gridChoice, setGridChoice] = useState<Map<number, boolean>>(new Map())
@@ -254,7 +251,6 @@ export function ShowPage({ id }: { id: number }) {
             </p>
           )}
         </div>
-        <MoreButton open={more} onToggle={() => setMore((v) => !v)} />
       </header>
 
       <div className="show__controls">
@@ -275,36 +271,18 @@ export function ShowPage({ id }: { id: number }) {
           </p>
         )}
         <DuoPanel show={{ id: show.id, name: tracked.find((t) => t.show_id === show.id)?.name ?? show.name, image: show.image?.medium ?? null }} />
-        {more && (
-          <MorePanel>
-            <DuoPanel show={{ id: show.id, name: tracked.find((t) => t.show_id === show.id)?.name ?? show.name, image: show.image?.medium ?? null }}  mode="start" />
-        <RecommendButton
-          item={{
-            kind: 'show',
-            itemId: String(show.id),
-            title: tracked.find((t) => t.show_id === show.id)?.name ?? show.name,
-            image: show.image?.medium ?? null,
-            meta: { kind: 'show', id: show.id, name: tracked.find((t) => t.show_id === show.id)?.name ?? show.name, image: show.image?.medium ?? null },
-          }}
-        />
-        {followed && (
-          <HideToggle
-            target={{ table: 'tracked_shows', column: 'show_id', id: show.id }}
-            hidden={!!tracked.find((t) => t.show_id === show.id)?.hidden}
-            onChange={(h) => patchHidden('show', show.id, h)}
+        <div className="pills">
+          <DuoPanel show={{ id: show.id, name: tracked.find((t) => t.show_id === show.id)?.name ?? show.name, image: show.image?.medium ?? null }} mode="start" />
+          <RecommendButton
+            item={{
+              kind: 'show',
+              itemId: String(show.id),
+              title: tracked.find((t) => t.show_id === show.id)?.name ?? show.name,
+              image: show.image?.medium ?? null,
+              meta: { kind: 'show', id: show.id, name: tracked.find((t) => t.show_id === show.id)?.name ?? show.name, image: show.image?.medium ?? null },
+            }}
           />
-        )}
-        {followed && (
-          <button
-            type="button"
-            className="link-btn muted show__untrack"
-            onClick={() => confirm(`Retirer ${show.name} et effacer ta progression ?`) && untrack(show.id)}
-          >
-            Retirer de mes séries
-          </button>
-        )}
-          </MorePanel>
-        )}
+        </div>
       </div>
 
       {followed && (
@@ -566,6 +544,15 @@ export function ShowPage({ id }: { id: number }) {
             <button className="btn btn--primary" onClick={() => uncheck(confirmUncheck)}>Décocher</button>
           </div>
         </div>
+      )}
+      {followed && (
+        <button
+          type="button"
+          className="link-btn muted show__untrack"
+          onClick={() => confirm(`Retirer ${show.name} et effacer ta progression ?`) && untrack(show.id)}
+        >
+          Retirer de mes séries
+        </button>
       )}
     </article>
   )

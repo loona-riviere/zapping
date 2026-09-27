@@ -18,7 +18,7 @@ export function DuoPanel({
   mode = 'status',
 }: {
   show: { id: number; name: string; image: string | null }
-  /** « status » : l'état en cours (à deux, invitation), sur la fiche ; « start » : proposer, dans le menu ⋯. */
+  /** « status » : l'état en cours (à deux, invitation), sur la fiche ; « start » : proposer, dans la rangée de pastilles. */
   mode?: 'status' | 'start'
 }) {
   const { socialReady, profile, friends, duos, duoFor, profileOf, inviteDuo, acceptDuo, stopDuo } = useSocial()
@@ -105,8 +105,8 @@ export function DuoPanel({
   if (!friends.length) return null
   if (!picking) {
     return (
-      <button className="btn btn--ghost duo__start" onClick={() => setPicking(true)}>
-        👫 Regarder à deux…
+      <button className="pill" onClick={() => setPicking(true)}>
+        👫 À deux
       </button>
     )
   }

@@ -4,8 +4,6 @@ import { finishPatch, startPatch, useBooks } from '../lib/booksState'
 import { BOOK_STATUSES, BOOK_STATUS_LABEL, type BookPatch, type BookStatus, type TrackedBook } from '../lib/bookStore'
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
-import { HideToggle } from './HideToggle'
-import { MoreButton, MorePanel } from './MoreMenu'
 import { RecommendButton } from './Recommend'
 import { PageInput } from './PageInput'
 import { Poster } from './Poster'
@@ -35,11 +33,10 @@ function statusPatch(b: TrackedBook, status: BookStatus): BookPatch {
 }
 
 export function BookPage({ id }: { id: string }) {
-  const { bookById, addBook, updateBook, removeBook, booksReady, patchBookHidden } = useBooks()
+  const { bookById, addBook, updateBook, removeBook, booksReady } = useBooks()
   const [details, setDetails] = useState<Book | null>(null)
   const [error, setError] = useState(false)
   const [expanded, setExpanded] = useState(false)
-  const [more, setMore] = useState(false)
   const [editDates, setEditDates] = useState(false)
   const book = bookById(id)
 
@@ -105,7 +102,6 @@ export function BookPage({ id }: { id: string }) {
             </select>
           )}
         </div>
-        <MoreButton open={more} onToggle={() => setMore((v) => !v)} />
       </header>
 
       <div className="show__controls">
@@ -200,50 +196,29 @@ export function BookPage({ id }: { id: string }) {
           <RatingPicker rating={book.rating} onChange={(r) => updateBook(book.book_id, { rating: r })} />
         )}
 
-        {more && (
-          <MorePanel>
-        <RecommendButton
-          item={{
-            kind: 'book',
-            itemId: id,
-            title,
-            image: cover,
-            meta: {
+        <div className="pills">
+          <RecommendButton
+            item={{
               kind: 'book',
-              book: details ?? {
-                id,
-                title,
-                authors: authors ? authors.split(', ') : [],
-                cover_url: cover,
-                page_count: pages,
-                year,
-                description: null,
-                categories: [],
+              itemId: id,
+              title,
+              image: cover,
+              meta: {
+                kind: 'book',
+                book: details ?? {
+                  id,
+                  title,
+                  authors: authors ? authors.split(', ') : [],
+                  cover_url: cover,
+                  page_count: pages,
+                  year,
+                  description: null,
+                  categories: [],
+                },
               },
-            },
-          }}
-        />
-        {book && (
-          <HideToggle
-            target={{ table: 'tracked_books', column: 'book_id', id: book.book_id }}
-            hidden={!!book.hidden}
-            onChange={(h) => patchBookHidden(book.book_id, h)}
+            }}
           />
-        )}
-        {book && (
-          <button
-            type="button"
-            className="link-btn muted show__untrack"
-            onClick={() =>
-              confirm(`Retirer ${title} de tes livres ? Sa page et ses dates seront perdues.`) &&
-              removeBook(book.book_id)
-            }
-          >
-            Retirer de mes livres
-          </button>
-        )}
-          </MorePanel>
-        )}
+        </div>
       </div>
 
       {details?.description && (
@@ -257,6 +232,18 @@ export function BookPage({ id }: { id: string }) {
             </button>
           )}
         </>
+      )}
+
+      {book && (
+        <button
+          type="button"
+          className="link-btn muted show__untrack"
+          onClick={() =>
+            confirm(`Retirer ${title} de tes livres ? Sa page et ses dates seront perdues.`) && removeBook(book.book_id)
+          }
+        >
+          Retirer de mes livres
+        </button>
       )}
     </article>
   )

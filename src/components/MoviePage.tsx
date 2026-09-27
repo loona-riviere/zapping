@@ -4,8 +4,6 @@ import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { movieDetails, type MovieDetails } from '../lib/tmdb'
 import { Poster } from './Poster'
-import { HideToggle } from './HideToggle'
-import { MoreButton, MorePanel } from './MoreMenu'
 import { RecommendButton } from './Recommend'
 import { RatingPicker } from './RatingPicker'
 
@@ -18,11 +16,10 @@ const fmtRuntime = (min: number) => {
 }
 
 export function MoviePage({ id }: { id: number }) {
-  const { movies, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieMeta, rateMovie, patchHidden } =
+  const { movies, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieMeta, rateMovie } =
     useApp()
   const [details, setDetails] = useState<MovieDetails | null>(null)
   const [error, setError] = useState(false)
-  const [more, setMore] = useState(false)
   const movie = movies.find((m) => m.movie_id === id)
 
   useEffect(() => {
@@ -102,7 +99,6 @@ export function MoviePage({ id }: { id: number }) {
             </p>
           )}
         </div>
-        <MoreButton open={more} onToggle={() => setMore((v) => !v)} />
       </header>
 
       <div className="show__controls">
@@ -146,54 +142,46 @@ export function MoviePage({ id }: { id: number }) {
           )}
         </div>
 
-        {more && (
-          <MorePanel>
-            {movie?.status === 'watched' && details?.releaseDate && (
-              <button
-                type="button"
-                className="link-btn"
-                onClick={() => markMovieWatched(movie.movie_id, `${details.releaseDate}T12:00:00.000Z`)}
-              >
-                Dater à sa sortie ({formatShortDate(details.releaseDate)})
-              </button>
-            )}
-        <RecommendButton
-          item={{
-            kind: 'movie',
-            itemId: String(id),
-            title,
-            image: posterUrl,
-            meta: {
-              kind: 'movie',
-              movie: { id, title, poster_url: posterUrl, year, release_date: releaseDate, overview: details?.overview ?? null },
-            },
-          }}
-        />
-        {movie && (
-          <HideToggle
-            target={{ table: 'watched_movies', column: 'movie_id', id: movie.movie_id }}
-            hidden={!!movie.hidden}
-            onChange={(h) => patchHidden('movie', movie.movie_id, h)}
-          />
-        )}
-        {movie && (
+        {movie?.status === 'watched' && details?.releaseDate && !movie.watched_at?.startsWith(details.releaseDate) && (
           <button
             type="button"
             className="link-btn muted show__untrack"
-            onClick={() =>
-              confirm(
-                `Retirer ${title} de tes films ? Contrairement à « Pas vu », la fiche est supprimée pour de bon.`,
-              ) && removeMovie(movie.movie_id)
-            }
+            onClick={() => markMovieWatched(movie.movie_id, `${details.releaseDate}T12:00:00.000Z`)}
           >
-            Retirer
+            Dater à sa sortie ({formatShortDate(details.releaseDate)})
           </button>
         )}
-          </MorePanel>
-        )}
+
+        <div className="pills">
+          <RecommendButton
+            item={{
+              kind: 'movie',
+              itemId: String(id),
+              title,
+              image: posterUrl,
+              meta: {
+                kind: 'movie',
+                movie: { id, title, poster_url: posterUrl, year, release_date: releaseDate, overview: details?.overview ?? null },
+              },
+            }}
+          />
+        </div>
       </div>
 
       {details?.overview && <p className="show__summary">{details.overview}</p>}
+
+      {movie && (
+        <button
+          type="button"
+          className="link-btn muted show__untrack"
+          onClick={() =>
+            confirm(`Retirer ${title} de tes films ? Contrairement à « Pas vu », la fiche est supprimée pour de bon.`) &&
+            removeMovie(movie.movie_id)
+          }
+        >
+          Retirer de mes films
+        </button>
+      )}
     </article>
   )
 }

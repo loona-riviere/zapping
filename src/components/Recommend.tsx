@@ -33,7 +33,7 @@ export function RecommendButton({ item }: { item: Item }) {
   if (sent) return <p className="muted rec__sent">📨 Recommandé à {sent}.</p>
   if (!open) {
     return (
-      <button className="btn btn--ghost rec__open" onClick={() => setOpen(true)}>
+      <button className="pill" onClick={() => setOpen(true)}>
         📨 Recommander
       </button>
     )
