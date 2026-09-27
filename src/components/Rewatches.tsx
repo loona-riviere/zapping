@@ -47,36 +47,34 @@ export function Rewatches({ show, episodes }: { show: TvShow; episodes: TvEpisod
       text: rewatchDates.length ? `Revisionnage en cours, depuis le ${formatShortDate(rewatchDates[0])}` : 'Revisionnage en cours',
     })
   }
-  past
-    .map((v, i) => ({ v, i }))
-    .reverse()
-    .forEach(({ v, i }) =>
-      entries.push({
-        key: `past-${i}`,
-        icon: '✓',
-        text: `Revue ${span(v.started_at, v.finished_at)}`,
-        edit: (
-          <span className="hist__dates">
-            <DateField label="Du" value={v.started_at} onChange={(x) => save(past.map((p, j) => (j === i ? { ...p, started_at: x } : p)), n)} />
-            <DateField label="Au" value={v.finished_at} onChange={(x) => save(past.map((p, j) => (j === i ? { ...p, finished_at: x } : p)), n)} />
-          </span>
-        ),
-        onRemove: () => confirm('Supprimer ce visionnage ?') && save(past.filter((_, j) => j !== i), n - 1),
-      }),
-    )
+  // Tous les visionnages terminés, du plus récent au plus ancien : celui des
+  // épisodes cochés n'est pas forcément le premier (un visionnage d'avant
+  // l'app peut être ajouté après coup avec ses dates).
+  const dated: (HistoryEntry & { at: string })[] = past.map((v, i) => ({
+    at: v.finished_at ?? v.started_at ?? '',
+    key: `past-${i}`,
+    icon: '✓',
+    text: `Vue ${span(v.started_at, v.finished_at)}`,
+    edit: (
+      <span className="hist__dates">
+        <DateField label="Du" value={v.started_at} onChange={(x) => save(past.map((p, j) => (j === i ? { ...p, started_at: x } : p)), n)} />
+        <DateField label="Au" value={v.finished_at} onChange={(x) => save(past.map((p, j) => (j === i ? { ...p, finished_at: x } : p)), n)} />
+      </span>
+    ),
+    onRemove: () => confirm('Supprimer ce visionnage ?') && save(past.filter((_, j) => j !== i), n - 1),
+  }))
+  if (firstDates.length) {
+    const end = complete || n || running ? firstDates[firstDates.length - 1] : null
+    dated.push({ at: firstDates[firstDates.length - 1], key: 'first', icon: '✓', text: `Vue ${span(firstDates[0], end)}` })
+  }
+  dated.sort((a, b) => b.at.localeCompare(a.at))
+  entries.push(...dated)
   for (let k = 0; k < undated; k++) {
     entries.push({
       key: `undated-${k}`,
       icon: '✓',
-      text: 'Revue, date inconnue',
+      text: 'Vue, date inconnue',
       onRemove: () => confirm('Supprimer ce visionnage ?') && save(past, n - 1),
-    })
-  }
-  if (firstDates.length) {
-    entries.push({
-      key: 'first',
-      icon: '✓',
-      text: `${n || running ? '1er visionnage' : 'Vue'} ${span(firstDates[0], complete || n || running ? firstDates[firstDates.length - 1] : null)}`,
     })
   }
 
@@ -90,7 +88,7 @@ export function Rewatches({ show, episodes }: { show: TvShow; episodes: TvEpisod
         extra={
           <div className="hist__add">
             <span className="hist__dates">
-              <DateField label="Revue du" value={draft.started_at} onChange={(x) => setDraft((d) => ({ ...d, started_at: x }))} />
+              <DateField label="Vue du" value={draft.started_at} onChange={(x) => setDraft((d) => ({ ...d, started_at: x }))} />
               <DateField label="au" value={draft.finished_at} onChange={(x) => setDraft((d) => ({ ...d, finished_at: x }))} />
             </span>
             <button
