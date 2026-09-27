@@ -80,10 +80,10 @@ function AppContent() {
 }
 
 function WithBooks({ userId }: { userId: string }) {
-  const { showNotice } = useApp()
+  const { showNotice, reloadShows } = useApp()
   return (
     <BooksProvider userId={userId} onError={showNotice}>
-      <SocialProvider onError={showNotice}>
+      <SocialProvider onError={showNotice} onDuoAccepted={reloadShows}>
         <Shell />
       </SocialProvider>
     </BooksProvider>
@@ -95,7 +95,8 @@ function Shell() {
   const { notice, dismissNotice, tracked, movies, loading } = useApp()
   const { books, booksLoading } = useBooks()
   const { has } = usePrefs()
-  const { incoming } = useSocial()
+  const { incoming, incomingDuos } = useSocial()
+  const pending = incoming.length + incomingDuos.length
   const { onTap, message } = useLogoEasterEgg()
 
   // Garde les affiches préférées pour le mur du prochain lancement.
@@ -114,7 +115,7 @@ function Shell() {
           <a href={href.search} aria-current={route.name === 'search' ? 'page' : undefined}>Chercher</a>
           <a href={href.stats} aria-current={route.name === 'stats' ? 'page' : undefined}>Statistiques</a>
           <a href={href.friends} aria-current={route.name === 'friends' || route.name === 'friend' ? 'page' : undefined}>
-            Amis{incoming.length > 0 && <span className="badge">{incoming.length}</span>}
+            Amis{pending > 0 && <span className="badge">{pending}</span>}
           </a>
           <a href={href.settings} aria-current={route.name === 'settings' ? 'page' : undefined}>Paramètres</a>
         </nav>
@@ -141,7 +142,7 @@ function Shell() {
       )}
 
       <Celebrations />
-      <BottomNav route={route} pending={incoming.length} />
+      <BottomNav route={route} pending={pending} />
       <EasterEggOverlay message={message} />
     </>
   )

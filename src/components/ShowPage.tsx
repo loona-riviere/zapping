@@ -4,6 +4,7 @@ import { computeProgress, epCode, formatDate, formatShortDate, isAired } from '.
 import { href } from '../lib/route'
 import { seasonOverviewsFr, showDetailsFr } from '../lib/tmdb'
 import { getShowWithEpisodes, statusFr, stripHtml, type ShowWithEpisodes, type TvEpisode } from '../lib/tvmaze'
+import { DuoPanel } from './DuoPanel'
 import { HideToggle } from './HideToggle'
 import { NextEpisode } from './NextEpisode'
 import { Poster } from './Poster'
@@ -269,6 +270,7 @@ export function ShowPage({ id }: { id: number }) {
             />
           </p>
         )}
+        <DuoPanel show={{ id: show.id, name: tracked.find((t) => t.show_id === show.id)?.name ?? show.name, image: show.image?.medium ?? null }} />
         {followed && (
           <HideToggle
             target={{ table: 'tracked_shows', column: 'show_id', id: show.id }}

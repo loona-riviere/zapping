@@ -5,6 +5,7 @@ import { movieRuntime, type Movie } from './tmdb'
 import { celebrate, checkMilestone, nightOwl } from './fun'
 import { computeProgress } from './progress'
 import { getShowWithEpisodes } from './tvmaze'
+import { syncDuo } from './duo'
 import type { TvEpisode, TvShow } from './tvmaze'
 
 /**
@@ -69,6 +70,8 @@ type AppState = {
   reorderShows: (orderedIds: number[]) => Promise<void>
   /** Reflète localement « caché à mes amis » (l'écriture est faite par HideToggle). */
   patchHidden: (kind: 'show' | 'movie', id: number, hidden: boolean) => void
+  /** Relit séries et épisodes vus (ce qu'un partenaire a coché sur une série à deux). */
+  reloadShows: () => Promise<void>
   /** Relève chez TMDB la durée des films qui n'en ont pas encore. */
   fillMovieRuntimes: (onProgress?: (done: number, total: number) => void) => Promise<void>
   /** Complète l'affiche et/ou la durée d'un film depuis sa fiche détail, si l'un des deux manque. */
@@ -199,6 +202,35 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     },
     [tracked, ranksReady],
   )
+
+  const reloadShows = useCallback(async () => {
+    try {
+      const [t, w, r, ranks] = await Promise.all([
+        store.fetchTracked(),
+        store.fetchWatched(),
+        store.fetchRewatchProgress(),
+        store.fetchRanks('tracked_shows').catch(() => null),
+      ])
+      setTracked(ranks ? t.map((x) => ({ ...x, wish_rank: ranks.get(x.show_id) ?? null })) : t)
+      setWatchedMap(w)
+      setRewatch(r)
+    } catch {
+      /* hors ligne : on garde ce qu'on a */
+    }
+  }, [])
+
+  // Retour dans l'app après un moment : ce qu'un partenaire a coché sur une
+  // série à deux (ou soi-même sur un autre appareil) apparaît sans recharger.
+  useEffect(() => {
+    let last = Date.now()
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || Date.now() - last < 60_000) return
+      last = Date.now()
+      reloadShows()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [reloadShows])
 
   const patchHidden = useCallback((kind: 'show' | 'movie', id: number, hidden: boolean) => {
     if (kind === 'show') setTracked((prev) => prev.map((t) => (t.show_id === id ? { ...t, hidden } : t)))
@@ -486,6 +518,8 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
           await store.markUnwatched(ids)
           await store.touchLastWatched(show.id, uncheckedLastWatched ?? null)
         }
+        // Série regardée à deux : même coche chez l'autre.
+        void syncDuo(show.id, eps, value, dates)
       } catch (e) {
         apply(!value)
         if (wasNotStarted) {
@@ -763,13 +797,13 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       isRewatching, startRewatch, endRewatch,
       track, untrack, setStatus, setWatched,
       addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
-      ranksReady, reorderMovies, reorderShows, patchHidden,
+      ranksReady, reorderMovies, reorderShows, patchHidden, reloadShows,
       dismissed, isDismissed, dismissRec, undismissRec,
     }),
     [userId, tracked, watched, rewatch, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
      historyFor, rewatchesOf, setRewatches, isRewatching, startRewatch, endRewatch,
      track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
-     ranksReady, reorderMovies, reorderShows, patchHidden,
+     ranksReady, reorderMovies, reorderShows, patchHidden, reloadShows,
      dismissed, isDismissed, dismissRec, undismissRec],
   )
 

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../lib/appState'
+import { useSocial } from '../lib/socialState'
 import { computeProgress, epCode, formatDate, type Progress } from '../lib/progress'
 import { href } from '../lib/route'
 import { STATUS_LABEL, byWish, type ShowStatus } from '../lib/store'
@@ -42,6 +43,7 @@ const normalize = (s: string) =>
 
 export function Home() {
   const { tracked, loading, watchedFor, setWatched, setStatus, reorderShows } = useApp()
+  const { duoFor } = useSocial()
   // Dernière série abandonnée, pour proposer d'annuler : un abandon se fait
   // d'un geste depuis la liste, autant qu'il se défasse pareil.
   const [undo, setUndo] = useState<{ text: string; revert: () => void } | null>(null)
@@ -169,7 +171,10 @@ export function Home() {
                 <a href={href.show(r.id)} className="row__link">
                   <Poster src={r.image} alt={r.name} />
                   <div className="row__body">
-                    <h3>{r.name}</h3>
+                    <h3>
+                      {r.name}
+                      {duoFor(r.id)?.status === 'accepted' && <span className="duo-mark" title="Regardée à deux">👫</span>}
+                    </h3>
                     {r.progress?.next ? (
                       <>
                         <p className="row__next">

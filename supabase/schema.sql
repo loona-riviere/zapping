@@ -437,3 +437,136 @@ create policy "watched_episodes: friends read" on public.watched_episodes
       where t.user_id = watched_episodes.user_id and t.show_id = watched_episodes.show_id and not t.hidden
     )
   );
+
+-- ========================================================= séries à deux ==
+-- Une série regardée à deux (en couple, entre amis) : une fois l'invitation
+-- acceptée, les progressions fusionnent, puis chaque épisode coché ou
+-- décoché par l'un l'est pour l'autre. On n'écrit dans la liste de l'autre
+-- que par les fonctions ci-dessous, et seulement pour une série acceptée à deux.
+
+create table if not exists public.shared_shows (
+  show_id integer not null,
+  inviter uuid not null references auth.users (id) on delete cascade,
+  invitee uuid not null references auth.users (id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'accepted')),
+  -- Nom et affiche, pour afficher l'invitation sans rien aller chercher.
+  show_name text not null,
+  image_url text,
+  created_at timestamptz not null default now(),
+  primary key (show_id, inviter, invitee),
+  check (inviter <> invitee)
+);
+
+alter table public.shared_shows enable row level security;
+
+drop policy if exists "shared_shows: read" on public.shared_shows;
+create policy "shared_shows: read" on public.shared_shows
+  for select to authenticated
+  using ((select auth.uid()) in (inviter, invitee));
+-- Inviter seulement un ami, en son nom, « en attente ».
+drop policy if exists "shared_shows: invite" on public.shared_shows;
+create policy "shared_shows: invite" on public.shared_shows
+  for insert to authenticated
+  with check ((select auth.uid()) = inviter and status = 'pending' and public.is_my_friend(invitee));
+drop policy if exists "shared_shows: stop" on public.shared_shows;
+create policy "shared_shows: stop" on public.shared_shows
+  for delete to authenticated
+  using ((select auth.uid()) in (inviter, invitee));
+
+-- Partenaires à deux de la personne connectée pour une série.
+create or replace function public.duo_partners(p_show_id integer)
+returns setof uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case when inviter = auth.uid() then invitee else inviter end
+  from public.shared_shows
+  where show_id = p_show_id and status = 'accepted' and auth.uid() in (inviter, invitee);
+$$;
+revoke all on function public.duo_partners(integer) from public, anon;
+grant execute on function public.duo_partners(integer) to authenticated;
+
+-- Accepte une invitation reçue, puis fusionne les deux progressions :
+-- chacun récupère les épisodes vus par l'autre (sa date à lui, s'il l'avait
+-- déjà coché).
+create or replace function public.accept_shared_show(p_show_id integer, p_inviter uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+  s public.shared_shows;
+begin
+  update public.shared_shows set status = 'accepted'
+  where show_id = p_show_id and inviter = p_inviter and invitee = me and status = 'pending'
+  returning * into s;
+  if not found then return; end if;
+
+  insert into public.tracked_shows (user_id, show_id, name, image_url, status)
+  values (me, p_show_id, s.show_name, s.image_url, 'watching'), (p_inviter, p_show_id, s.show_name, s.image_url, 'watching')
+  on conflict (user_id, show_id) do nothing;
+
+  insert into public.watched_episodes (user_id, episode_id, show_id, season, number, watched_at)
+  select me, episode_id, show_id, season, number, watched_at
+  from public.watched_episodes where user_id = p_inviter and show_id = p_show_id
+  on conflict (user_id, episode_id) do nothing;
+  insert into public.watched_episodes (user_id, episode_id, show_id, season, number, watched_at)
+  select p_inviter, episode_id, show_id, season, number, watched_at
+  from public.watched_episodes where user_id = me and show_id = p_show_id
+  on conflict (user_id, episode_id) do nothing;
+
+  update public.tracked_shows t
+  set last_watched_at = (select max(watched_at) from public.watched_episodes w where w.user_id = t.user_id and w.show_id = p_show_id),
+      status = case when t.status = 'later' then 'watching' else t.status end
+  where t.show_id = p_show_id and t.user_id in (me, p_inviter);
+end;
+$$;
+revoke all on function public.accept_shared_show(integer, uuid) from public, anon;
+grant execute on function public.accept_shared_show(integer, uuid) to authenticated;
+
+-- Reporte chez le(s) partenaire(s) des épisodes que la personne connectée
+-- vient de cocher (p_watched) ou de décocher, pour une série à deux.
+-- p_episodes : [{ "episode_id": 1, "season": 1, "number": 1, "watched_at": "…" }]
+create or replace function public.sync_shared_episodes(p_show_id integer, p_episodes jsonb, p_watched boolean)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  partner uuid;
+begin
+  for partner in select public.duo_partners(p_show_id) loop
+    if p_watched then
+      insert into public.tracked_shows (user_id, show_id, name, status)
+      select partner, p_show_id, s.show_name, 'watching'
+      from public.shared_shows s
+      where s.show_id = p_show_id and s.status = 'accepted' and partner in (s.inviter, s.invitee)
+      limit 1
+      on conflict (user_id, show_id) do nothing;
+
+      insert into public.watched_episodes (user_id, episode_id, show_id, season, number, watched_at)
+      select partner, (e->>'episode_id')::integer, p_show_id, (e->>'season')::integer, (e->>'number')::integer,
+             nullif(e->>'watched_at', '')::timestamptz
+      from jsonb_array_elements(p_episodes) e
+      on conflict (user_id, episode_id) do nothing;
+
+      update public.tracked_shows set status = 'watching' where user_id = partner and show_id = p_show_id and status = 'later';
+    else
+      delete from public.watched_episodes
+      where user_id = partner and show_id = p_show_id
+        and episode_id in (select (e->>'episode_id')::integer from jsonb_array_elements(p_episodes) e);
+    end if;
+
+    update public.tracked_shows
+    set last_watched_at = (select max(watched_at) from public.watched_episodes w where w.user_id = partner and w.show_id = p_show_id)
+    where user_id = partner and show_id = p_show_id;
+  end loop;
+end;
+$$;
+revoke all on function public.sync_shared_episodes(integer, jsonb, boolean) from public, anon;
+grant execute on function public.sync_shared_episodes(integer, jsonb, boolean) to authenticated;

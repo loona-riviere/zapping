@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import * as duo from './duo'
+import type { Duo } from './duo'
 import * as social from './social'
 import type { Friendship, Profile } from './social'
 import { isMissingSchema } from './store'
@@ -18,15 +20,34 @@ type SocialState = {
   accept: (other: Profile) => Promise<void>
   remove: (other: Profile) => Promise<void>
   relationWith: (userId: string) => 'none' | 'sent' | 'received' | 'friends'
+  /** Séries à deux ; null si leurs tables manquent (schéma pas relancé). */
+  duos: Duo[] | null
+  /** Invitations « à deux » reçues, en attente. */
+  incomingDuos: Duo[]
+  duoFor: (showId: number) => Duo | undefined
+  profileOf: (userId: string) => Profile | undefined
+  inviteDuo: (show: { id: number; name: string; image: string | null }, partner: Profile) => Promise<void>
+  acceptDuo: (d: Duo) => Promise<void>
+  stopDuo: (d: Duo) => Promise<void>
 }
 
 const Ctx = createContext<SocialState | null>(null)
 
-export function SocialProvider({ onError, children }: { onError: (m: string) => void; children: ReactNode }) {
+export function SocialProvider({
+  onError,
+  onDuoAccepted,
+  children,
+}: {
+  onError: (m: string) => void
+  /** Après une acceptation « à deux » : les épisodes de l'autre viennent d'arriver chez soi. */
+  onDuoAccepted?: () => void
+  children: ReactNode
+}) {
   const [socialReady, setReady] = useState(true)
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [friendships, setFriendships] = useState<Friendship[]>([])
+  const [duos, setDuos] = useState<Duo[] | null>(null)
 
   const refresh = useCallback(async () => {
     try {
@@ -34,6 +55,7 @@ export function SocialProvider({ onError, children }: { onError: (m: string) => 
       setProfile(p)
       setFriendships(f)
       setReady(true)
+      setDuos(await duo.fetchDuos().catch(() => null))
     } catch (e) {
       if (isMissingSchema(e)) setReady(false)
       // Réseau : on garde ce qu'on avait, ce n'est pas le cœur de l'app.
@@ -77,6 +99,25 @@ export function SocialProvider({ onError, children }: { onError: (m: string) => 
     [friendships],
   )
 
+  const inviteDuo = useCallback(
+    (show: { id: number; name: string; image: string | null }, partner: Profile) =>
+      run(() => duo.inviteDuo(show, partner), 'Invitation impossible'),
+    [run],
+  )
+  const acceptDuo = useCallback(
+    async (d: Duo) => {
+      await run(() => duo.acceptDuo(d.show_id, d.partnerId), 'Acceptation impossible')
+      onDuoAccepted?.()
+    },
+    [run, onDuoAccepted],
+  )
+  const stopDuo = useCallback((d: Duo) => run(() => duo.stopDuo(d.show_id, d.partnerId), 'Arrêt impossible'), [run])
+  const duoFor = useCallback((showId: number) => duos?.find((d) => d.show_id === showId), [duos])
+  const profileOf = useCallback(
+    (userId: string) => friendships.find((f) => f.other.user_id === userId)?.other,
+    [friendships],
+  )
+
   const value = useMemo<SocialState>(
     () => ({
       socialReady,
@@ -91,8 +132,15 @@ export function SocialProvider({ onError, children }: { onError: (m: string) => 
       accept,
       remove,
       relationWith,
+      duos,
+      incomingDuos: (duos ?? []).filter((d) => d.status === 'pending' && !d.sentByMe),
+      duoFor,
+      profileOf,
+      inviteDuo,
+      acceptDuo,
+      stopDuo,
     }),
-    [socialReady, loading, profile, friendships, refresh, ask, accept, remove, relationWith],
+    [socialReady, loading, profile, friendships, refresh, ask, accept, remove, relationWith, duos, duoFor, profileOf, inviteDuo, acceptDuo, stopDuo],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { href } from '../lib/route'
 import { inviteLink, nameOf, normalizeUsername, saveProfile, searchProfiles, USERNAME_RE, type Profile } from '../lib/social'
 import { useSocial } from '../lib/socialState'
+import { Poster } from './Poster'
 
 /** Pastille avec l'initiale : pas de photo pour l'instant, une lettre suffit à se repérer. */
 export function Avatar({ profile, size = 'sm' }: { profile: Pick<Profile, 'username' | 'display_name'>; size?: 'sm' | 'lg' }) {
@@ -92,7 +93,8 @@ function RelationButton({ other }: { other: Profile }) {
 }
 
 export function Friends() {
-  const { socialReady, loading, profile, friends, incoming, friendships, accept, remove } = useSocial()
+  const { socialReady, loading, profile, friends, incoming, friendships, accept, remove, duos, incomingDuos, acceptDuo, stopDuo, profileOf } =
+    useSocial()
   const [editing, setEditing] = useState(false)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Profile[]>([])
@@ -200,6 +202,32 @@ export function Friends() {
         </section>
       )}
 
+      {incomingDuos.length > 0 && (
+        <section>
+          <h2 className="section-title">Séries à deux proposées</h2>
+          <ul className="rows">
+            {incomingDuos.map((d) => {
+              const who = profileOf(d.partnerId)
+              return (
+                <li key={`${d.show_id}-${d.partnerId}`} className="row">
+                  <a href={href.show(d.show_id)} className="row__link">
+                    <Poster src={d.image_url} alt={d.show_name} />
+                    <div className="row__body">
+                      <h3>{d.show_name}</h3>
+                      <p className="muted">{who ? nameOf(who) : 'Un ami'} te propose de la regarder à deux</p>
+                    </div>
+                  </a>
+                  <div className="row__actions">
+                    <button className="btn btn--primary" onClick={() => acceptDuo(d)}>Accepter</button>
+                    <button className="link-btn muted row__drop" onClick={() => stopDuo(d)}>Refuser</button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      )}
+
       <section>
         <h2 className="section-title">Ajouter un ami</h2>
         <label htmlFor="friend-q" className="visually-hidden">Pseudo</label>
@@ -249,6 +277,30 @@ export function Friends() {
           ))}
         </ul>
       </section>
+
+      {(duos ?? []).some((d) => d.status === 'accepted') && (
+        <section>
+          <h2 className="section-title">Séries à deux</h2>
+          <ul className="rows">
+            {(duos ?? [])
+              .filter((d) => d.status === 'accepted')
+              .map((d) => {
+                const who = profileOf(d.partnerId)
+                return (
+                  <li key={`${d.show_id}-${d.partnerId}`} className="row">
+                    <a href={href.show(d.show_id)} className="row__link">
+                      <Poster src={d.image_url} alt={d.show_name} />
+                      <div className="row__body">
+                        <h3>{d.show_name}</h3>
+                        <p className="muted">👫 avec {who ? nameOf(who) : 'un ami'}</p>
+                      </div>
+                    </a>
+                  </li>
+                )
+              })}
+          </ul>
+        </section>
+      )}
 
       {sent.length > 0 && (
         <section>
