@@ -1,13 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-import webpush from 'web-push'
-
-// Côté serveur, pas de temps réel : sur un Node sans WebSocket natif (< 22),
-// supabase-js refuse sinon de se créer (« native WebSocket not found »). Le
-// transport fourni n'est jamais utilisé, on ne s'abonne à rien.
-const SERVER_OPTIONS = {
-  auth: { persistSession: false, autoRefreshToken: false },
-  realtime: { transport: class {} as unknown as typeof WebSocket },
-}
+import { sendPush, setupPush, subscriptionsByUser } from '../lib/push'
 
 // Tourne une fois par jour : les notifs arrivent avec jusqu'à ~24h de
 // retard sur la sortie réelle de l'épisode, pas en temps réel. Suffisant
@@ -16,7 +7,6 @@ const SERVER_OPTIONS = {
 export const config = { schedule: '0 8 * * *' }
 
 type TrackedRow = { user_id: string; show_id: number }
-type SubRow = { user_id: string; endpoint: string; p256dh: string; auth_key: string }
 type Episode = { id: number; season: number; number: number; name: string; airstamp: string | null }
 
 async function fetchEpisodes(showId: number): Promise<Episode[]> {
@@ -27,32 +17,13 @@ async function fetchEpisodes(showId: number): Promise<Episode[]> {
 }
 
 export default async () => {
-  const supabaseUrl = Netlify.env.get('SUPABASE_URL') || Netlify.env.get('VITE_SUPABASE_URL')
-  const serviceKey = Netlify.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  const vapidPublic = Netlify.env.get('VAPID_PUBLIC_KEY')
-  const vapidPrivate = Netlify.env.get('VAPID_PRIVATE_KEY')
-  const vapidSubject = Netlify.env.get('VAPID_SUBJECT')
-  const missing = Object.entries({
-    SUPABASE_URL: supabaseUrl, SUPABASE_SERVICE_ROLE_KEY: serviceKey,
-    VAPID_PUBLIC_KEY: vapidPublic, VAPID_PRIVATE_KEY: vapidPrivate, VAPID_SUBJECT: vapidSubject,
-  }).filter(([, v]) => !v).map(([k]) => k)
-  if (missing.length || !supabaseUrl || !serviceKey || !vapidPublic || !vapidPrivate || !vapidSubject) {
+  const { db, missing } = setupPush()
+  if (!db) {
     console.error(`check-new-episodes: variables manquantes : ${missing.join(', ')}`)
     return
   }
 
-  webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate)
-  // Clé service_role : bypasse la RLS exprès, seule façon pour une tâche de
-  // fond de lire/écrire pour tous les utilisateurs plutôt qu'un seul.
-  const db = createClient(supabaseUrl, serviceKey, SERVER_OPTIONS)
-
-  const { data: subs } = await db.from('push_subscriptions').select('user_id, endpoint, p256dh, auth_key')
-  const subsByUser = new Map<string, SubRow[]>()
-  for (const s of (subs ?? []) as SubRow[]) {
-    const list = subsByUser.get(s.user_id) ?? []
-    list.push(s)
-    subsByUser.set(s.user_id, list)
-  }
+  const subsByUser = await subscriptionsByUser(db)
   if (!subsByUser.size) return // personne d'abonné : pas la peine d'interroger TVmaze
 
   const { data: tracked } = await db
@@ -90,26 +61,11 @@ export default async () => {
           .insert({ user_id: userId, show_id: showId, episode_id: ep.id })
         if (insertError) continue // déjà notifié (conflit sur la clé primaire) : on saute
 
-        const payload = JSON.stringify({
+        await sendPush(db, userSubs, {
           title: 'Nouvel épisode',
           body: `S${String(ep.season).padStart(2, '0')}E${String(ep.number).padStart(2, '0')} — ${ep.name}`,
           url: `/#/show/${showId}`,
         })
-
-        for (const sub of userSubs) {
-          try {
-            await webpush.sendNotification(
-              { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
-              payload,
-            )
-          } catch (e) {
-            const status = (e as { statusCode?: number }).statusCode
-            if (status === 404 || status === 410) {
-              // Abonnement mort (désinstallé, permission révoquée…) : on nettoie.
-              await db.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
-            }
-          }
-        }
       }
     }
   }

@@ -1,5 +1,7 @@
 import { Limited } from './ShowMore'
-import { useApp } from '../lib/appState'
+import { useShows } from '../lib/showsState'
+import { useMovies } from '../lib/moviesState'
+import { useDismissed } from '../lib/dismissedState'
 import { useBooks } from '../lib/booksState'
 import { KINDS, KIND_LABEL, usePrefs } from '../lib/prefs'
 import { href } from '../lib/route'
@@ -10,7 +12,9 @@ import { RatingPicker } from './RatingPicker'
 import { SetPassword } from './SetPassword'
 
 export function Settings() {
-  const { tracked, movies, rateShow, rateMovie, dismissed, undismissRec } = useApp()
+  const { tracked, rateShow } = useShows()
+  const { movies, rateMovie } = useMovies()
+  const { dismissed, undismissRec } = useDismissed()
 
   // Rien à noter pour une série jamais commencée ou abandonnée en route.
   const { kinds, has, setKind } = usePrefs()

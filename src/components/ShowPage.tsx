@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
 import type { ShowStatus } from '../lib/store'
-import { useApp } from '../lib/appState'
+import { useShows } from '../lib/showsState'
 import { computeProgress, epCode, formatDate, formatShortDate, isAired } from '../lib/progress'
 import { href } from '../lib/route'
 import { showDetailsFr } from '../lib/tmdb'
@@ -24,8 +24,7 @@ const SHOW_STATUS_OPTIONS: { value: ShowStatus; icon: string; label: string; hin
 ]
 
 export function ShowPage({ id }: { id: number }) {
-  const { statusOf, setStatus, isTracked, track, untrack, watchedFor, historyFor, setWatched, isRewatching, tracked, renameShow, rateShow } =
-    useApp()
+  const { statusOf, setStatus, isTracked, track, untrack, watchedFor, historyFor, setWatched, isRewatching, tracked, renameShow, rateShow } = useShows()
   const [data, setData] = useState<ShowWithEpisodes | null>(null)
   const [error, setError] = useState(false)
   const [catchUp, setCatchUp] = useState<TvEpisode[] | null>(null)
@@ -239,6 +238,9 @@ export function ShowPage({ id }: { id: number }) {
 
   return (
     <article className="show">
+      <p id="tiles-hint" className="visually-hidden">
+        Entrée : ouvrir l'épisode. Espace ou appui long : le marquer vu ou non vu.
+      </p>
       <header className="show__head">
         <Poster src={show.image?.original ?? show.image?.medium} alt={show.name} size="lg" />
         <div className="show__meta">
@@ -414,7 +416,7 @@ export function ShowPage({ id }: { id: number }) {
 
             {gridOpen && (
               <>
-            <div className="tiles">
+            <div className="tiles" role="group" aria-label={`Épisodes de la saison ${season}`} aria-describedby="tiles-hint">
               {eps.map((ep) => {
                 const on = watched.has(ep.id)
                 const out = isAired(ep)
@@ -423,7 +425,6 @@ export function ShowPage({ id }: { id: number }) {
                   <button
                     key={ep.id}
                     className={`tile${on ? ' tile--on' : ''}${!out ? ' tile--future' : ''}${isNext ? ' tile--next' : ''}`}
-                    aria-pressed={on}
                     title={`${epCode(ep)} ${ep.name}${
                       on
                         ? watched.get(ep.id)
@@ -436,6 +437,14 @@ export function ShowPage({ id }: { id: number }) {
                     aria-label={`${epCode(ep)} ${ep.name}${!out ? ', pas encore diffusé' : on ? ', vu' : ''}`}
                     {...longPress(() => toggle(ep))}
                     onClick={() => (pressed.current ? (pressed.current = false) : (window.location.hash = href.episode(show.id, ep.id)))}
+                    // Au clavier, Espace coche ou décoche (l'équivalent de
+                    // l'appui long) ; Entrée ouvre l'épisode comme un toucher.
+                    onKeyDown={(e) => {
+                      if (e.key !== ' ') return
+                      e.preventDefault()
+                      if (!e.repeat) toggle(ep)
+                    }}
+                    onKeyUp={(e) => e.key === ' ' && e.preventDefault()}
                     onContextMenu={(e) => e.preventDefault()}
                   >
                     {ep.number}

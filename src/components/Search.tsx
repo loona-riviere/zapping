@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useApp } from '../lib/appState'
+import { useShows } from '../lib/showsState'
+import { useMovies } from '../lib/moviesState'
 import { searchShowsWide } from '../lib/lookup'
 import { computeProgress, epCode, type Progress } from '../lib/progress'
 import { href, type SearchKind } from '../lib/route'
@@ -76,7 +77,7 @@ export function Search({ initialQuery, initialKind }: { initialQuery?: string; i
 }
 
 function ShowSearch({ query }: { query: string }) {
-  const { tracked, watchedFor, isTracked, track } = useApp()
+  const { tracked, watchedFor, isTracked, track } = useShows()
   const [results, setResults] = useState<TvShow[]>([])
   // Titre original ayant permis de trouver, quand le titre français a échoué.
   const [via, setVia] = useState<string | null>(null)
@@ -206,7 +207,7 @@ function ShowSearch({ query }: { query: string }) {
 }
 
 function MovieSearch({ query }: { query: string }) {
-  const { movies, addMovies, addToWatchlist, markMovieWatched } = useApp()
+  const { movies, addMovies, addToWatchlist, markMovieWatched } = useMovies()
   const [results, setResults] = useState<Movie[]>([])
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [date, setDate] = useState(today)

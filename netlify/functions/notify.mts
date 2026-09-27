@@ -1,13 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-import webpush from 'web-push'
-
-// Côté serveur, pas de temps réel : sur un Node sans WebSocket natif (< 22),
-// supabase-js refuse sinon de se créer (« native WebSocket not found »). Le
-// transport fourni n'est jamais utilisé, on ne s'abonne à rien.
-const SERVER_OPTIONS = {
-  auth: { persistSession: false, autoRefreshToken: false },
-  realtime: { transport: class {} as unknown as typeof WebSocket },
-}
+import { sendPush, setupPush, type SubRow } from '../lib/push'
 
 // Notifs entre amis : demande reçue, demande acceptée, recommandation,
 // invitation à regarder une série à deux. L'app appelle cette fonction juste
@@ -19,7 +10,6 @@ const SERVER_OPTIONS = {
 // SUPABASE_SERVICE_ROLE_KEY, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.
 
 type Body = { event?: string; to?: string; kind?: string; itemId?: string; showId?: number; movieId?: number; commentId?: number }
-type SubRow = { endpoint: string; p256dh: string; auth_key: string }
 
 const RECENT_MS = 10 * 60 * 1000
 
@@ -34,20 +24,11 @@ export default async (req: Request) => {
 
 async function handle(req: Request): Promise<Response> {
   if (req.method !== 'POST') return new Response(null, { status: 405 })
-  const supabaseUrl = Netlify.env.get('SUPABASE_URL') || Netlify.env.get('VITE_SUPABASE_URL')
-  const serviceKey = Netlify.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  const vapidPublic = Netlify.env.get('VAPID_PUBLIC_KEY')
-  const vapidPrivate = Netlify.env.get('VAPID_PRIVATE_KEY')
-  const vapidSubject = Netlify.env.get('VAPID_SUBJECT')
-  const missing = Object.entries({
-    SUPABASE_URL: supabaseUrl, SUPABASE_SERVICE_ROLE_KEY: serviceKey,
-    VAPID_PUBLIC_KEY: vapidPublic, VAPID_PRIVATE_KEY: vapidPrivate, VAPID_SUBJECT: vapidSubject,
-  }).filter(([, v]) => !v).map(([k]) => k)
-  if (!supabaseUrl || !serviceKey || !vapidPublic || !vapidPrivate || !vapidSubject) {
+  const { db, missing } = setupPush()
+  if (!db) {
     console.error(`notify: variables manquantes : ${missing.join(', ')}`)
     return Response.json({ sent: 0, reason: `Variables Netlify manquantes : ${missing.join(', ')}` }, { status: 500 })
   }
-  const db = createClient(supabaseUrl, serviceKey, SERVER_OPTIONS)
 
   const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
   if (!token) return new Response(null, { status: 401 })
@@ -211,7 +192,6 @@ async function handle(req: Request): Promise<Response> {
 
   if (!payload) return Response.json({ sent: 0, reason: 'Rien à notifier' })
 
-  webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate)
   const batches = [{ to: recipients, payload }, ...extra].filter((x) => x.to.length)
   if (!batches.length) return Response.json({ sent: 0, reason: 'Personne à prévenir' })
   let sent = 0
@@ -220,21 +200,10 @@ async function handle(req: Request): Promise<Response> {
   for (const batch of batches) {
     const { data: subs } = await db.from('push_subscriptions').select('endpoint, p256dh, auth_key').in('user_id', batch.to)
     devices += subs?.length ?? 0
-    for (const sub of (subs ?? []) as SubRow[]) {
-      try {
-        await webpush.sendNotification(
-          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
-          JSON.stringify(batch.payload),
-        )
-        sent++
-      } catch (e) {
-        const status = (e as { statusCode?: number }).statusCode
-        const detail = (e as { body?: string }).body ?? (e as Error).message
-        console.error(`notify: envoi refusé (${status ?? '?'}) ${detail}`)
-        errors.push(`${status ?? '?'} ${detail}`.slice(0, 200))
-        if (status === 404 || status === 410) await db.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
-      }
-    }
+    const result = await sendPush(db, (subs ?? []) as SubRow[], batch.payload)
+    sent += result.sent
+    for (const err of result.errors) console.error(`notify: envoi refusé ${err}`)
+    errors.push(...result.errors)
   }
   return Response.json({
     sent,

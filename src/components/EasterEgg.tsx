@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
-import { useApp } from '../lib/appState'
+import { useShows } from '../lib/showsState'
+import { useMovies } from '../lib/moviesState'
 import { useBooks } from '../lib/booksState'
 import { usePrefs } from '../lib/prefs'
 
@@ -21,7 +22,8 @@ const s = (n: number) => (n > 1 ? 's' : '')
  * compte — jamais deux fois exactement le même écran.
  */
 export function useLogoEasterEgg() {
-  const { tracked, watched, movies } = useApp()
+  const { tracked, watched } = useShows()
+  const { movies } = useMovies()
   const { books } = useBooks()
   const { has } = usePrefs()
   const taps = useRef<number[]>([])

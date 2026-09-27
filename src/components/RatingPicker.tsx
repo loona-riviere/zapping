@@ -17,6 +17,7 @@ export function RatingPicker({ rating, onChange }: { rating: Rating | null; onCh
           className={`rating-picker__btn${rating === o.value ? ' rating-picker__btn--active' : ''}`}
           aria-pressed={rating === o.value}
           title={o.label}
+          aria-label={o.label}
           onClick={() => onChange(rating === o.value ? null : o.value)}
         >
           {o.icon}

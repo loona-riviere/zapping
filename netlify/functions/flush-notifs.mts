@@ -1,5 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-import webpush from 'web-push'
+import { sendPush, setupPush, type SubRow } from '../lib/push'
 
 // Toutes les 5 minutes : envoie en une seule notif les « vu ensemble » mis en
 // attente par notify, une fois que l'expéditeur a fini (plus rien d'ajouté
@@ -8,23 +7,14 @@ export const config = { schedule: '*/5 * * * *' }
 
 const QUIET_MS = 3 * 60 * 1000
 
-const SERVER_OPTIONS = {
-  auth: { persistSession: false, autoRefreshToken: false },
-  realtime: { transport: class {} as unknown as typeof WebSocket },
-}
-
 type Row = { id: number; recipient: string; sender: string; label: string; url: string; created_at: string }
-type SubRow = { endpoint: string; p256dh: string; auth_key: string }
 
 export default async () => {
-  const supabaseUrl = Netlify.env.get('SUPABASE_URL') || Netlify.env.get('VITE_SUPABASE_URL')
-  const serviceKey = Netlify.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  const vapidPublic = Netlify.env.get('VAPID_PUBLIC_KEY')
-  const vapidPrivate = Netlify.env.get('VAPID_PRIVATE_KEY')
-  const vapidSubject = Netlify.env.get('VAPID_SUBJECT')
-  if (!supabaseUrl || !serviceKey || !vapidPublic || !vapidPrivate || !vapidSubject) return
-  webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate)
-  const db = createClient(supabaseUrl, serviceKey, SERVER_OPTIONS)
+  const { db, missing } = setupPush()
+  if (!db) {
+    console.error(`flush-notifs: variables manquantes : ${missing.join(', ')}`)
+    return
+  }
 
   const { data } = await db.from('notif_queue').select('*').order('created_at')
   const groups = new Map<string, Row[]>()
@@ -48,14 +38,7 @@ export default async () => {
           }
 
     const { data: subs } = await db.from('push_subscriptions').select('endpoint, p256dh, auth_key').eq('user_id', recipient)
-    for (const sub of (subs ?? []) as SubRow[]) {
-      try {
-        await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } }, JSON.stringify(payload))
-      } catch (e) {
-        const status = (e as { statusCode?: number }).statusCode
-        if (status === 404 || status === 410) await db.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
-      }
-    }
+    await sendPush(db, (subs ?? []) as SubRow[], payload)
     await db.from('notif_queue').delete().in('id', rows.map((r) => r.id))
   }
 }

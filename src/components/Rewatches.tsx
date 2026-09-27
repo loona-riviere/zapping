@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useApp } from '../lib/appState'
+import { useShows } from '../lib/showsState'
 import { formatShortDate, isAired } from '../lib/progress'
 import type { Viewing } from '../lib/store'
 import type { TvEpisode, TvShow } from '../lib/tvmaze'
@@ -21,7 +21,7 @@ const span = (start: string | null, end: string | null) => {
  * celui en cours. `rewatches` compte les revisionnages terminés, datés ou non.
  */
 export function Rewatches({ show, episodes }: { show: TvShow; episodes: TvEpisode[] }) {
-  const { tracked, rewatchesOf, setShowViewings, setShowFirstWith, isRewatching, startRewatch, endRewatch, watchedFor, historyFor } = useApp()
+  const { tracked, rewatchesOf, setShowViewings, setShowFirstWith, isRewatching, startRewatch, endRewatch, watchedFor, historyFor } = useShows()
   const { duoFor } = useSocial()
   const withLabel = useWithLabel()
   // Série cochée à deux en ce moment : le visionnage en cours est « avec » cet ami.

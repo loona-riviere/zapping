@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useApp } from '../lib/appState'
+import { useShows } from '../lib/showsState'
+import { useMovies } from '../lib/moviesState'
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import {
@@ -36,7 +37,8 @@ type Item = {
 type Phase = 'pick' | 'resolving' | 'review' | 'saving' | 'done'
 
 export function ImportNetflix() {
-  const { setWatched, addMovies } = useApp()
+  const { setWatched } = useShows()
+  const { addMovies } = useMovies()
   const [items, setItems] = useState<Item[] | null>(null)
   const [phase, setPhase] = useState<Phase>('pick')
   const [fileName, setFileName] = useState('')

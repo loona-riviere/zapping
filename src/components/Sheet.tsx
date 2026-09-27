@@ -1,5 +1,11 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
+
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+/** Feuilles ouvertes, de la plus ancienne à celle du dessus. */
+const openSheets: RefObject<HTMLDivElement>[] = []
+/** Défilement de la page avant la première feuille, rendu à la fermeture de la dernière. */
+let pageOverflow = ''
 
 /**
  * Feuille qui monte du bas de l'écran, façon iOS : fond assombri, poignée,
@@ -17,14 +23,43 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
   closeRef.current = onClose
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeRef.current()
+    // Au clavier, le focus reste dans la feuille, et revient à la fermeture
+    // sur ce qui l'a ouverte. Échap et Tab ne concernent que la feuille du
+    // dessus quand deux sont empilées.
+    const opener = document.activeElement as HTMLElement | null
+    if (!openSheets.length) {
+      pageOverflow = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+    }
+    openSheets.push(panel)
+    const onKey = (e: KeyboardEvent) => {
+      if (openSheets[openSheets.length - 1] !== panel) return
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        closeRef.current()
+      } else if (e.key === 'Tab' && panel.current) {
+        const items = [...panel.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null)
+        if (!items.length) return
+        const first = items[0]
+        const last = items[items.length - 1]
+        const at = document.activeElement
+        if (e.shiftKey && (at === first || at === panel.current)) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && at === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
     window.addEventListener('keydown', onKey)
-    const overflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     panel.current?.focus()
     return () => {
       window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = overflow
+      openSheets.splice(openSheets.indexOf(panel), 1)
+      if (!openSheets.length) document.body.style.overflow = pageOverflow
+      // Pas de retour sur un champ de saisie : sur mobile, ça rouvrirait le clavier.
+      if (opener?.isConnected && !opener.matches('input, textarea, select')) opener.focus({ preventScroll: true })
     }
   }, [])
 

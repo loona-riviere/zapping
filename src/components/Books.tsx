@@ -50,6 +50,7 @@ export function Books() {
       right: step
         ? {
             label: step.label,
+            icon: b.status === 'dropped' ? ('resume' as const) : undefined,
             onSwipe: () => {
               setUndo({ row: b, text: `${b.title} — ${step.verb}.` })
               updateBook(b.book_id, step.patch)
@@ -206,7 +207,7 @@ export function Books() {
             {(visible) => (
           <ul className="rows">
             {visible.map((b) => (
-              <SwipeRow key={b.book_id} {...swipe(b)}>
+              <SwipeRow key={b.book_id} {...swipe(b)} buttonsFor={b.title}>
                 <a href={href.book(b.book_id)} className="row__link">
                   <Poster src={b.cover_url} alt={b.title} />
                   <div className="row__body">
@@ -242,7 +243,7 @@ export function Books() {
           {showDropped && (
             <ul className="rows">
               {dropped.map((b) => (
-                <SwipeRow key={b.book_id} {...swipe(b)}>
+                <SwipeRow key={b.book_id} {...swipe(b)} buttonsFor={b.title}>
                   <a href={href.book(b.book_id)} className="row__link">
                     <Poster src={b.cover_url} alt={b.title} />
                     <div className="row__body">

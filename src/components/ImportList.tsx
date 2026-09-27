@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useApp } from '../lib/appState'
+import { useShows } from '../lib/showsState'
+import { useMovies } from '../lib/moviesState'
 import { describeTarget, episodesUpTo, parseList, type ParsedLine } from '../lib/bulk'
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
@@ -79,7 +80,8 @@ async function resolveLine(parsed: ParsedLine, force?: 'show' | 'movie'): Promis
 }
 
 export function ImportList() {
-  const { setWatched, track, addMovies } = useApp()
+  const { setWatched, track } = useShows()
+  const { addMovies } = useMovies()
   const [text, setText] = useState('')
   const [matches, setMatches] = useState<Match[] | null>(null)
   const [phase, setPhase] = useState<'edit' | 'resolving' | 'review' | 'saving' | 'done'>('edit')

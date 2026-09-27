@@ -19,7 +19,10 @@ import { Search } from './components/Search'
 import { Settings } from './components/Settings'
 import { ShowPage } from './components/ShowPage'
 import { Stats } from './components/Stats'
-import { AppProvider, useApp } from './lib/appState'
+import { AppProvider } from './lib/appState'
+import { useMovies } from './lib/moviesState'
+import { NoticeProvider, useNoticeMessage, useShowNotice } from './lib/notice'
+import { useShows } from './lib/showsState'
 import { BooksProvider, useBooks } from './lib/booksState'
 import { PrefsProvider, usePrefs } from './lib/prefs'
 import { SocialProvider, useSocial } from './lib/socialState'
@@ -82,15 +85,17 @@ function AppContent() {
 
   return (
     <PrefsProvider user={session.user}>
-      <AppProvider userId={session.user.id}>
-        <WithBooks userId={session.user.id} />
-      </AppProvider>
+      <NoticeProvider>
+        <AppProvider userId={session.user.id}>
+          <WithBooks userId={session.user.id} />
+        </AppProvider>
+      </NoticeProvider>
     </PrefsProvider>
   )
 }
 
 function WithBooks({ userId }: { userId: string }) {
-  const { showNotice } = useApp()
+  const showNotice = useShowNotice()
   return (
     <BooksProvider userId={userId} onError={showNotice}>
       <SocialProvider onError={showNotice}>
@@ -102,7 +107,10 @@ function WithBooks({ userId }: { userId: string }) {
 
 function Shell() {
   const route = useRoute()
-  const { notice, dismissNotice, tracked, movies, loading } = useApp()
+  const notice = useNoticeMessage()
+  const showNotice = useShowNotice()
+  const { tracked, loading } = useShows()
+  const { movies } = useMovies()
   const { books, booksLoading } = useBooks()
   const { has } = usePrefs()
   const { incoming, incomingRecs } = useSocial()
@@ -120,7 +128,7 @@ function Shell() {
     <>
       <header className="topbar">
         <a href={href.home} className="wordmark" onClick={onTap}>Zapping</a>
-        <nav className="topbar__nav">
+        <nav className="topbar__nav" aria-label="Navigation principale">
           <a href={href.home} aria-current={isLibrary(route) ? 'page' : undefined}>Bibliothèque</a>
           <a href={href.search} aria-current={route.name === 'search' ? 'page' : undefined}>Chercher</a>
           <a href={href.stats} aria-current={route.name === 'stats' ? 'page' : undefined}>Statistiques</a>
@@ -150,7 +158,7 @@ function Shell() {
       {notice && (
         <div className="notice" role="alert">
           <p>{notice}</p>
-          <button className="link-btn" onClick={dismissNotice}>Fermer</button>
+          <button className="link-btn" onClick={() => showNotice(null)}>Fermer</button>
         </div>
       )}
 

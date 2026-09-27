@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useApp } from '../lib/appState'
+import { useShows } from '../lib/showsState'
 import { epCode, formatDate, formatShortDate, isAired } from '../lib/progress'
 import { href } from '../lib/route'
 import { seasonEpisodesFr, type EpisodeFr } from '../lib/tmdb'
@@ -15,7 +15,7 @@ import { SkeletonPage } from './Skeleton'
  * enchaîner comme dans une appli de streaming.
  */
 export function EpisodePage({ showId, episodeId }: { showId: number; episodeId: number }) {
-  const { watchedFor, historyFor, setWatched, isTracked, track, tracked } = useApp()
+  const { watchedFor, historyFor, setWatched, isTracked, track, tracked } = useShows()
   const [data, setData] = useState<ShowWithEpisodes | null>(null)
   const [error, setError] = useState(false)
   const [fr, setFr] = useState<Map<number, EpisodeFr> | null>(null)
