@@ -1,6 +1,6 @@
 import { completeFromTmdb } from '../lib/showCompletion'
 import { useEffect, useMemo, useState, useRef } from 'react'
-import type { ShowStatus } from '../lib/store'
+import { adoptTvmazeEpisodes, type ShowStatus } from '../lib/store'
 import { useShows } from '../lib/showsState'
 import { computeProgress, epCode, formatDate, formatShortDate, isAired } from '../lib/progress'
 import { href } from '../lib/route'
@@ -25,7 +25,7 @@ const SHOW_STATUS_OPTIONS: { value: ShowStatus; icon: string; label: string; hin
 ]
 
 export function ShowPage({ id }: { id: number }) {
-  const { statusOf, setStatus, isTracked, track, untrack, watchedFor, historyFor, setWatched, isRewatching, tracked, renameShow, rateShow } = useShows()
+  const { statusOf, setStatus, isTracked, track, untrack, watchedFor, historyFor, setWatched, isRewatching, tracked, renameShow, rateShow, reloadShows } = useShows()
   const [data, setData] = useState<ShowWithEpisodes | null>(null)
   const [error, setError] = useState(false)
   const [catchUp, setCatchUp] = useState<TvEpisode[] | null>(null)
@@ -75,6 +75,17 @@ export function ShowPage({ id }: { id: number }) {
         setData(d)
         // Dates ou saison manquantes chez TVmaze : TMDB complète, en arrière-plan.
         void completeFromTmdb(d).then((full) => alive && full && setData(full))
+        // Coches posées sur des épisodes TMDB que TVmaze connaît désormais :
+        // on les reporte sur les vrais épisodes pour ne rien perdre.
+        const known = new Set(d.episodes.map((e) => e.id))
+        const orphans = [...watchedFor(id).keys()].some((k) => k < 0 && !known.has(k))
+        if (orphans) {
+          void adoptTvmazeEpisodes(id, d.episodes)
+            .then((n) => { if (n > 0) void reloadShows() })
+            .catch(() => {
+              /* on réessaiera à la prochaine ouverture */
+            })
+        }
       })
       .catch(() => alive && setError(true))
     return () => {
