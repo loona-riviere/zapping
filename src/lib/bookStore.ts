@@ -38,11 +38,15 @@ export type TrackedBook = {
   genre?: string | null
   /** Caché aux amis. */
   hidden?: boolean
+  /** Lectures terminées avant la plus récente. */
+  past_reads?: PastRead[]
 }
+
+export type PastRead = { started_at: string | null; finished_at: string | null }
 
 /** Colonnes modifiables après coup depuis l'app. */
 export type BookPatch = Partial<
-  Pick<TrackedBook, 'status' | 'current_page' | 'started_at' | 'finished_at' | 'rating' | 'page_count' | 'cover_url' | 'genre'>
+  Pick<TrackedBook, 'status' | 'current_page' | 'started_at' | 'finished_at' | 'rating' | 'page_count' | 'cover_url' | 'genre' | 'past_reads'>
 >
 
 const PAGE = 1000
@@ -88,9 +92,10 @@ export function bookRow(book: Book, status: BookStatus, at: { started_at?: strin
 
 export async function insertBook(userId: string, row: TrackedBook): Promise<void> {
   // Colonnes vides non envoyées : elles peuvent manquer si le schéma n'a pas été relancé.
-  const { wish_rank, genre, hidden, ...base } = row
+  const { wish_rank, genre, hidden, past_reads, ...base } = row
   const full = {
     ...base,
+    ...(past_reads?.length ? { past_reads } : {}),
     ...(wish_rank != null ? { wish_rank } : {}),
     ...(genre ? { genre } : {}),
     ...(hidden ? { hidden } : {}),

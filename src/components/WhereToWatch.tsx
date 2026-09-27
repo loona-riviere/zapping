@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { tmdbConfigured, watchProviders, type Availability, type Provider } from '../lib/tmdb'
+import { movieWatchProviders, tmdbConfigured, watchProviders, type Availability, type Provider } from '../lib/tmdb'
 
 // Un abonnement Netflix (ou Prime Video, etc.) donne accès au catalogue quel
 // que soit le palier ou le canal d'accès : pas la peine d'afficher « Netflix »
@@ -43,14 +43,24 @@ const APP_SEARCH: Record<number, (title: string) => string> = {
  * vide : une absence de badge ne veut pas dire « indisponible », seulement
  * « pas en abonnement chez les plateformes que JustWatch suit ».
  */
-export function WhereToWatch({ imdbId, title }: { imdbId: string | null | undefined; title: string }) {
+export function WhereToWatch({
+  imdbId,
+  movieId,
+  title,
+}: {
+  /** Série : son IMDb, pont vers TMDB. */
+  imdbId?: string | null
+  /** Film : son identifiant TMDB. */
+  movieId?: number
+  title: string
+}) {
   const [data, setData] = useState<Availability | null>(null)
 
   useEffect(() => {
     let alive = true
     setData(null)
-    if (!tmdbConfigured || !imdbId) return
-    watchProviders(imdbId)
+    if (!tmdbConfigured || (!imdbId && !movieId)) return
+    ;(movieId ? movieWatchProviders(movieId) : watchProviders(imdbId))
       .then((d) => alive && setData(d))
       .catch(() => {
         /* la disponibilité est un bonus : son échec ne doit rien casser */
@@ -58,13 +68,13 @@ export function WhereToWatch({ imdbId, title }: { imdbId: string | null | undefi
     return () => {
       alive = false
     }
-  }, [imdbId])
+  }, [imdbId, movieId])
 
   if (!data?.providers.length) return null
 
   return (
     <section className="where">
-      <h2 className="where__title">Où la regarder</h2>
+      <h2 className="where__title">{movieId ? 'Où le regarder' : 'Où la regarder'}</h2>
       <div className="where__list">
         {dedupeProviders(data.providers).map((p) => {
           const href = APP_SEARCH[p.id]?.(title) ?? data.link

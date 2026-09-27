@@ -60,6 +60,10 @@ type AppState = {
   /** Bascule un film « à voir » sur « vu », à la date donnée (ou inconnue). */
   markMovieWatched: (movieId: number, watchedAt: string | null) => Promise<void>
   markMovieUnwatched: (movieId: number) => Promise<void>
+  /** Revu : ajoute un visionnage à la date donnée, les précédents sont gardés. */
+  rewatchMovie: (movieId: number, at: string) => Promise<void>
+  /** Oublie un visionnage d'avant (index dans past_views). */
+  removePastView: (movieId: number, index: number) => Promise<void>
   removeMovie: (movieId: number) => Promise<void>
   /** Annule un retrait : remet le film tel qu'il était. */
   restoreMovie: (movie: WatchedMovie) => Promise<void>
@@ -90,6 +94,13 @@ type AppState = {
 }
 
 const Ctx = createContext<AppState | null>(null)
+
+const MOVIE_CHEERS = [
+  (t: string) => `🍿 ${t} : vu ! Alors, verdict ?`,
+  (t: string) => `🎬 ${t} : c'est dans la boîte.`,
+  (t: string) => `🍿 ${t} : un de plus au compteur !`,
+]
+const movieCheer = (title: string) => MOVIE_CHEERS[Math.floor(Math.random() * MOVIE_CHEERS.length)](title)
 const EMPTY: WatchedEpisodes = new Map()
 
 export function AppProvider({ userId, children }: { userId: string; children: ReactNode }) {
@@ -556,7 +567,10 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
         await store.addMovies(userId, withRuntime)
         const seenBefore = movies.filter((m) => m.status === 'watched').length
         checkMilestone('movie', seenBefore, seenBefore + items.filter((i) => !movies.some((m) => m.movie_id === i.movie.id)).length)
-        if (items.length === 1) nightOwl('movie')
+        if (items.length === 1) {
+          nightOwl('movie')
+          if (items[0].watchedAt) celebrate(movieCheer(items[0].movie.title))
+        }
         setMovies((prev) => {
           const byId = new Map(prev.map((m) => [m.movie_id, m]))
           for (const { movie, watchedAt, runtime } of withRuntime) {
@@ -710,6 +724,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
           const n = movies.filter((m) => m.status === 'watched').length
           checkMilestone('movie', n, n + 1)
           nightOwl('movie')
+          if (before) celebrate(movieCheer(before.title))
         }
       } catch (e) {
         if (before) setMovies((prev) => prev.map((m) => (m.movie_id === movieId ? before : m)))
@@ -719,9 +734,53 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     [movies],
   )
 
+  // Écrit l'ensemble des visionnages d'un film d'un coup (le plus récent + ceux d'avant).
+  const setViews = useCallback(
+    async (movieId: number, watchedAt: string | null, past: (string | null)[]) => {
+      const before = movies.find((m) => m.movie_id === movieId)
+      if (!before) return
+      setMovies((prev) =>
+        prev.map((m) => (m.movie_id === movieId ? { ...m, status: 'watched', watched_at: watchedAt, past_views: past } : m)),
+      )
+      try {
+        await store.setMovieViews(movieId, watchedAt, past)
+      } catch (e) {
+        setMovies((prev) => prev.map((m) => (m.movie_id === movieId ? before : m)))
+        setNotice(
+          store.isMissingSchema(e)
+            ? 'Revoir un film : relance supabase/schema.sql dans ton projet Supabase.'
+            : `Enregistrement impossible : ${(e as Error).message}`,
+        )
+      }
+    },
+    [movies],
+  )
+
+  const rewatchMovie = useCallback(
+    async (movieId: number, at: string) => {
+      const m = movies.find((x) => x.movie_id === movieId)
+      if (!m) return
+      await setViews(movieId, at, [...(m.past_views ?? []), m.watched_at])
+      celebrate(`🔁 ${m.title} : revu ! Toujours aussi bien ?`)
+    },
+    [movies, setViews],
+  )
+
+  const removePastView = useCallback(
+    async (movieId: number, index: number) => {
+      const m = movies.find((x) => x.movie_id === movieId)
+      if (!m) return
+      await setViews(movieId, m.watched_at, (m.past_views ?? []).filter((_, i) => i !== index))
+    },
+    [movies, setViews],
+  )
+
   const markMovieUnwatched = useCallback(
     async (movieId: number) => {
       const before = movies.find((m) => m.movie_id === movieId)
+      // Revu par erreur : on retire seulement ce dernier visionnage, les précédents restent.
+      const past = before?.past_views ?? []
+      if (past.length) return setViews(movieId, past[past.length - 1], past.slice(0, -1))
       setMovies((prev) =>
         prev.map((m) => (m.movie_id === movieId ? { ...m, status: 'later', watched_at: null } : m)),
       )
@@ -732,7 +791,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
         setNotice(`Enregistrement impossible : ${(e as Error).message}`)
       }
     },
-    [movies],
+    [movies, setViews],
   )
 
   const removeMovie = useCallback(async (movieId: number) => {
@@ -800,13 +859,13 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       isTracked, statusOf, watchedFor, historyFor, rewatchesOf, setRewatches,
       isRewatching, startRewatch, endRewatch,
       track, untrack, setStatus, setWatched,
-      addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
+      addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, rewatchMovie, removePastView, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
       ranksReady, reorderMovies, reorderShows, patchHidden, reloadShows,
       dismissed, isDismissed, dismissRec, undismissRec,
     }),
     [userId, tracked, watched, rewatch, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
      historyFor, rewatchesOf, setRewatches, isRewatching, startRewatch, endRewatch,
-     track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
+     track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, rewatchMovie, removePastView, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
      ranksReady, reorderMovies, reorderShows, patchHidden, reloadShows,
      dismissed, isDismissed, dismissRec, undismissRec],
   )

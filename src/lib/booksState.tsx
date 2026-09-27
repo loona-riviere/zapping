@@ -161,7 +161,12 @@ export function BooksProvider({
           const n = books.filter((b) => b.status === 'read').length
           checkMilestone('book', n, n + 1)
           // Une vraie lecture qui s'achève, pas un « déjà lu » rangé après coup.
-          if (before.status === 'reading') celebrate(`📚 ${before.title} : terminé ! Belle lecture.`)
+          if (before.status === 'reading')
+            celebrate(
+              before.past_reads?.length
+                ? `🔁 ${before.title} : relu ! Toujours aussi bien ?`
+                : `📚 ${before.title} : terminé ! Belle lecture.`,
+            )
         }
         if (finished || (patch.current_page !== undefined && patch.current_page !== before.current_page)) nightOwl('book')
       } catch (e) {

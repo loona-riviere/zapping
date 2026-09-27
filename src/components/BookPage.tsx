@@ -192,11 +192,66 @@ export function BookPage({ id }: { id: string }) {
           </div>
         )}
 
+        {book && (book.past_reads ?? []).length > 0 && (
+          <p className="muted past-views">
+            {book.status === 'read' ? 'Aussi lu' : 'Déjà lu'}{' '}
+            {(book.past_reads ?? []).map((r, i) => (
+              <span key={i} className="past-views__item">
+                {r.finished_at ? `le ${formatShortDate(r.finished_at)}` : 'une fois (date inconnue)'}
+                <button
+                  type="button"
+                  className="link-btn muted"
+                  aria-label="Oublier cette lecture"
+                  onClick={() =>
+                    confirm('Oublier cette lecture ?') &&
+                    updateBook(book.book_id, { past_reads: (book.past_reads ?? []).filter((_, j) => j !== i) })
+                  }
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </p>
+        )}
+        {book && editDates && (
+          <label className="pages__label">
+            Une autre lecture, finie le
+            <input
+              type="date"
+              max={today()}
+              onChange={(e) => {
+                if (!e.target.value) return
+                const past = [...(book.past_reads ?? []), { started_at: null, finished_at: atNoon(e.target.value) }]
+                past.sort((a, b) => (a.finished_at ?? '').localeCompare(b.finished_at ?? ''))
+                updateBook(book.book_id, { past_reads: past })
+                e.target.value = ''
+              }}
+            />
+          </label>
+        )}
+
         {book?.status === 'read' && (
           <RatingPicker rating={book.rating} onChange={(r) => updateBook(book.book_id, { rating: r })} />
         )}
 
         <div className="pills">
+          {book?.status === 'read' && (
+            <button
+              type="button"
+              className="pill"
+              onClick={() =>
+                updateBook(book.book_id, {
+                  past_reads: [...(book.past_reads ?? []), { started_at: book.started_at, finished_at: book.finished_at }],
+                  status: 'reading',
+                  started_at: new Date().toISOString(),
+                  finished_at: null,
+                  current_page: 0,
+                })
+              }
+            >
+              🔁 Relire
+            </button>
+          )}
           <RecommendButton
             item={{
               kind: 'book',

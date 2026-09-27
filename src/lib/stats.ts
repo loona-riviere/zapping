@@ -115,7 +115,7 @@ export function computeStats(
 
   let movieMinutes = 0
   for (const m of movies) {
-    if (m.runtime) movieMinutes += m.runtime
+    if (m.runtime) movieMinutes += m.runtime * (1 + (m.past_views?.length ?? 0))
     const day = m.watched_at?.slice(0, 10)
     if (day && (!firstWatch || day < firstWatch)) firstWatch = day
   }
@@ -185,10 +185,13 @@ export function computeTimeline(
   }
 
   for (const m of movies) {
-    if (!m.watched_at) continue
     const runtime = m.runtime ?? 0
-    addToBucket(byMonth, m.watched_at.slice(0, 7), runtime, true)
-    addToBucket(byYear, m.watched_at.slice(0, 4), runtime, true)
+    // Chaque visionnage compte dans son année, revisionnages compris.
+    for (const at of [m.watched_at, ...(m.past_views ?? [])]) {
+      if (!at) continue
+      addToBucket(byMonth, at.slice(0, 7), runtime, true)
+      addToBucket(byYear, at.slice(0, 4), runtime, true)
+    }
   }
 
   return {
@@ -279,6 +282,17 @@ export function computeReadingStats(books: TrackedBook[]): ReadingStats {
   let readNoPages = 0
   const years = new Map<string, { year: string; books: number; pages: number }>()
   for (const b of books) {
+    // Relectures terminées : leurs pages comptent aussi.
+    for (const r of b.past_reads ?? []) {
+      if (b.page_count) pages += b.page_count
+      const year = r.finished_at?.slice(0, 4)
+      if (year) {
+        const y = years.get(year) ?? { year, books: 0, pages: 0 }
+        y.books++
+        y.pages += b.page_count ?? 0
+        years.set(year, y)
+      }
+    }
     if (b.status === 'read') {
       if (b.page_count) pages += b.page_count
       else readNoPages++
@@ -316,9 +330,13 @@ export function computeBookTimeline(books: TrackedBook[]): { months: BookBucket[
     map.set(key, b)
   }
   for (const b of books) {
-    if (b.status !== 'read' || !b.finished_at) continue
-    add(byMonth, b.finished_at.slice(0, 7), b.page_count ?? 0)
-    add(byYear, b.finished_at.slice(0, 4), b.page_count ?? 0)
+    // Chaque lecture terminée compte dans son année, relectures comprises.
+    const ends = [...(b.status === 'read' ? [b.finished_at] : []), ...(b.past_reads ?? []).map((r) => r.finished_at)]
+    for (const end of ends) {
+      if (!end) continue
+      add(byMonth, end.slice(0, 7), b.page_count ?? 0)
+      add(byYear, end.slice(0, 4), b.page_count ?? 0)
+    }
   }
   return {
     months: [...byMonth.values()].sort((a, b) => b.key.localeCompare(a.key)),

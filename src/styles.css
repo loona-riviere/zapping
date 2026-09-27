@@ -882,3 +882,9 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 .kindle__fix form { display: flex; gap: .5rem; }
 .kindle__fix .search__input { margin: 0; flex: 1; }
 .kindle__pick { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+
+/* Visionnages et lectures d'avant, sous la date principale */
+.past-views { margin: .2rem 0 0; font-size: .88rem; }
+.past-views__item { white-space: nowrap; }
+.past-views__item + .past-views__item::before { content: ','; margin-right: .3em; }
+.past-views__item .link-btn { padding: 0 .25rem; }

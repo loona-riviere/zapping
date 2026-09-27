@@ -4,6 +4,7 @@ type Event =
   | { event: 'friend_request' | 'friend_accept'; to: string }
   | { event: 'rec'; to: string; kind: string; itemId: string }
   | { event: 'duo'; to: string; showId: number }
+  | { event: 'movie_together'; to: string; movieId: number }
 
 /**
  * Prévient l'autre sur son téléphone (s'il a activé les notifications).

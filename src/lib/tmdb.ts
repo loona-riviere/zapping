@@ -285,7 +285,19 @@ export async function watchProviders(
   region = 'FR',
 ): Promise<Availability | null> {
   if (!KEY || !imdbId) return null
-  const key = `tmdb:where:${region}:${imdbId}`
+  return cachedProviders(`tmdb:where:${region}:${imdbId}`, region, async () => {
+    const tvId = await resolveTvId(imdbId)
+    return tvId ? `/tv/${tvId}/watch/providers` : null
+  })
+}
+
+/** Où regarder un film, en abonnement : même source, directement par son identifiant TMDB. */
+export async function movieWatchProviders(movieId: number, region = 'FR'): Promise<Availability | null> {
+  if (!KEY) return null
+  return cachedProviders(`tmdb:where:${region}:movie:${movieId}`, region, async () => `/movie/${movieId}/watch/providers`)
+}
+
+async function cachedProviders(key: string, region: string, path: () => Promise<string | null>): Promise<Availability | null> {
   try {
     const raw = localStorage.getItem(key)
     if (raw) {
@@ -297,18 +309,18 @@ export async function watchProviders(
   }
 
   let data: Availability | null = null
-  const tvId = await resolveTvId(imdbId)
-  if (tvId) {
+  const p = await path()
+  if (p) {
     const res = await get<{
       results: Record<string, { link?: string; flatrate?: RawProvider[] }>
-    }>(`/tv/${tvId}/watch/providers`, {})
+    }>(p, {})
     const here = res.results?.[region]
     if (here?.flatrate?.length) {
       data = {
-        providers: here.flatrate.map((p) => ({
-          id: p.provider_id,
-          name: p.provider_name,
-          logo: p.logo_path ? LOGO + p.logo_path : null,
+        providers: here.flatrate.map((x) => ({
+          id: x.provider_id,
+          name: x.provider_name,
+          logo: x.logo_path ? LOGO + x.logo_path : null,
         })),
         link: here.link ?? null,
       }

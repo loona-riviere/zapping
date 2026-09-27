@@ -619,3 +619,48 @@ drop policy if exists "recommendations: remove" on public.recommendations;
 create policy "recommendations: remove" on public.recommendations
   for delete to authenticated
   using ((select auth.uid()) in (sender, recipient));
+
+-- ------------------------------------------------------------------------
+-- Revoir un film, relire un livre : les visionnages / lectures d'avant.
+-- La ligne garde le plus récent ; les précédents sont empilés ici.
+--   watched_movies.past_views : ["2024-05-03T12:00:00Z", null, …]  (null = date inconnue)
+--   tracked_books.past_reads  : [{"started_at": …, "finished_at": …}, …]
+alter table public.watched_movies add column if not exists past_views jsonb not null default '[]'::jsonb;
+alter table public.tracked_books add column if not exists past_reads jsonb not null default '[]'::jsonb;
+
+-- « Vu ensemble » : marque un film vu chez un ami, à la même date. Réservé
+-- aux amis acceptés ; s'il l'avait déjà vu un autre jour, ce visionnage
+-- s'ajoute aux siens au lieu de remplacer l'ancien.
+create or replace function public.share_movie_viewing(
+  p_friend uuid, p_movie_id integer, p_title text, p_poster text, p_year integer,
+  p_release date, p_runtime integer, p_at timestamptz
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  cur public.watched_movies%rowtype;
+begin
+  if not public.is_my_friend(p_friend) then
+    raise exception 'Pas amis';
+  end if;
+  select * into cur from public.watched_movies where user_id = p_friend and movie_id = p_movie_id;
+  if not found then
+    insert into public.watched_movies (user_id, movie_id, title, poster_url, release_year, release_date, runtime, watched_at, status)
+    values (p_friend, p_movie_id, p_title, p_poster, p_year, p_release, p_runtime, p_at, 'watched');
+  elsif cur.status <> 'watched' then
+    update public.watched_movies set status = 'watched', watched_at = p_at
+    where user_id = p_friend and movie_id = p_movie_id;
+  elsif cur.watched_at is distinct from p_at
+    and (cur.watched_at is null or p_at is null or cur.watched_at::date <> p_at::date) then
+    update public.watched_movies
+    set past_views = past_views || jsonb_build_array(cur.watched_at), watched_at = p_at
+    where user_id = p_friend and movie_id = p_movie_id;
+  end if;
+end;
+$$;
+
+revoke all on function public.share_movie_viewing(uuid, integer, text, text, integer, date, integer, timestamptz) from public, anon;
+grant execute on function public.share_movie_viewing(uuid, integer, text, text, integer, date, integer, timestamptz) to authenticated;

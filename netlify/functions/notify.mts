@@ -7,7 +7,7 @@ import webpush from 'web-push'
 // (et récent pour une recommandation), sinon rien n'est envoyé. Impossible
 // donc de faire recevoir à quelqu'un une notif pour une action inventée.
 
-type Body = { event?: string; to?: string; kind?: string; itemId?: string; showId?: number }
+type Body = { event?: string; to?: string; kind?: string; itemId?: string; showId?: number; movieId?: number }
 type SubRow = { endpoint: string; p256dh: string; auth_key: string }
 
 const RECENT_MS = 10 * 60 * 1000
@@ -91,6 +91,19 @@ export default async (req: Request) => {
       .maybeSingle()
     if (data) {
       payload = { title: 'Série à deux', body: `${who} te propose de regarder ${data.show_name} ensemble.`, url: `/#/show/${body.showId}` }
+    }
+  } else if (body.event === 'movie_together' && typeof body.movieId === 'number') {
+    // Le film doit être vu des deux côtés, le même jour.
+    const { data: rows } = await db
+      .from('watched_movies')
+      .select('user_id, title, watched_at, status')
+      .eq('movie_id', body.movieId)
+      .in('user_id', [me, to])
+    const mine = rows?.find((r) => r.user_id === me)
+    const theirs = rows?.find((r) => r.user_id === to)
+    const day = (d: string | null) => (d ? d.slice(0, 10) : null)
+    if (mine && theirs && theirs.status === 'watched' && day(mine.watched_at) === day(theirs.watched_at)) {
+      payload = { title: 'Vu ensemble', body: `${who} a noté que vous avez vu ${theirs.title} ensemble.`, url: `/#/movie/${body.movieId}` }
     }
   }
 

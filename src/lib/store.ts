@@ -58,6 +58,8 @@ export type WatchedMovie = {
   wish_rank?: number | null
   /** Caché aux amis. */
   hidden?: boolean
+  /** Visionnages d'avant le plus récent (null = date inconnue). */
+  past_views?: (string | null)[]
 }
 
 /**
@@ -357,6 +359,31 @@ export async function markMovieWatched(movieId: number, watchedAt: string | null
     .from('watched_movies')
     .update({ status: 'watched', watched_at: watchedAt })
     .eq('movie_id', movieId)
+  if (error) throw error
+}
+
+/** Revoir : le visionnage courant rejoint ceux d'avant, le nouveau prend sa place. */
+export async function setMovieViews(movieId: number, watchedAt: string | null, pastViews: (string | null)[]): Promise<void> {
+  const { error } = await supabase
+    .from('watched_movies')
+    .update({ status: 'watched', watched_at: watchedAt, past_views: pastViews })
+    .eq('movie_id', movieId)
+    .eq('user_id', await me())
+  if (error) throw error
+}
+
+/** « Vu ensemble » : marque le film vu chez un ami aussi, à la même date. */
+export async function shareMovieViewing(friendId: string, m: WatchedMovie): Promise<void> {
+  const { error } = await supabase.rpc('share_movie_viewing', {
+    p_friend: friendId,
+    p_movie_id: m.movie_id,
+    p_title: m.title,
+    p_poster: m.poster_url,
+    p_year: m.release_year,
+    p_release: m.release_date,
+    p_runtime: m.runtime,
+    p_at: m.watched_at,
+  })
   if (error) throw error
 }
 

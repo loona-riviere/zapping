@@ -6,6 +6,8 @@ import { movieDetails, type MovieDetails } from '../lib/tmdb'
 import { Poster } from './Poster'
 import { RecommendButton } from './Recommend'
 import { RatingPicker } from './RatingPicker'
+import { WatchedTogether } from './WatchedTogether'
+import { WhereToWatch } from './WhereToWatch'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -16,7 +18,7 @@ const fmtRuntime = (min: number) => {
 }
 
 export function MoviePage({ id }: { id: number }) {
-  const { movies, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieMeta, rateMovie } =
+  const { movies, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, rewatchMovie, removePastView, removeMovie, fillMovieMeta, rateMovie } =
     useApp()
   const [details, setDetails] = useState<MovieDetails | null>(null)
   const [error, setError] = useState(false)
@@ -92,6 +94,24 @@ export function MoviePage({ id }: { id: number }) {
                   onChange={(e) => e.target.value && markMovieWatched(movie.movie_id, `${e.target.value}T12:00:00.000Z`)}
                 />
               </p>
+              {(movie.past_views ?? []).length > 0 && (
+                <p className="muted past-views">
+                  Aussi vu{' '}
+                  {(movie.past_views ?? []).map((at, i) => (
+                    <span key={i} className="past-views__item">
+                      {at ? `le ${formatShortDate(at)}` : 'une fois (date inconnue)'}
+                      <button
+                        type="button"
+                        className="link-btn muted"
+                        aria-label="Oublier ce visionnage"
+                        onClick={() => confirm('Oublier ce visionnage ?') && removePastView(movie.movie_id, i)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </p>
+              )}
             </>
           ) : (
             <p className="show__count muted">
@@ -111,8 +131,11 @@ export function MoviePage({ id }: { id: number }) {
             <button
               className="btn btn--ghost"
               onClick={() =>
-                confirm(`Marquer ${title} comme pas vu ? Sa date de visionnage sera perdue.`) &&
-                markMovieUnwatched(movie.movie_id)
+                confirm(
+                  movie.past_views?.length
+                    ? `Retirer le visionnage du ${movie.watched_at ? formatShortDate(movie.watched_at) : 'jour inconnu'} ? Les précédents restent.`
+                    : `Marquer ${title} comme pas vu ? Sa date de visionnage sera perdue.`,
+                ) && markMovieUnwatched(movie.movie_id)
               }
             >
               Pas vu
@@ -153,6 +176,12 @@ export function MoviePage({ id }: { id: number }) {
         )}
 
         <div className="pills">
+          {movie?.status === 'watched' && (
+            <button type="button" className="pill" onClick={() => rewatchMovie(movie.movie_id, `${today()}T12:00:00.000Z`)}>
+              🔁 Revu
+            </button>
+          )}
+          {movie?.status === 'watched' && <WatchedTogether movie={movie} />}
           <RecommendButton
             item={{
               kind: 'movie',
@@ -169,6 +198,8 @@ export function MoviePage({ id }: { id: number }) {
       </div>
 
       {details?.overview && <p className="show__summary">{details.overview}</p>}
+
+      {movie?.status !== 'watched' && <WhereToWatch movieId={id} title={title} />}
 
       {movie && (
         <button
