@@ -1,3 +1,4 @@
+import { completeFromTmdb } from '../lib/showCompletion'
 import { useEffect, useMemo, useState, useRef } from 'react'
 import type { ShowStatus } from '../lib/store'
 import { useShows } from '../lib/showsState'
@@ -69,7 +70,12 @@ export function ShowPage({ id }: { id: number }) {
     setFrName(null)
     setFrOverview(null)
     getShowWithEpisodes(id)
-      .then((d) => alive && setData(d))
+      .then((d) => {
+        if (!alive) return
+        setData(d)
+        // Dates ou saison manquantes chez TVmaze : TMDB complète, en arrière-plan.
+        void completeFromTmdb(d).then((full) => alive && full && setData(full))
+      })
       .catch(() => alive && setError(true))
     return () => {
       alive = false

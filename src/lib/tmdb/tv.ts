@@ -169,3 +169,48 @@ export async function seasonEpisodesFr(
   return eps
 }
 
+
+export type TmdbEpisode = {
+  id: number
+  season: number
+  number: number
+  name: string | null
+  airdate: string | null
+  runtime: number | null
+  overview: string | null
+}
+
+/**
+ * Tous les épisodes d'une série chez TMDB (saisons « spéciaux » exclues),
+ * avec leur date : sert à compléter TVmaze quand il lui manque des dates ou
+ * une saison entière. Gardé 3 jours.
+ */
+export async function tvEpisodesOutline(imdbId: string | null | undefined): Promise<TmdbEpisode[] | null> {
+  if (!KEY || !imdbId) return null
+  const key = `tmdb:outline:v1:${imdbId}`
+  const cached = readCache<TmdbEpisode[]>(key, 3 * 24 * 3600 * 1000)
+  if (cached) return cached
+  const tvId = await resolveTvId(imdbId)
+  if (!tvId) return null
+  const show = await get<{ seasons: { season_number: number; episode_count: number }[] }>(`/tv/${tvId}`, {})
+  const out: TmdbEpisode[] = []
+  for (const s of show.seasons ?? []) {
+    if (s.season_number < 1 || !s.episode_count) continue
+    const season = await get<{
+      episodes: { id: number; episode_number: number; name: string | null; air_date: string | null; runtime: number | null; overview: string | null }[]
+    }>(`/tv/${tvId}/season/${s.season_number}`, {})
+    for (const e of season.episodes ?? []) {
+      out.push({
+        id: e.id,
+        season: s.season_number,
+        number: e.episode_number,
+        name: e.name && !/^(Épisode|Episode) \d+$/.test(e.name) ? e.name : null,
+        airdate: e.air_date || null,
+        runtime: e.runtime ?? null,
+        overview: e.overview || null,
+      })
+    }
+  }
+  writeCache(key, out)
+  return out
+}

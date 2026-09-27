@@ -36,7 +36,7 @@ function parse(hash: string): Route {
   if (friend) return { name: 'friend', username: decodeURIComponent(friend[1]) }
   if (hash.startsWith('#/stats')) return { name: 'stats' }
   if (hash.startsWith('#/parametres')) return { name: 'settings' }
-  const ep = hash.match(/^#\/show\/(\d+)\/ep\/(\d+)/)
+  const ep = hash.match(/^#\/show\/(\d+)\/ep\/(-?\d+)/)
   if (ep) return { name: 'episode', showId: Number(ep[1]), episodeId: Number(ep[2]) }
   const show = hash.match(/^#\/show\/(\d+)/)
   if (show) return { name: 'show', id: Number(show[1]) }

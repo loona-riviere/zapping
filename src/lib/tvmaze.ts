@@ -101,6 +101,13 @@ export async function peekShows(ids: number[]): Promise<Map<number, Cached>> {
 
 export const isFresh = (c: Cached) => Date.now() - c.at < CACHE_TTL
 
+/** Remplace la fiche en cache (après l'avoir complétée ailleurs, ex. par TMDB). */
+export function storeShow(id: number, data: ShowWithEpisodes) {
+  const c = { at: Date.now(), data }
+  memory.set(id, c)
+  void idbSet(cacheKey(id), c)
+}
+
 async function fetchShow(id: number): Promise<ShowWithEpisodes> {
   const { _embedded, ...show } = await get<
     RawTvShow & { _embedded: { episodes: (TvEpisode & { number: number | null })[] } }
