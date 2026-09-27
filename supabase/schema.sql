@@ -314,3 +314,126 @@ alter table public.tracked_books add column if not exists wish_rank double preci
 -- deviné depuis les catégories du catalogue et corrigeable à la main : sert
 -- aux statistiques de lecture par genre.
 alter table public.tracked_books add column if not exists genre text;
+
+-- ==================================================================== amis ==
+-- Profils publics (pseudo), demandes d'amis, et lecture des bibliothèques
+-- entre amis. Une amitié n'existe qu'une fois la demande acceptée : avant,
+-- rien n'est visible de part et d'autre.
+
+create table if not exists public.profiles (
+  user_id uuid primary key default auth.uid() references auth.users (id) on delete cascade,
+  -- Pseudo unique, en minuscules : sert à chercher quelqu'un et dans le lien d'invitation.
+  username text not null unique check (username ~ '^[a-z0-9_.]{3,20}$'),
+  display_name text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+
+-- Tout compte connecté peut trouver un profil par son pseudo (c'est le but),
+-- mais chacun ne modifie que le sien.
+drop policy if exists "profiles: read" on public.profiles;
+create policy "profiles: read" on public.profiles
+  for select to authenticated using (true);
+drop policy if exists "profiles: own" on public.profiles;
+create policy "profiles: own" on public.profiles
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
+create table if not exists public.friendships (
+  requester uuid not null references auth.users (id) on delete cascade,
+  addressee uuid not null references auth.users (id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'accepted')),
+  created_at timestamptz not null default now(),
+  primary key (requester, addressee),
+  check (requester <> addressee)
+);
+
+alter table public.friendships enable row level security;
+
+-- Chacun voit les demandes qui le concernent, n'envoie qu'en son nom et
+-- « en attente », et peut retirer une amitié (ou refuser, ou annuler une
+-- demande) de son côté comme de l'autre. Accepter passe par
+-- accept_friend() : une règle d'update laisserait aussi changer l'auteur de
+-- la demande, donc se déclarer ami de n'importe qui.
+drop policy if exists "friendships: read" on public.friendships;
+create policy "friendships: read" on public.friendships
+  for select to authenticated
+  using ((select auth.uid()) in (requester, addressee));
+drop policy if exists "friendships: ask" on public.friendships;
+create policy "friendships: ask" on public.friendships
+  for insert to authenticated
+  with check ((select auth.uid()) = requester and status = 'pending');
+drop policy if exists "friendships: accept" on public.friendships;
+
+-- Accepte une demande reçue, et rien d'autre.
+create or replace function public.accept_friend(p_requester uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.friendships
+  set status = 'accepted'
+  where requester = p_requester and addressee = auth.uid() and status = 'pending';
+$$;
+revoke all on function public.accept_friend(uuid) from public, anon;
+grant execute on function public.accept_friend(uuid) to authenticated;
+drop policy if exists "friendships: remove" on public.friendships;
+create policy "friendships: remove" on public.friendships
+  for delete to authenticated
+  using ((select auth.uid()) in (requester, addressee));
+
+-- Vrai si la personne connectée est amie avec `other` (demande acceptée,
+-- dans un sens ou l'autre). security definer : les règles d'accès des
+-- bibliothèques l'appellent, et la ligne d'amitié n'est pas forcément
+-- lisible sous les règles de friendships. Un seul paramètre : impossible
+-- de s'en servir pour savoir si deux autres personnes sont amies.
+drop function if exists public.is_friend(uuid, uuid);
+create or replace function public.is_my_friend(other uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.friendships f
+    where f.status = 'accepted'
+      and ((f.requester = auth.uid() and f.addressee = other) or (f.requester = other and f.addressee = auth.uid()))
+  );
+$$;
+revoke all on function public.is_my_friend(uuid) from public, anon;
+grant execute on function public.is_my_friend(uuid) to authenticated;
+
+-- « Caché à mes amis », par série, film ou livre : les plaisirs coupables.
+alter table public.tracked_shows add column if not exists hidden boolean not null default false;
+alter table public.watched_movies add column if not exists hidden boolean not null default false;
+alter table public.tracked_books add column if not exists hidden boolean not null default false;
+
+-- Lecture seule des bibliothèques entre amis, hors éléments cachés. Ces
+-- règles s'ajoutent à « own rows » (qui reste seule à permettre d'écrire).
+drop policy if exists "tracked_shows: friends read" on public.tracked_shows;
+create policy "tracked_shows: friends read" on public.tracked_shows
+  for select to authenticated
+  using (not hidden and public.is_my_friend(user_id));
+drop policy if exists "watched_movies: friends read" on public.watched_movies;
+create policy "watched_movies: friends read" on public.watched_movies
+  for select to authenticated
+  using (not hidden and public.is_my_friend(user_id));
+drop policy if exists "tracked_books: friends read" on public.tracked_books;
+create policy "tracked_books: friends read" on public.tracked_books
+  for select to authenticated
+  using (not hidden and public.is_my_friend(user_id));
+-- Épisodes vus d'un ami, pour « où il en est », seulement pour ses séries non cachées.
+drop policy if exists "watched_episodes: friends read" on public.watched_episodes;
+create policy "watched_episodes: friends read" on public.watched_episodes
+  for select to authenticated
+  using (
+    public.is_my_friend(user_id)
+    and exists (
+      select 1 from public.tracked_shows t
+      where t.user_id = watched_episodes.user_id and t.show_id = watched_episodes.show_id and not t.hidden
+    )
+  );

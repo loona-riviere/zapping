@@ -21,3 +21,16 @@ export const supabase = createClient(url ?? 'http://localhost', key ?? 'missing'
     storage: authStorage,
   },
 })
+
+/**
+ * Identifiant de la personne connectée, lu dans la session locale (pas de
+ * requête). Les lectures de sa propre bibliothèque filtrent dessus : depuis
+ * les amis, la base laisse aussi voir les séries, films et livres des amis,
+ * qu'il ne faut pas mélanger aux siens.
+ */
+export async function me(): Promise<string> {
+  const { data } = await supabase.auth.getSession()
+  const id = data.session?.user.id
+  if (!id) throw new Error('Session expirée : reconnecte-toi.')
+  return id
+}

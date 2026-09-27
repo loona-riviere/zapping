@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { me, supabase } from './supabase'
 import type { Movie } from './tmdb'
 import type { TvEpisode, TvShow } from './tvmaze'
 
@@ -36,6 +36,8 @@ export type TrackedShow = {
   rating: Rating | null
   /** Rang dans « à regarder plus tard », plus petit = plus envie ; absent = pas rangé. */
   wish_rank?: number | null
+  /** Caché aux amis. */
+  hidden?: boolean
 }
 
 export type WatchedMovie = {
@@ -54,6 +56,8 @@ export type WatchedMovie = {
   rating: Rating | null
   /** Rang dans « à voir », plus petit = plus envie ; absent = pas rangé. */
   wish_rank?: number | null
+  /** Caché aux amis. */
+  hidden?: boolean
 }
 
 /**
@@ -79,9 +83,11 @@ export function isMissingSchema(error: unknown): boolean {
 const LEGACY_COLUMNS = 'show_id, name, image_url, added_at, last_watched_at'
 
 export async function fetchTracked(): Promise<TrackedShow[]> {
+  const uid = await me()
   const full = await supabase
     .from('tracked_shows')
-    .select(`${LEGACY_COLUMNS}, status, rewatches, rewatching, rating`)
+    .select(`${LEGACY_COLUMNS}, status, rewatches, rewatching, rating, hidden`)
+    .eq('user_id', uid)
   if (!full.error) {
     return (full.data ?? []).map((r) => ({
       ...r,
@@ -89,12 +95,27 @@ export async function fetchTracked(): Promise<TrackedShow[]> {
       rewatches: r.rewatches ?? 0,
       rewatching: r.rewatching ?? false,
       rating: (r.rating ?? null) as Rating | null,
+      hidden: r.hidden ?? false,
     }))
   }
   if (!isMissingSchema(full.error)) throw full.error
 
   // Schéma pas encore migré : on lit les colonnes d'origine, tout est « en cours ».
-  const legacy = await supabase.from('tracked_shows').select(LEGACY_COLUMNS)
+  // Sans « hidden » d'abord (schéma des amis pas encore passé), puis sans rien.
+  const noHidden = await supabase
+    .from('tracked_shows')
+    .select(`${LEGACY_COLUMNS}, status, rewatches, rewatching, rating`)
+    .eq('user_id', uid)
+  if (!noHidden.error) {
+    return (noHidden.data ?? []).map((r) => ({
+      ...r,
+      status: (r.status ?? 'watching') as ShowStatus,
+      rewatches: r.rewatches ?? 0,
+      rewatching: r.rewatching ?? false,
+      rating: (r.rating ?? null) as Rating | null,
+    }))
+  }
+  const legacy = await supabase.from('tracked_shows').select(LEGACY_COLUMNS).eq('user_id', uid)
   if (legacy.error) throw legacy.error
   return (legacy.data ?? []).map((r) => ({
     ...r,
@@ -107,11 +128,13 @@ export async function fetchTracked(): Promise<TrackedShow[]> {
 
 export async function fetchWatched(): Promise<WatchedMap> {
   const map: WatchedMap = new Map()
+  const uid = await me()
   // Supabase renvoie 1000 lignes max par requête : on pagine.
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from('watched_episodes')
       .select('show_id, episode_id, watched_at')
+      .eq('user_id', uid)
       .order('episode_id')
       .range(from, from + PAGE - 1)
     if (error) throw error
@@ -235,13 +258,17 @@ export async function markUnwatched(ids: number[]): Promise<void> {
 
 export async function fetchMovies(): Promise<WatchedMovie[]> {
   const out: WatchedMovie[] = []
+  const uid = await me()
   // `*` plutôt qu'une liste de colonnes : si `status` n'existe pas encore
   // (schema.sql pas relancé), elle est juste absente des lignes plutôt que de
   // faire échouer toute la requête, et on retombe alors sur « vu ».
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from('watched_movies')
-      .select('movie_id, title, poster_url, release_year, release_date, watched_at, runtime, status, rating')
+      // `*` : une colonne ajoutée depuis (hidden, wish_rank) qui manquerait
+      // encore en base est juste absente des lignes.
+      .select('*')
+      .eq('user_id', uid)
       .order('watched_at', { ascending: false, nullsFirst: false })
       .range(from, from + PAGE - 1)
     if (error) {
@@ -257,10 +284,12 @@ export async function fetchMovies(): Promise<WatchedMovie[]> {
 /** Schéma pas encore migré : pas de colonne `status`, tout est « vu ». */
 async function fetchMoviesLegacy(): Promise<WatchedMovie[]> {
   const out: WatchedMovie[] = []
+  const uid = await me()
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from('watched_movies')
       .select('movie_id, title, poster_url, release_year, watched_at, runtime')
+      .eq('user_id', uid)
       .order('watched_at', { ascending: false, nullsFirst: false })
       .range(from, from + PAGE - 1)
     if (error) throw error
@@ -343,8 +372,8 @@ export async function markMovieUnwatched(movieId: number): Promise<void> {
 /** Remet un film retiré tel qu'il était (annulation), note et date comprises. */
 export async function restoreMovie(userId: string, movie: WatchedMovie): Promise<void> {
   // Sans rang, on n'envoie pas la colonne : elle peut manquer si le schéma n'a pas été relancé.
-  const { wish_rank, ...rest } = movie
-  const row = wish_rank == null ? rest : movie
+  const { wish_rank, hidden, ...rest } = movie
+  const row = { ...rest, ...(wish_rank != null ? { wish_rank } : {}), ...(hidden ? { hidden } : {}) }
   const { error } = await supabase
     .from('watched_movies')
     .upsert({ ...row, user_id: userId }, { onConflict: 'user_id,movie_id' })
@@ -393,10 +422,12 @@ export async function fillMovieMeta(
 
 export async function fetchRewatchProgress(): Promise<WatchedMap> {
   const map: WatchedMap = new Map()
+  const uid = await me()
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from('rewatch_progress')
       .select('show_id, episode_id, watched_at')
+      .eq('user_id', uid)
       .order('episode_id')
       .range(from, from + PAGE - 1)
     if (error) {
@@ -484,6 +515,7 @@ export async function fetchDismissed(): Promise<DismissedRec[]> {
   const { data, error } = await supabase
     .from('dismissed_recommendations')
     .select('kind, tmdb_id, name, poster_url, dismissed_at')
+    .eq('user_id', await me())
     .order('dismissed_at', { ascending: false })
   if (error) throw error
   return (data ?? []) as DismissedRec[]
@@ -521,7 +553,11 @@ const RANK_ID: Record<RankTable, string> = {
  */
 export async function fetchRanks(table: RankTable): Promise<Map<string | number, number> | null> {
   const id = RANK_ID[table]
-  const { data, error } = await supabase.from(table).select(`${id}, wish_rank`).not('wish_rank', 'is', null)
+  const { data, error } = await supabase
+    .from(table)
+    .select(`${id}, wish_rank`)
+    .eq('user_id', await me())
+    .not('wish_rank', 'is', null)
   if (error) {
     if (isMissingSchema(error)) return null
     throw error

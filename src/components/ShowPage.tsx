@@ -4,6 +4,7 @@ import { computeProgress, epCode, formatDate, formatShortDate, isAired } from '.
 import { href } from '../lib/route'
 import { seasonOverviewsFr, showDetailsFr } from '../lib/tmdb'
 import { getShowWithEpisodes, statusFr, stripHtml, type ShowWithEpisodes, type TvEpisode } from '../lib/tvmaze'
+import { HideToggle } from './HideToggle'
 import { NextEpisode } from './NextEpisode'
 import { Poster } from './Poster'
 import { Rewatches } from './Rewatches'
@@ -12,7 +13,7 @@ import { RatingPicker } from './RatingPicker'
 import { WhereToWatch } from './WhereToWatch'
 
 export function ShowPage({ id }: { id: number }) {
-  const { isTracked, track, untrack, watchedFor, historyFor, setWatched, isRewatching, tracked, renameShow, rateShow } =
+  const { isTracked, track, untrack, watchedFor, historyFor, setWatched, isRewatching, tracked, renameShow, rateShow, patchHidden } =
     useApp()
   const [data, setData] = useState<ShowWithEpisodes | null>(null)
   const [error, setError] = useState(false)
@@ -267,6 +268,13 @@ export function ShowPage({ id }: { id: number }) {
               onChange={(r) => rateShow(show.id, r)}
             />
           </p>
+        )}
+        {followed && (
+          <HideToggle
+            target={{ table: 'tracked_shows', column: 'show_id', id: show.id }}
+            hidden={!!tracked.find((t) => t.show_id === show.id)?.hidden}
+            onChange={(h) => patchHidden('show', show.id, h)}
+          />
         )}
         {followed && (
           <button

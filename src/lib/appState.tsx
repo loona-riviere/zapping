@@ -67,6 +67,8 @@ type AppState = {
   /** Range « à voir » / « à regarder plus tard » dans l'ordre d'envie donné (identifiants). */
   reorderMovies: (orderedIds: number[]) => Promise<void>
   reorderShows: (orderedIds: number[]) => Promise<void>
+  /** Reflète localement « caché à mes amis » (l'écriture est faite par HideToggle). */
+  patchHidden: (kind: 'show' | 'movie', id: number, hidden: boolean) => void
   /** Relève chez TMDB la durée des films qui n'en ont pas encore. */
   fillMovieRuntimes: (onProgress?: (done: number, total: number) => void) => Promise<void>
   /** Complète l'affiche et/ou la durée d'un film depuis sa fiche détail, si l'un des deux manque. */
@@ -197,6 +199,11 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     },
     [tracked, ranksReady],
   )
+
+  const patchHidden = useCallback((kind: 'show' | 'movie', id: number, hidden: boolean) => {
+    if (kind === 'show') setTracked((prev) => prev.map((t) => (t.show_id === id ? { ...t, hidden } : t)))
+    else setMovies((prev) => prev.map((m) => (m.movie_id === id ? { ...m, hidden } : m)))
+  }, [])
 
   const isTracked = useCallback((id: number) => tracked.some((t) => t.show_id === id), [tracked])
   const isRewatching = useCallback(
@@ -756,13 +763,13 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       isRewatching, startRewatch, endRewatch,
       track, untrack, setStatus, setWatched,
       addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
-      ranksReady, reorderMovies, reorderShows,
+      ranksReady, reorderMovies, reorderShows, patchHidden,
       dismissed, isDismissed, dismissRec, undismissRec,
     }),
     [userId, tracked, watched, rewatch, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
      historyFor, rewatchesOf, setRewatches, isRewatching, startRewatch, endRewatch,
      track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
-     ranksReady, reorderMovies, reorderShows,
+     ranksReady, reorderMovies, reorderShows, patchHidden,
      dismissed, isDismissed, dismissRec, undismissRec],
   )
 

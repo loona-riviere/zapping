@@ -8,6 +8,8 @@ import { Celebrations } from './components/Celebrations'
 import { Import } from './components/Import'
 import { Library, isLibrary } from './components/Library'
 import { BookPage } from './components/BookPage'
+import { FriendProfile } from './components/FriendProfile'
+import { Friends } from './components/Friends'
 import { MoviePage } from './components/MoviePage'
 import { Search } from './components/Search'
 import { Settings } from './components/Settings'
@@ -16,6 +18,7 @@ import { Stats } from './components/Stats'
 import { AppProvider, useApp } from './lib/appState'
 import { BooksProvider, useBooks } from './lib/booksState'
 import { PrefsProvider, usePrefs } from './lib/prefs'
+import { SocialProvider, useSocial } from './lib/socialState'
 import { checkAnniversary } from './lib/fun'
 import { href, useRoute } from './lib/route'
 import { favoritePosters, saveWallPosters } from './lib/wall'
@@ -80,7 +83,9 @@ function WithBooks({ userId }: { userId: string }) {
   const { showNotice } = useApp()
   return (
     <BooksProvider userId={userId} onError={showNotice}>
-      <Shell />
+      <SocialProvider onError={showNotice}>
+        <Shell />
+      </SocialProvider>
     </BooksProvider>
   )
 }
@@ -90,6 +95,7 @@ function Shell() {
   const { notice, dismissNotice, tracked, movies, loading } = useApp()
   const { books, booksLoading } = useBooks()
   const { has } = usePrefs()
+  const { incoming } = useSocial()
   const { onTap, message } = useLogoEasterEgg()
 
   // Garde les affiches préférées pour le mur du prochain lancement.
@@ -107,6 +113,9 @@ function Shell() {
           <a href={href.home} aria-current={isLibrary(route) ? 'page' : undefined}>Bibliothèque</a>
           <a href={href.search} aria-current={route.name === 'search' ? 'page' : undefined}>Chercher</a>
           <a href={href.stats} aria-current={route.name === 'stats' ? 'page' : undefined}>Statistiques</a>
+          <a href={href.friends} aria-current={route.name === 'friends' || route.name === 'friend' ? 'page' : undefined}>
+            Amis{incoming.length > 0 && <span className="badge">{incoming.length}</span>}
+          </a>
           <a href={href.settings} aria-current={route.name === 'settings' ? 'page' : undefined}>Paramètres</a>
         </nav>
       </header>
@@ -120,6 +129,8 @@ function Shell() {
         {route.name === 'show' && <ShowPage id={route.id} />}
         {route.name === 'movie' && <MoviePage id={route.id} />}
         {route.name === 'book' && <BookPage id={route.id} />}
+        {route.name === 'friends' && <Friends />}
+        {route.name === 'friend' && <FriendProfile username={route.username} />}
       </main>
 
       {notice && (
@@ -130,7 +141,7 @@ function Shell() {
       )}
 
       <Celebrations />
-      <BottomNav route={route} />
+      <BottomNav route={route} pending={incoming.length} />
       <EasterEggOverlay message={message} />
     </>
   )

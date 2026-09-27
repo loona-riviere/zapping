@@ -804,3 +804,27 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 .pages__slider:focus-visible { outline: none; }
 .pages__slider:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px color-mix(in srgb, var(--amber) 60%, transparent); }
 .pages--compact .pages__slider { height: 22px; }
+
+/* Amis */
+.avatar {
+  flex: none; display: grid; place-items: center; border-radius: 50%;
+  background: linear-gradient(135deg, #ff8a4c, #ff3d6e); color: #fff; font: 800 1.1rem var(--display);
+}
+.avatar--sm { width: 52px; height: 52px; }
+.avatar--lg { width: 72px; height: 72px; font-size: 1.8rem; }
+.friend__me { display: flex; align-items: center; gap: 1rem; margin: .5rem 0 1rem; }
+.friend__me > div { flex: 1; min-width: 0; }
+.friend__me h1, .friend__me h2 { font-size: 1.5rem; }
+.friend__me p { margin: .1rem 0 0; }
+.friend__tag { font-size: .85rem; white-space: nowrap; }
+.friend__counts { list-style: none; display: flex; gap: 1.25rem; padding: 0; margin: 0 0 .5rem; color: var(--muted); }
+.friend__counts strong { color: var(--ink); font-family: var(--display); font-size: 1.2rem; }
+.badge {
+  display: inline-grid; place-items: center; min-width: 1.1rem; height: 1.1rem; padding: 0 .3rem; margin-left: .3rem;
+  border-radius: 999px; background: var(--accent); color: var(--accent-ink); font: 700 .7rem var(--body);
+}
+.bottomnav__icon { position: relative; display: inline-flex; }
+.badge--dot { position: absolute; top: -.35rem; right: -.6rem; margin: 0; }
+.hide-toggle { display: flex; align-items: center; gap: .45rem; font-size: .88rem; color: var(--muted); cursor: pointer; }
+.hide-toggle input { accent-color: var(--accent); width: 1rem; height: 1rem; margin: 0; }
+.friend .shelf a { text-decoration: none; }

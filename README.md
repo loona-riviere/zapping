@@ -37,6 +37,10 @@ Les films et les livres ont leur onglet dans la même bibliothèque.
   Lus (avec date de fin et note) et Abandonnés. La fiche d'un livre garde les dates de début et de
   fin, modifiables, et le nombre de pages quand le catalogue l'ignore. Les statistiques ajoutent une
   section Lecture (livres lus, pages lues, livres par année)
+- **Amis** : un pseudo, des demandes d'amis à accepter (par pseudo ou lien d'invitation), et le
+  profil de chaque ami (ce qu'il regarde, lit, ses coups de cœur), en lecture seule. « Caché à mes
+  amis » sur une fiche garde une série, un film ou un livre pour soi. Les règles d'accès Supabase
+  font le travail : rien n'est visible avant l'acceptation, et un ami ne peut rien modifier
 - **Où la regarder** : sur la fiche d'une série, les plateformes qui la proposent en abonnement
   en France (données JustWatch via TMDB, nécessite la clé)
 - **Import Netflix** : dépose le `NetflixViewingHistory.csv` de ton profil, l'app regroupe par

@@ -18,6 +18,8 @@ type BooksState = {
   restoreBook: (row: TrackedBook) => Promise<void>
   /** Range « à lire » dans l'ordre d'envie donné (identifiants). */
   reorderBooks: (orderedIds: string[]) => Promise<void>
+  /** Reflète localement « caché à mes amis » (l'écriture est faite par HideToggle). */
+  patchBookHidden: (bookId: string, hidden: boolean) => void
 }
 
 const Ctx = createContext<BooksState | null>(null)
@@ -167,9 +169,13 @@ export function BooksProvider({
     [books, onError],
   )
 
+  const patchBookHidden = useCallback((bookId: string, hidden: boolean) => {
+    setBooks((prev) => prev.map((b) => (b.book_id === bookId ? { ...b, hidden } : b)))
+  }, [])
+
   const value = useMemo<BooksState>(
-    () => ({ books, booksReady, booksLoading, bookById, addBook, updateBook, removeBook, restoreBook, reorderBooks }),
-    [books, booksReady, booksLoading, bookById, addBook, updateBook, removeBook, restoreBook, reorderBooks],
+    () => ({ books, booksReady, booksLoading, bookById, addBook, updateBook, removeBook, restoreBook, reorderBooks, patchBookHidden }),
+    [books, booksReady, booksLoading, bookById, addBook, updateBook, removeBook, restoreBook, reorderBooks, patchBookHidden],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

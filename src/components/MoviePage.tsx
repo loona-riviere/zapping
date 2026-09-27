@@ -4,6 +4,7 @@ import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { movieDetails, type MovieDetails } from '../lib/tmdb'
 import { Poster } from './Poster'
+import { HideToggle } from './HideToggle'
 import { RatingPicker } from './RatingPicker'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -15,7 +16,7 @@ const fmtRuntime = (min: number) => {
 }
 
 export function MoviePage({ id }: { id: number }) {
-  const { movies, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieMeta, rateMovie } =
+  const { movies, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, removeMovie, fillMovieMeta, rateMovie, patchHidden } =
     useApp()
   const [details, setDetails] = useState<MovieDetails | null>(null)
   const [error, setError] = useState(false)
@@ -151,6 +152,13 @@ export function MoviePage({ id }: { id: number }) {
           )}
         </div>
 
+        {movie && (
+          <HideToggle
+            target={{ table: 'watched_movies', column: 'movie_id', id: movie.movie_id }}
+            hidden={!!movie.hidden}
+            onChange={(h) => patchHidden('movie', movie.movie_id, h)}
+          />
+        )}
         {movie && (
           <button
             type="button"

@@ -1,7 +1,7 @@
 import type { Book } from './books'
 import type { Rating } from './store'
 import { isMissingSchema } from './store'
-import { supabase } from './supabase'
+import { me, supabase } from './supabase'
 
 /** Où en est un livre : en cours, lu, à lire, abandonné. */
 export type BookStatus = 'reading' | 'read' | 'later' | 'dropped'
@@ -36,6 +36,8 @@ export type TrackedBook = {
   wish_rank?: number | null
   /** Genre en français (lib/genres), deviné à l'ajout, corrigeable ; absent si inconnu. */
   genre?: string | null
+  /** Caché aux amis. */
+  hidden?: boolean
 }
 
 /** Colonnes modifiables après coup depuis l'app. */
@@ -47,12 +49,14 @@ const PAGE = 1000
 
 export async function fetchBooks(): Promise<TrackedBook[]> {
   const out: TrackedBook[] = []
+  const uid = await me()
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from('tracked_books')
       // `*` : une colonne ajoutée depuis (genre, wish_rank) qui manquerait
       // encore en base est juste absente des lignes, sans faire échouer la lecture.
       .select('*')
+      .eq('user_id', uid)
       .order('updated_at', { ascending: false })
       .range(from, from + PAGE - 1)
     if (error) throw error
@@ -84,13 +88,19 @@ export function bookRow(book: Book, status: BookStatus, at: { started_at?: strin
 
 export async function insertBook(userId: string, row: TrackedBook): Promise<void> {
   // Colonnes vides non envoyées : elles peuvent manquer si le schéma n'a pas été relancé.
-  const { wish_rank, genre, ...base } = row
-  const full = { ...base, ...(wish_rank != null ? { wish_rank } : {}), ...(genre ? { genre } : {}), user_id: userId }
+  const { wish_rank, genre, hidden, ...base } = row
+  const full = {
+    ...base,
+    ...(wish_rank != null ? { wish_rank } : {}),
+    ...(genre ? { genre } : {}),
+    ...(hidden ? { hidden } : {}),
+    user_id: userId,
+  }
   const opts = { onConflict: 'user_id,book_id', ignoreDuplicates: true }
   const { error } = await supabase.from('tracked_books').upsert(full, opts)
   if (!error) return
   if (!isMissingSchema(error)) throw error
-  // Colonne genre ou wish_rank absente : on enregistre le livre sans elles.
+  // Colonne genre, wish_rank ou hidden absente : on enregistre le livre sans elles.
   const retry = await supabase.from('tracked_books').upsert({ ...base, user_id: userId }, opts)
   if (retry.error) throw retry.error
 }

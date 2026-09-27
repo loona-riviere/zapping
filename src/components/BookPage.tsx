@@ -3,6 +3,7 @@ import { bookDetails, type Book } from '../lib/books'
 import { finishPatch, startPatch, useBooks } from '../lib/booksState'
 import { BOOK_STATUSES, BOOK_STATUS_LABEL, type BookPatch, type BookStatus, type TrackedBook } from '../lib/bookStore'
 import { href } from '../lib/route'
+import { HideToggle } from './HideToggle'
 import { PageInput } from './PageInput'
 import { Poster } from './Poster'
 import { RatingPicker } from './RatingPicker'
@@ -19,7 +20,7 @@ function statusPatch(b: TrackedBook, status: BookStatus): BookPatch {
 }
 
 export function BookPage({ id }: { id: string }) {
-  const { bookById, addBook, updateBook, removeBook, booksReady } = useBooks()
+  const { bookById, addBook, updateBook, removeBook, booksReady, patchBookHidden } = useBooks()
   const [details, setDetails] = useState<Book | null>(null)
   const [error, setError] = useState(false)
   const [expanded, setExpanded] = useState(false)
@@ -197,6 +198,13 @@ export function BookPage({ id }: { id: string }) {
           <RatingPicker rating={book.rating} onChange={(r) => updateBook(book.book_id, { rating: r })} />
         )}
 
+        {book && (
+          <HideToggle
+            target={{ table: 'tracked_books', column: 'book_id', id: book.book_id }}
+            hidden={!!book.hidden}
+            onChange={(h) => patchBookHidden(book.book_id, h)}
+          />
+        )}
         {book && (
           <button
             type="button"
