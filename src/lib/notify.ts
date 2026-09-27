@@ -5,6 +5,7 @@ type Event =
   | { event: 'rec'; to: string; kind: string; itemId: string }
   | { event: 'duo'; to: string; showId: number }
   | { event: 'movie_together'; to: string; movieId: number }
+  | { event: 'show_together'; to: string; showId: number }
 
 /**
  * Prévient l'autre sur son téléphone (s'il a activé les notifications).

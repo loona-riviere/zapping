@@ -668,3 +668,65 @@ grant execute on function public.share_movie_viewing(uuid, integer, text, text, 
 -- Revisionnages terminés d'une série, avec leurs dates : [{"started_at": …, "finished_at": …}].
 -- `rewatches` reste le compte total (certains peuvent ne pas être datés).
 alter table public.tracked_shows add column if not exists past_viewings jsonb not null default '[]'::jsonb;
+
+-- « Vu ensemble » pour une série : coche chez un ami des épisodes que j'ai
+-- vus, à mes dates (toute la série, une saison ou quelques épisodes). Réservé
+-- aux amis acceptés, limité aux épisodes réellement cochés chez moi ; ceux
+-- qu'il avait déjà gardent sa date. Pendant un revisionnage chez lui, ils
+-- vont dans ce revisionnage. Renvoie le nombre d'épisodes ajoutés chez lui.
+create or replace function public.share_show_episodes(
+  p_friend uuid, p_show_id integer, p_name text, p_image text, p_episodes jsonb
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n integer;
+  is_rewatching boolean;
+begin
+  if not public.is_my_friend(p_friend) then
+    raise exception 'Pas amis';
+  end if;
+
+  insert into public.tracked_shows (user_id, show_id, name, image_url, status)
+  values (p_friend, p_show_id, p_name, p_image, 'watching')
+  on conflict (user_id, show_id) do nothing;
+  update public.tracked_shows set status = 'watching'
+  where user_id = p_friend and show_id = p_show_id and status = 'later';
+
+  select t.rewatching into is_rewatching from public.tracked_shows t where t.user_id = p_friend and t.show_id = p_show_id;
+
+  with mine as (
+    select (e->>'episode_id')::integer as episode_id, (e->>'season')::integer as season,
+           (e->>'number')::integer as number, nullif(e->>'watched_at', '')::timestamptz as watched_at
+    from jsonb_array_elements(p_episodes) e
+    where exists (select 1 from public.watched_episodes w where w.user_id = auth.uid() and w.episode_id = (e->>'episode_id')::integer)
+       or exists (select 1 from public.rewatch_progress r where r.user_id = auth.uid() and r.episode_id = (e->>'episode_id')::integer)
+  ), ins_rw as (
+    insert into public.rewatch_progress (user_id, show_id, episode_id, watched_at)
+    select p_friend, p_show_id, episode_id, watched_at from mine where is_rewatching
+    on conflict (user_id, episode_id) do nothing
+    returning 1
+  ), ins_h as (
+    insert into public.watched_episodes (user_id, episode_id, show_id, season, number, watched_at)
+    select p_friend, episode_id, p_show_id, season, number, watched_at from mine where not is_rewatching
+    on conflict (user_id, episode_id) do nothing
+    returning 1
+  )
+  select (select count(*) from ins_rw) + (select count(*) from ins_h) into n;
+
+  update public.tracked_shows
+  set last_watched_at = greatest(
+    last_watched_at,
+    (select max(watched_at) from public.watched_episodes w where w.user_id = p_friend and w.show_id = p_show_id),
+    (select max(watched_at) from public.rewatch_progress r where r.user_id = p_friend and r.show_id = p_show_id))
+  where user_id = p_friend and show_id = p_show_id;
+
+  return n;
+end;
+$$;
+
+revoke all on function public.share_show_episodes(uuid, integer, text, text, jsonb) from public, anon;
+grant execute on function public.share_show_episodes(uuid, integer, text, text, jsonb) to authenticated;

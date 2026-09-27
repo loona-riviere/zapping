@@ -911,3 +911,12 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 }
 .hist__remove { background: none; border: 0; font: inherit; font-size: .8rem; color: #c0392b; cursor: pointer; padding: .2rem; }
 .hist__add { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .6rem; padding-top: .6rem; border-top: 1px dashed var(--line); }
+
+.pill--on { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.together__season { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
+.together__season .muted { width: 2rem; font-size: .85rem; }
+.together__ep {
+  min-width: 2.1rem; height: 2.1rem; font: inherit; font-size: .85rem; border-radius: 8px; cursor: pointer;
+  border: 1.5px solid var(--line); background: var(--surface); color: var(--ink);
+}
+.together__ep--on { background: var(--accent); border-color: var(--accent); color: #fff; }

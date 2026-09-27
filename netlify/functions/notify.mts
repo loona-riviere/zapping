@@ -38,7 +38,7 @@ export default async (req: Request) => {
     return new Response(null, { status: 400 })
   }
   const to = body.to
-  if (!to || to === me) return new Response(null, { status: 400 })
+  if (!to || to === me || !/^[0-9a-f-]{36}$/i.test(to)) return new Response(null, { status: 400 })
 
   const { data: sender } = await db.from('profiles').select('username, display_name').eq('user_id', me).maybeSingle()
   const who = sender?.display_name?.trim() || (sender ? `@${sender.username}` : 'Quelqu’un')
@@ -104,6 +104,21 @@ export default async (req: Request) => {
     const day = (d: string | null) => (d ? d.slice(0, 10) : null)
     if (mine && theirs && theirs.status === 'watched' && day(mine.watched_at) === day(theirs.watched_at)) {
       payload = { title: 'Vu ensemble', body: `${who} a noté que vous avez vu ${theirs.title} ensemble.`, url: `/#/movie/${body.movieId}` }
+    }
+  } else if (body.event === 'show_together' && typeof body.showId === 'number') {
+    const { data } = await db
+      .from('tracked_shows')
+      .select('name')
+      .eq('user_id', to)
+      .eq('show_id', body.showId)
+      .maybeSingle()
+    const { data: friends } = await db
+      .from('friendships')
+      .select('status')
+      .eq('status', 'accepted')
+      .or(`and(requester.eq.${me},addressee.eq.${to}),and(requester.eq.${to},addressee.eq.${me})`)
+    if (data && friends?.length) {
+      payload = { title: 'Vu ensemble', body: `${who} a coché chez toi des épisodes de ${data.name} vus ensemble.`, url: `/#/show/${body.showId}` }
     }
   }
 

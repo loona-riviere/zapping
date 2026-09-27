@@ -6,6 +6,7 @@ import { seasonOverviewsFr, showDetailsFr } from '../lib/tmdb'
 import { getShowWithEpisodes, statusFr, stripHtml, type ShowWithEpisodes, type TvEpisode } from '../lib/tvmaze'
 import { DuoPanel } from './DuoPanel'
 import { RecommendButton } from './Recommend'
+import { ShowTogether } from './ShowTogether'
 import { NextEpisode } from './NextEpisode'
 import { Poster } from './Poster'
 import { Rewatches } from './Rewatches'
@@ -272,6 +273,13 @@ export function ShowPage({ id }: { id: number }) {
         )}
         <DuoPanel show={{ id: show.id, name: tracked.find((t) => t.show_id === show.id)?.name ?? show.name, image: show.image?.medium ?? null }} />
         <div className="pills">
+          {data && (
+            <ShowTogether
+              show={{ id: show.id, name: tracked.find((t) => t.show_id === show.id)?.name ?? show.name, image: show.image?.medium ?? null }}
+              episodes={data.episodes}
+              watched={watched}
+            />
+          )}
           <DuoPanel show={{ id: show.id, name: tracked.find((t) => t.show_id === show.id)?.name ?? show.name, image: show.image?.medium ?? null }} mode="start" />
           <RecommendButton
             item={{

@@ -106,7 +106,7 @@ export function DuoPanel({
   if (!picking) {
     return (
       <button className="pill" onClick={() => setPicking(true)}>
-        👫 À deux
+        📺 Suivre à deux
       </button>
     )
   }
