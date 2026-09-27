@@ -37,6 +37,10 @@ type AppState = {
   rewatchesOf: (showId: number) => number
   /** Revisionnages terminés datés, et leur nombre total (datés ou non). */
   setShowViewings: (showId: number, past: Viewing[], rewatches: number) => Promise<void>
+  /** Amis présents au premier visionnage d'une série. */
+  setShowFirstWith: (showId: number, ids: string[]) => Promise<void>
+  /** Amis présents au dernier visionnage d'un film. */
+  setMovieWith: (movieId: number, ids: string[]) => Promise<void>
   setRewatches: (showId: number, count: number) => Promise<void>
   /** Un revisionnage est-il en cours sur cette série ? */
   isRewatching: (showId: number) => boolean
@@ -44,7 +48,7 @@ type AppState = {
   historyFor: (showId: number) => WatchedEpisodes
   startRewatch: (showId: number) => Promise<void>
   /** `completed` incrémente le compteur ; sinon le revisionnage est abandonné. */
-  endRewatch: (showId: number, completed: boolean) => Promise<void>
+  endRewatch: (showId: number, completed: boolean, withIds?: string[]) => Promise<void>
   /** `dates` (import) fixe la date de visionnage épisode par épisode. */
   setWatched: (
     show: TvShow,
@@ -362,6 +366,34 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
     [patchShow, tracked],
   )
 
+  const setShowFirstWith = useCallback(
+    async (showId: number, ids: string[]) => {
+      const before = tracked.find((t) => t.show_id === showId)
+      patchShow(showId, { first_with: ids })
+      try {
+        await store.setShowFirstWith(showId, ids)
+      } catch (e) {
+        patchShow(showId, { first_with: before?.first_with })
+        setNotice(`Enregistrement impossible : ${(e as Error).message}`)
+      }
+    },
+    [patchShow, tracked],
+  )
+
+  const setMovieWith = useCallback(
+    async (movieId: number, ids: string[]) => {
+      const before = movies.find((m) => m.movie_id === movieId)
+      setMovies((prev) => prev.map((m) => (m.movie_id === movieId ? { ...m, watched_with: ids } : m)))
+      try {
+        await store.setMovieWith(movieId, ids)
+      } catch (e) {
+        if (before) setMovies((prev) => prev.map((m) => (m.movie_id === movieId ? before : m)))
+        setNotice(`Enregistrement impossible : ${(e as Error).message}`)
+      }
+    },
+    [movies],
+  )
+
   const startRewatch = useCallback(
     async (showId: number) => {
       patchShow(showId, { rewatching: true })
@@ -383,13 +415,13 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
   )
 
   const endRewatch = useCallback(
-    async (showId: number, completed: boolean) => {
+    async (showId: number, completed: boolean, withIds?: string[]) => {
       const before = tracked.find((t) => t.show_id === showId)
       const next = (before?.rewatches ?? 0) + (completed ? 1 : 0)
       // Une passe terminée garde ses dates : du premier au dernier épisode recoché.
       const dates = [...(rewatch.get(showId)?.values() ?? [])].filter((d): d is string => !!d).sort()
       const past = completed
-        ? [...(before?.past_viewings ?? []), { started_at: dates[0] ?? null, finished_at: dates[dates.length - 1] ?? null }]
+        ? [...(before?.past_viewings ?? []), { started_at: dates[0] ?? null, finished_at: dates[dates.length - 1] ?? null, ...(withIds?.length ? { with: withIds } : {}) }]
         : before?.past_viewings ?? []
       patchShow(showId, { rewatching: false, rewatches: next, past_viewings: past })
       setRewatch((prev) => {
@@ -888,7 +920,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       userId, tracked, watched, movies, moviesReady, loading, notice,
       dismissNotice: () => setNotice(null),
       showNotice: setNotice,
-      isTracked, statusOf, watchedFor, historyFor, rewatchesOf, setRewatches, setShowViewings,
+      isTracked, statusOf, watchedFor, historyFor, rewatchesOf, setRewatches, setShowViewings, setShowFirstWith, setMovieWith,
       isRewatching, startRewatch, endRewatch,
       track, untrack, setStatus, setWatched,
       addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, rewatchMovie, removePastView, setMovieViews: setViews, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
@@ -896,7 +928,7 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       dismissed, isDismissed, dismissRec, undismissRec,
     }),
     [userId, tracked, watched, rewatch, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
-     historyFor, rewatchesOf, setRewatches, setShowViewings, isRewatching, startRewatch, endRewatch,
+     historyFor, rewatchesOf, setRewatches, setShowViewings, setShowFirstWith, setMovieWith, isRewatching, startRewatch, endRewatch,
      track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, rewatchMovie, removePastView, setViews, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
      ranksReady, reorderMovies, reorderShows, patchHidden, reloadShows,
      dismissed, isDismissed, dismissRec, undismissRec],

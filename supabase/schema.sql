@@ -644,21 +644,27 @@ set search_path = public
 as $$
 declare
   cur public.watched_movies%rowtype;
+  me uuid := auth.uid();
 begin
   if not public.is_my_friend(p_friend) then
     raise exception 'Pas amis';
   end if;
   select * into cur from public.watched_movies where user_id = p_friend and movie_id = p_movie_id;
   if not found then
-    insert into public.watched_movies (user_id, movie_id, title, poster_url, release_year, release_date, runtime, watched_at, status)
-    values (p_friend, p_movie_id, p_title, p_poster, p_year, p_release, p_runtime, p_at, 'watched');
+    insert into public.watched_movies (user_id, movie_id, title, poster_url, release_year, release_date, runtime, watched_at, status, watched_with)
+    values (p_friend, p_movie_id, p_title, p_poster, p_year, p_release, p_runtime, p_at, 'watched', array[me]);
   elsif cur.status <> 'watched' then
-    update public.watched_movies set status = 'watched', watched_at = p_at
+    update public.watched_movies set status = 'watched', watched_at = p_at, watched_with = array[me]
     where user_id = p_friend and movie_id = p_movie_id;
   elsif cur.watched_at is distinct from p_at
     and (cur.watched_at is null or p_at is null or cur.watched_at::date <> p_at::date) then
     update public.watched_movies
-    set past_views = past_views || jsonb_build_array(cur.watched_at), watched_at = p_at
+    set past_views = past_views || jsonb_build_array(cur.watched_at), watched_at = p_at, watched_with = array[me]
+    where user_id = p_friend and movie_id = p_movie_id;
+  else
+    -- Même visionnage : on ajoute juste « avec moi ».
+    update public.watched_movies
+    set watched_with = (select array_agg(distinct x) from unnest(watched_with || me) x)
     where user_id = p_friend and movie_id = p_movie_id;
   end if;
 end;
@@ -794,3 +800,9 @@ create policy "comments: edit" on public.comments
   for update to authenticated
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
+
+-- « Vu avec » : amis présents lors d'un visionnage. Pour une série, le premier
+-- visionnage (first_with) ; les revisionnages le portent dans past_viewings
+-- (champ « with »). Pour un film, le visionnage le plus récent.
+alter table public.tracked_shows add column if not exists first_with uuid[] not null default '{}';
+alter table public.watched_movies add column if not exists watched_with uuid[] not null default '{}';

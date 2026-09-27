@@ -1178,3 +1178,4 @@ a.choice { text-decoration: none; }
 .comment__actions .link-btn { font-size: .78rem; }
 .comment__edit { display: flex; flex-direction: column; gap: .3rem; }
 .comment__save { padding: .35rem .8rem; font-size: .82rem; }
+.with-picker { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin-top: .35rem; font-size: .82rem; }

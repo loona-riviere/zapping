@@ -12,6 +12,7 @@ import { ActionBar, ActionButton, RatingAction } from './ActionBar'
 import { RecommendButton } from './Recommend'
 import { Summary } from './Summary'
 import { WatchedTogether } from './WatchedTogether'
+import { useWithLabel, WithPicker } from './WithPicker'
 import { WhereToWatch } from './WhereToWatch'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -23,11 +24,12 @@ const fmtRuntime = (min: number) => {
 }
 
 export function MoviePage({ id }: { id: number }) {
-  const { movies, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, rewatchMovie, removePastView, setMovieViews, removeMovie, fillMovieMeta, rateMovie } =
+  const { movies, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, rewatchMovie, removePastView, setMovieViews, setMovieWith, removeMovie, fillMovieMeta, rateMovie } =
     useApp()
   const [details, setDetails] = useState<MovieDetails | null>(null)
   const [error, setError] = useState(false)
   const [editViews, setEditViews] = useState(false)
+  const withLabel = useWithLabel()
   const movie = movies.find((m) => m.movie_id === id)
 
   useEffect(() => {
@@ -154,7 +156,11 @@ export function MoviePage({ id }: { id: number }) {
           <History
             title="Visionnages"
             actions={
-              <button type="button" className="pill pill--small" onClick={() => rewatchMovie(movie.movie_id, `${today()}T12:00:00.000Z`)}>
+              <button type="button" className="pill pill--small" onClick={() => {
+                  rewatchMovie(movie.movie_id, `${today()}T12:00:00.000Z`)
+                  // Nouveau visionnage : on ne sait pas encore avec qui.
+                  if (movie.watched_with?.length) setMovieWith(movie.movie_id, [])
+                }}>
                 🔁 Revu
               </button>
             }
@@ -164,10 +170,11 @@ export function MoviePage({ id }: { id: number }) {
               {
                 key: 'now',
                 icon: '✓',
-                text: movie.watched_at ? `Vu le ${formatShortDate(movie.watched_at)}` : 'Vu, date inconnue',
+                text: (movie.watched_at ? `Vu le ${formatShortDate(movie.watched_at)}` : 'Vu, date inconnue') + withLabel(movie.watched_with),
                 edit: (
                   <span className="hist__dates">
                     <DateField label="Vu le" value={movie.watched_at} onChange={(v) => markMovieWatched(movie.movie_id, v)} />
+                    <WithPicker value={movie.watched_with} onChange={(ids) => setMovieWith(movie.movie_id, ids)} />
                     {details?.releaseDate && !movie.watched_at?.startsWith(details.releaseDate) && (
                       <button
                         type="button"

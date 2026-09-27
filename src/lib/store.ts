@@ -40,9 +40,11 @@ export type TrackedShow = {
   hidden?: boolean
   /** Revisionnages terminés, datés (le premier visionnage vit dans watched_episodes). */
   past_viewings?: Viewing[]
+  /** Amis présents au premier visionnage (celui des épisodes cochés). */
+  first_with?: string[]
 }
 
-export type Viewing = { started_at: string | null; finished_at: string | null }
+export type Viewing = { started_at: string | null; finished_at: string | null; with?: string[] }
 
 export type WatchedMovie = {
   movie_id: number
@@ -64,6 +66,8 @@ export type WatchedMovie = {
   hidden?: boolean
   /** Visionnages d'avant le plus récent (null = date inconnue). */
   past_views?: (string | null)[]
+  /** Amis présents au visionnage le plus récent. */
+  watched_with?: string[]
 }
 
 /**
@@ -195,6 +199,16 @@ export async function setRewatches(showId: number, rewatches: number): Promise<v
     .from('tracked_shows')
     .update({ rewatches })
     .eq('show_id', showId)
+  if (error) throw error
+}
+
+/** « Vu avec » : premier visionnage d'une série, ou dernier visionnage d'un film. */
+export async function setShowFirstWith(showId: number, ids: string[]): Promise<void> {
+  const { error } = await supabase.from('tracked_shows').update({ first_with: ids }).eq('show_id', showId).eq('user_id', await me())
+  if (error) throw error
+}
+export async function setMovieWith(movieId: number, ids: string[]): Promise<void> {
+  const { error } = await supabase.from('watched_movies').update({ watched_with: ids }).eq('movie_id', movieId).eq('user_id', await me())
   if (error) throw error
 }
 

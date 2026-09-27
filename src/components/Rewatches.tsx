@@ -3,7 +3,9 @@ import { useApp } from '../lib/appState'
 import { formatShortDate, isAired } from '../lib/progress'
 import type { Viewing } from '../lib/store'
 import type { TvEpisode, TvShow } from '../lib/tvmaze'
+import { useSocial } from '../lib/socialState'
 import { DateField, History, type HistoryEntry } from './History'
+import { useWithLabel, WithPicker } from './WithPicker'
 
 const span = (start: string | null, end: string | null) => {
   const d = (x: string) => formatShortDate(x)
@@ -19,12 +21,18 @@ const span = (start: string | null, end: string | null) => {
  * celui en cours. `rewatches` compte les revisionnages terminés, datés ou non.
  */
 export function Rewatches({ show, episodes }: { show: TvShow; episodes: TvEpisode[] }) {
-  const { tracked, rewatchesOf, setShowViewings, isRewatching, startRewatch, endRewatch, watchedFor, historyFor } = useApp()
+  const { tracked, rewatchesOf, setShowViewings, setShowFirstWith, isRewatching, startRewatch, endRewatch, watchedFor, historyFor } = useApp()
+  const { duoFor } = useSocial()
+  const withLabel = useWithLabel()
+  // Série cochée à deux en ce moment : le visionnage en cours est « avec » cet ami.
+  const duo = duoFor(show.id)
+  const linked = duo ? [duo.partnerId] : []
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<Viewing>({ started_at: null, finished_at: null })
   const n = rewatchesOf(show.id)
   const running = isRewatching(show.id)
-  const past = tracked.find((t) => t.show_id === show.id)?.past_viewings ?? []
+  const row = tracked.find((t) => t.show_id === show.id)
+  const past = row?.past_viewings ?? []
   const undated = Math.max(0, n - past.length)
 
   const seen = watchedFor(show.id)
@@ -44,7 +52,7 @@ export function Rewatches({ show, episodes }: { show: TvShow; episodes: TvEpisod
     entries.push({
       key: 'running',
       icon: '🔁',
-      text: rewatchDates.length ? `Revisionnage en cours, depuis le ${formatShortDate(rewatchDates[0])}` : 'Revisionnage en cours',
+      text: (rewatchDates.length ? `Revisionnage en cours, depuis le ${formatShortDate(rewatchDates[0])}` : 'Revisionnage en cours') + withLabel(linked),
     })
   }
   // Tous les visionnages terminés, du plus récent au plus ancien : celui des
@@ -54,18 +62,32 @@ export function Rewatches({ show, episodes }: { show: TvShow; episodes: TvEpisod
     at: v.finished_at ?? v.started_at ?? '',
     key: `past-${i}`,
     icon: '✓',
-    text: `Vue ${span(v.started_at, v.finished_at)}`,
+    text: `Vue ${span(v.started_at, v.finished_at)}` + withLabel(v.with),
     edit: (
       <span className="hist__dates">
         <DateField label="Du" value={v.started_at} onChange={(x) => save(past.map((p, j) => (j === i ? { ...p, started_at: x } : p)), n)} />
         <DateField label="Au" value={v.finished_at} onChange={(x) => save(past.map((p, j) => (j === i ? { ...p, finished_at: x } : p)), n)} />
+        <WithPicker value={v.with} onChange={(ids) => save(past.map((p, j) => (j === i ? { ...p, with: ids } : p)), n)} />
       </span>
     ),
     onRemove: () => confirm('Supprimer ce visionnage ?') && save(past.filter((_, j) => j !== i), n - 1),
   }))
   if (firstDates.length) {
     const end = complete || n || running ? firstDates[firstDates.length - 1] : null
-    dated.push({ at: firstDates[firstDates.length - 1], key: 'first', icon: '✓', text: `Vue ${span(firstDates[0], end)}` })
+    // Premier visionnage encore en cours et série cochée à deux : il est « avec » cet ami.
+    const firstWith = row?.first_with?.length ? row.first_with : !running && !end ? linked : []
+    dated.push({
+      at: firstDates[firstDates.length - 1],
+      key: 'first',
+      icon: '✓',
+      text: (end ? `Vue ${span(firstDates[0], end)}` : `En cours, ${span(firstDates[0], end)}`) + withLabel(firstWith),
+      edit: (
+        <span className="hist__dates">
+          <span>{(end ? `Vue ${span(firstDates[0], end)}` : `En cours, ${span(firstDates[0], end)}`)}</span>
+          <WithPicker value={row?.first_with} onChange={(ids) => setShowFirstWith(show.id, ids)} />
+        </span>
+      ),
+    })
   }
   dated.sort((a, b) => b.at.localeCompare(a.at))
   entries.push(...dated)
@@ -141,7 +163,7 @@ export function Rewatches({ show, episodes }: { show: TvShow; episodes: TvEpisod
       />
       {running && complete && (
         <div className="pills">
-          <button className="btn btn--primary" onClick={() => endRewatch(show.id, true)}>
+          <button className="btn btn--primary" onClick={() => endRewatch(show.id, true, linked)}>
             Terminer le revisionnage
           </button>
         </div>
