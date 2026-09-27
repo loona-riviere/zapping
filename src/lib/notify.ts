@@ -42,10 +42,15 @@ export async function testNotification(): Promise<string> {
       headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
       body: JSON.stringify({ event: 'test', to: uid }),
     })
-    const json = (await res.json().catch(() => null)) as { sent?: number; reason?: string } | null
-    if (!json) return `Fonction de notification injoignable (${res.status})`
-    if (json.sent) return `Envoyée à ${json.sent} appareil${json.sent > 1 ? 's' : ''}. Elle arrive dans quelques secondes.`
-    return json.reason ?? 'Non envoyée'
+    const text = await res.text()
+    let json: { sent?: number; reason?: string; errorMessage?: string } | null = null
+    try {
+      json = JSON.parse(text)
+    } catch {
+      /* pas du JSON : on montre le début de la réponse */
+    }
+    if (json?.sent) return `Envoyée à ${json.sent} appareil${json.sent > 1 ? 's' : ''}. Elle arrive dans quelques secondes.`
+    return `Non envoyée (${res.status}) : ${json?.reason ?? json?.errorMessage ?? (text.slice(0, 160) || 'réponse vide')}`
   } catch (e) {
     return `Échec : ${(e as Error).message}`
   }

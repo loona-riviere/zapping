@@ -16,6 +16,15 @@ type SubRow = { endpoint: string; p256dh: string; auth_key: string }
 const RECENT_MS = 10 * 60 * 1000
 
 export default async (req: Request) => {
+  try {
+    return await handle(req)
+  } catch (e) {
+    console.error('notify: plantage', e)
+    return Response.json({ sent: 0, reason: `Erreur serveur : ${(e as Error).message}` }, { status: 500 })
+  }
+}
+
+async function handle(req: Request): Promise<Response> {
   if (req.method !== 'POST') return new Response(null, { status: 405 })
   const supabaseUrl = Netlify.env.get('SUPABASE_URL') || Netlify.env.get('VITE_SUPABASE_URL')
   const serviceKey = Netlify.env.get('SUPABASE_SERVICE_ROLE_KEY')
