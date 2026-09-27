@@ -10,8 +10,14 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
   const panel = useRef<HTMLDivElement>(null)
   const drag = useRef<{ y: number; dy: number } | null>(null)
 
+  // onClose change à chaque rendu du parent : on garde la dernière dans une
+  // ref, pour que l'effet ne tourne qu'à l'ouverture. Sinon il relançait
+  // focus() sur la feuille à chaque lettre tapée, et le clavier se fermait.
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeRef.current()
     window.addEventListener('keydown', onKey)
     const overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -20,7 +26,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
       window.removeEventListener('keydown', onKey)
       document.body.style.overflow = overflow
     }
-  }, [onClose])
+  }, [])
 
   const setY = (dy: number) => {
     if (panel.current) panel.current.style.transform = dy > 0 ? `translateY(${dy}px)` : ''
