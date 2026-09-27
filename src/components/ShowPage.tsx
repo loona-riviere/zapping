@@ -385,21 +385,25 @@ export function ShowPage({ id }: { id: number }) {
                   déjà vue ({historyCount}/{aired.length}){historyLast ? `, dernière fois le ${formatShortDate(historyLast)}` : ''}
                 </span>
               )}
-              {gridOpen && aired.length > 0 && (
+              {gridOpen && (aired.length > 0 || dateTools) && (
+              <div className="season__actions">
+              {aired.length > 0 && (
                 <button className="link-btn" onClick={() => toggleSeason(eps)}>
                   {complete ? 'Tout décocher' : 'Tout cocher'}
                 </button>
               )}
-              {gridOpen && dateTools && (
+              {dateTools && (
                 <button
                   type="button"
                   className="season__menu-btn"
                   aria-expanded={menuSeason === season}
-                  aria-label={`Plus d'actions pour la saison ${season}`}
+                  aria-label={`Modifier les dates de visionnage de la saison ${season}`}
                   onClick={() => setMenuSeason(menuSeason === season ? null : season)}
                 >
-                  ⋯
+                  <span aria-hidden="true">📅</span> Dates
                 </button>
+              )}
+              </div>
               )}
             </div>
 
@@ -413,10 +417,10 @@ export function ShowPage({ id }: { id: number }) {
                   }}
                   title="Reprend la date de diffusion d'origine de chaque épisode déjà coché"
                 >
-                  Dater les épisodes vus à leur diffusion
+                  Dater à la diffusion télé
                 </button>
                 <label className="season__bulk-date" title="Mettre la même date sur tous les épisodes déjà cochés de cette saison">
-                  Mettre la même date à tous :
+                  Même jour pour tous les épisodes vus :
                   <input
                     type="date"
                     className="season__bulk-date-input"

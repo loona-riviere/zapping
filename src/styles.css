@@ -238,7 +238,9 @@ button { font: inherit; color: inherit; }
 .show__summary-more { margin-top: .25rem; font-size: .85rem; color: var(--muted); }
 
 .season { margin-top: 2rem; }
-.season__head { display: flex; align-items: baseline; gap: .75rem; margin-bottom: .6rem; }
+.season__head { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; margin-bottom: .6rem; }
+.season__actions { display: flex; align-items: center; gap: .6rem; margin-left: auto; }
+.season__head h2, .season__head .link-btn { white-space: nowrap; }
 .season__head h2 { font-size: 1.15rem; }
 /* Toute la ligne « ▸ Saison 3 24/24 ✓ » se touche pour replier/déplier la grille. */
 .season__toggle {
@@ -252,14 +254,17 @@ button { font: inherit; color: inherit; }
 .season:has(.season__toggle[aria-expanded='false']) { margin-top: 1rem; }
 .season:has(.season__toggle[aria-expanded='false']) .season__head { margin-bottom: 0; }
 .season__menu-btn {
-  border: 0; background: none; color: var(--muted); font-size: 1.2rem; line-height: 1;
-  padding: 0 .25rem; cursor: pointer;
+  display: inline-flex; align-items: center; gap: .3rem; flex: none;
+  border: 1.5px solid var(--line); border-radius: 999px; background: var(--surface);
+  color: var(--ink); font: inherit; font-size: .82rem; line-height: 1;
+  padding: .35rem .7rem; cursor: pointer;
 }
+.season__menu-btn[aria-expanded='true'] { border-color: var(--accent-text); color: var(--accent-text); }
 .season__menu {
   display: flex; flex-direction: column; align-items: flex-start; gap: .6rem;
   margin: 0 0 .8rem; padding: .7rem .85rem; border-radius: var(--radius); background: var(--surface); font-size: .9rem;
 }
-.season__head .link-btn { margin-left: auto; font-size: .9rem; }
+.season__head .link-btn { font-size: .85rem; }
 .season__more { font-size: .85rem; color: var(--muted); margin-top: .6rem; }
 
 /* La grille d'épisodes : l'élément signature de l'app. */
@@ -1219,10 +1224,9 @@ a.choice { text-decoration: none; }
 /* Au doigt : zones à toucher d'au moins 44 px (recommandation Apple), sans
    changer l'apparence — la zone s'agrandit, pas le texte. */
 @media (pointer: coarse) {
-  .link-btn:not(.show__untrack), .season__toggle, .season__menu-btn, .episode__back, .hbars__name, .row__drop {
+  .link-btn:not(.show__untrack), .season__toggle, .episode__back, .hbars__name, .row__drop {
     min-height: 44px; display: inline-flex; align-items: center;
   }
-  .season__menu-btn { min-width: 44px; justify-content: center; }
 }
 
 /* Squelettes de chargement (fiches, listes, rangées d'affiches) */
