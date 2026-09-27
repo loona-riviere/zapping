@@ -65,6 +65,7 @@ export function NotifPrompt() {
         <span className="notif-prompt__bell" aria-hidden="true">🔔</span>
         <ul>
           {has('show') && <li>📺 Un nouvel épisode d'une série que tu suis</li>}
+          {has('movie') && <li>🎬 Un film que tu veux voir sort au cinéma ou arrive sur Netflix…</li>}
           <li>📨 Un ami te recommande une série, un film ou un livre</li>
           <li>👫 Une demande d'ami, ou un ami qui accepte la tienne</li>
         </ul>

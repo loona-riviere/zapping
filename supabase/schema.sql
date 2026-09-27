@@ -732,3 +732,25 @@ $$;
 
 revoke all on function public.share_show_episodes(uuid, integer, text, text, jsonb) from public, anon;
 grant execute on function public.share_show_episodes(uuid, integer, text, text, jsonb) to authenticated;
+
+-- ------------------------------------------------------------------------
+-- Notifs de sortie des films « à voir » (tâche Netlify movie-releases).
+-- movie_availability : dernières plateformes vues pour un film, pour ne
+-- notifier que ce qui arrive (pas ce qui y était déjà au premier passage).
+-- movie_notifications : ce qui a déjà été notifié à qui, pour ne pas répéter.
+-- Écrites uniquement par la tâche (clé service_role, hors RLS).
+create table if not exists public.movie_availability (
+  movie_id integer primary key,
+  providers text[] not null default '{}',
+  checked_at timestamptz not null default now()
+);
+alter table public.movie_availability enable row level security;
+
+create table if not exists public.movie_notifications (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  movie_id integer not null,
+  kind text not null,              -- 'cinema' ou 'stream:<plateforme>'
+  created_at timestamptz not null default now(),
+  primary key (user_id, movie_id, kind)
+);
+alter table public.movie_notifications enable row level security;
