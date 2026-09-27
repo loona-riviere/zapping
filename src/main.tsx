@@ -26,23 +26,30 @@ if ('serviceWorker' in navigator) {
 
 // iPhone, app ajoutée à l'écran d'accueil : à l'ouverture du clavier, iOS
 // fait défiler la page pour montrer le champ ; à la fermeture, il oublie de
-// revenir et la page reste défilée au-delà de sa fin — un grand vide sous la
-// barre du bas. On ramène le défilement dans les limites de la page, à
-// plusieurs reprises le temps que l'animation du clavier se termine (un
-// recalage trop tôt est défait par iOS juste après).
+// revenir et la page reste défilée au-delà de sa fin. On recale le
+// défilement, mais seulement juste après la fermeture du clavier : le faire
+// pendant un défilement normal (événements « scroll » du viewport) donnait
+// des à-coups et une barre du bas au milieu de l'écran.
+const isTyping = (el: Element | null) =>
+  !!el && (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' ||
+    (el.tagName === 'INPUT' && !/^(checkbox|radio|range|button|submit)$/.test((el as HTMLInputElement).type)))
+
 function clampScroll() {
-  const active = document.activeElement
-  if (active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) return // clavier encore là
+  if (isTyping(document.activeElement)) return // clavier encore là
   const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
   if (window.scrollY > max) window.scrollTo(0, max)
-  else if (window.visualViewport && window.visualViewport.offsetTop > 0) window.scrollTo(0, window.scrollY)
 }
-function realignAfterKeyboard() {
-  for (const delay of [50, 250, 500, 900]) setTimeout(clampScroll, delay)
-}
-document.addEventListener('focusout', realignAfterKeyboard)
-window.visualViewport?.addEventListener('resize', realignAfterKeyboard)
-window.visualViewport?.addEventListener('scroll', () => setTimeout(clampScroll, 50))
+// Pendant la frappe, la barre du bas se cache (comme dans les apps natives) :
+// elle ne remonte plus avec le clavier.
+document.addEventListener('focusin', (e) => {
+  if (isTyping(e.target as Element)) document.documentElement.classList.add('is-typing')
+})
+document.addEventListener('focusout', () => {
+  setTimeout(() => {
+    if (!isTyping(document.activeElement)) document.documentElement.classList.remove('is-typing')
+  }, 0)
+  for (const delay of [100, 400, 800]) setTimeout(clampScroll, delay)
+})
 
 // Pincer pour zoomer : Safari ignore « user-scalable=no » dans un onglet, mais
 // on peut bloquer le geste. Seulement dans l'appli installée, pour laisser le

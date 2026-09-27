@@ -432,9 +432,9 @@ button { font: inherit; color: inherit; }
      du bas avec icônes, plus proche du pouce et des habitudes des apps
      natives ; seule la déconnexion reste dans le header. */
   .topbar__nav > a { display: none; }
-  .main { padding-bottom: 1.5rem; }
+  .main { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); }
   .bottomnav {
-    display: flex; position: sticky; bottom: 0; z-index: 20;
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
     padding: .35rem .5rem calc(.35rem + env(safe-area-inset-bottom, 0px));
     background: color-mix(in srgb, var(--bg) 92%, transparent);
     backdrop-filter: blur(10px);
@@ -1118,3 +1118,6 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
 .settings__actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: flex-start; }
 .settings__actions > .btn { flex: 0 0 auto; }
 .settings__actions > .set-password { flex-basis: 100%; order: 10; }
+
+/* Pendant la frappe : pas de barre du bas (elle remonterait avec le clavier). */
+.is-typing .bottomnav { display: none !important; }
