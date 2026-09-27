@@ -5,7 +5,7 @@ import { movieRuntime, type Movie } from './tmdb'
 import { celebrate, checkMilestone, nightOwl } from './fun'
 import { computeProgress } from './progress'
 import { getShowWithEpisodes } from './tvmaze'
-import { stopDuosForShow, syncDuo } from './duo'
+import { syncDuo } from './duo'
 import type { TvEpisode, TvShow } from './tvmaze'
 
 /**
@@ -407,8 +407,6 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
         }
         await store.setRewatching(showId, false)
         await store.clearRewatchProgress(showId)
-        // Le visionnage à deux qui accompagnait ce revisionnage s'arrête avec lui.
-        void stopDuosForShow(showId)
       } catch (e) {
         if (before) patchShow(showId, { rewatching: true, rewatches: before.rewatches })
         setNotice(`Impossible de clore le revisionnage : ${(e as Error).message}`)

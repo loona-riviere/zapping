@@ -1,8 +1,8 @@
-// Séries à deux : un visionnage fait ensemble (en couple, entre amis) —
-// une première vision ou un revisionnage. Seuls les épisodes cochés pendant
-// ce visionnage sont partagés ; ce que chacun a vu avant reste à lui.
-// L'écriture chez l'autre passe par des fonctions Supabase qui vérifient
-// que la série a bien été acceptée à deux (supabase/schema.sql).
+// « Cocher aussi pour un ami » sur une série : tant que le lien existe, chaque
+// épisode coché ou décoché par l'un l'est chez l'autre (dans son revisionnage
+// s'il en a un en cours). Pas d'invitation : le lien se pose d'un geste et
+// s'enlève de même, des deux côtés. Ce que chacun a vu avant reste à lui.
+// L'écriture chez l'autre passe par sync_shared_episodes (supabase/schema.sql).
 
 import type { Profile } from './social'
 import { isMissingSchema } from './store'
@@ -52,20 +52,17 @@ export async function fetchDuos(): Promise<Duo[] | null> {
   return duos
 }
 
-export async function inviteDuo(show: { id: number; name: string; image: string | null }, partner: Profile): Promise<void> {
+export async function linkDuo(show: { id: number; name: string; image: string | null }, partner: Profile): Promise<void> {
   const { error } = await supabase.from('shared_shows').insert({
     show_id: show.id,
     inviter: await me(),
     invitee: partner.user_id,
     show_name: show.name,
     image_url: show.image,
+    status: 'accepted',
   })
   if (error && error.code !== '23505') throw error
-}
-
-export async function acceptDuo(showId: number, inviterId: string): Promise<void> {
-  const { error } = await supabase.rpc('accept_shared_show', { p_show_id: showId, p_inviter: inviterId })
-  if (error) throw error
+  acceptedShows.add(show.id)
 }
 
 /** Refuser, annuler ou arrêter : chacun garde ses épisodes cochés, seul le lien disparaît. */
@@ -101,19 +98,4 @@ export async function syncDuo(
   }))
   const { error } = await supabase.rpc('sync_shared_episodes', { p_show_id: showId, p_episodes: payload, p_watched: watched })
   if (error) console.warn('Série à deux : report impossible', error.message)
-}
-
-/**
- * Fin du revisionnage d'une série : le visionnage à deux qui l'accompagnait
- * s'arrête avec lui. Chacun garde ce qu'il a coché.
- */
-export async function stopDuosForShow(showId: number): Promise<void> {
-  if (!acceptedShows.has(showId)) return
-  const uid = await me()
-  const { error } = await supabase
-    .from('shared_shows')
-    .delete()
-    .eq('show_id', showId)
-    .or(`inviter.eq.${uid},invitee.eq.${uid}`)
-  if (!error) acceptedShows.delete(showId)
 }

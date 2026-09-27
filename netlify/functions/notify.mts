@@ -83,14 +83,13 @@ export default async (req: Request) => {
   } else if (body.event === 'duo' && typeof body.showId === 'number') {
     const { data } = await db
       .from('shared_shows')
-      .select('show_name, status')
+      .select('show_name')
       .eq('show_id', body.showId)
       .eq('inviter', me)
       .eq('invitee', to)
-      .eq('status', 'pending')
       .maybeSingle()
     if (data) {
-      payload = { title: 'Série à deux', body: `${who} te propose de regarder ${data.show_name} ensemble.`, url: `/#/show/${body.showId}` }
+      payload = { title: 'Série cochée à deux', body: `${who} coche désormais ${data.show_name} pour vous deux.`, url: `/#/show/${body.showId}` }
     }
   } else if (body.event === 'movie_together' && typeof body.movieId === 'number') {
     // Le film doit être vu des deux côtés, le même jour.

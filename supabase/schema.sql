@@ -466,11 +466,13 @@ drop policy if exists "shared_shows: read" on public.shared_shows;
 create policy "shared_shows: read" on public.shared_shows
   for select to authenticated
   using ((select auth.uid()) in (inviter, invitee));
--- Inviter seulement un ami, en son nom, « en attente ».
+-- « Cocher aussi pour un ami » : un lien posé en son nom, avec un ami, sans
+-- invitation à accepter (les anciennes invitations en attente sont acceptées).
 drop policy if exists "shared_shows: invite" on public.shared_shows;
 create policy "shared_shows: invite" on public.shared_shows
   for insert to authenticated
-  with check ((select auth.uid()) = inviter and status = 'pending' and public.is_my_friend(invitee));
+  with check ((select auth.uid()) = inviter and public.is_my_friend(invitee));
+update public.shared_shows set status = 'accepted' where status = 'pending';
 drop policy if exists "shared_shows: stop" on public.shared_shows;
 create policy "shared_shows: stop" on public.shared_shows
   for delete to authenticated

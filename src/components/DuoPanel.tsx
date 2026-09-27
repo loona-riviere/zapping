@@ -1,121 +1,56 @@
 import { useState } from 'react'
-import { useApp } from '../lib/appState'
-import type { Duo } from '../lib/duo'
-import { nameOf, type Profile } from '../lib/social'
+import { nameOf } from '../lib/social'
 import { useSocial } from '../lib/socialState'
 
 /**
- * « À deux » sur la fiche d'une série : un visionnage fait ensemble, une
- * première vision ou un revisionnage. Une fois accepté, chaque épisode coché
- * ou décoché par l'un pendant ce visionnage l'est pour l'autre ; ce que
- * chacun a vu avant reste à lui.
- *
- * Qui a déjà vu des épisodes choisit si c'est un revisionnage (sa progression
- * repart de zéro, son historique ne bouge pas) ou la suite de son visionnage.
+ * « 🔗 Cocher aussi pour Julien » sur la fiche d'une série : un interrupteur.
+ * Allumé, chaque épisode coché ou décoché par l'un l'est chez l'autre. Pas
+ * d'invitation à accepter ; un appui de plus l'éteint, pour les deux.
  */
-export function DuoPanel({
-  show,
-  mode = 'status',
-}: {
-  show: { id: number; name: string; image: string | null }
-  /** « status » : l'état en cours (à deux, invitation), sur la fiche ; « start » : proposer, dans la rangée de pastilles. */
-  mode?: 'status' | 'start'
-}) {
-  const { socialReady, profile, friends, duos, duoFor, profileOf, inviteDuo, acceptDuo, stopDuo } = useSocial()
-  const { historyFor, isRewatching, startRewatch } = useApp()
+export function DuoPanel({ show }: { show: { id: number; name: string; image: string | null } }) {
+  const { socialReady, profile, friends, duos, duoFor, profileOf, linkDuo, stopDuo } = useSocial()
   const [picking, setPicking] = useState(false)
-  // Action en attente du choix « revisionnage ou suite ».
-  const [pending, setPending] = useState<{ kind: 'invite'; friend: Profile } | { kind: 'accept'; duo: Duo } | null>(null)
   if (!socialReady || !profile || duos === null) return null
 
   const d = duoFor(show.id)
-  const partner = d ? profileOf(d.partnerId) : undefined
-  const partnerName = partner ? nameOf(partner) : 'ton ami·e'
-  const rewatching = isRewatching(show.id)
-  // Déjà des épisodes vus, hors revisionnage : il faut savoir quel visionnage on partage.
-  const mustChoose = historyFor(show.id).size > 0 && !rewatching
-
-  async function go(action: NonNullable<typeof pending>, asRewatch: boolean) {
-    if (asRewatch) await startRewatch(show.id)
-    if (action.kind === 'invite') await inviteDuo(show, action.friend)
-    else await acceptDuo(action.duo)
-    setPending(null)
-    setPicking(false)
-  }
-  const start = (action: NonNullable<typeof pending>) => (mustChoose ? setPending(action) : go(action, false))
-
-  if (pending) {
+  if (d) {
+    const partner = profileOf(d.partnerId)
+    const who = partner ? nameOf(partner) : 'ton ami·e'
     return (
-      <div className="duo duo--invite">
-        <p>Tu as déjà vu des épisodes de {show.name}. Ce visionnage à deux, pour toi, c'est…</p>
-        <div className="duo__friends">
-          <button className="btn btn--primary" onClick={() => go(pending, true)}>Un revisionnage</button>
-          <button className="btn btn--ghost" onClick={() => go(pending, false)}>La suite de mon visionnage</button>
-          <button className="link-btn muted" onClick={() => setPending(null)}>Annuler</button>
-        </div>
-        <p className="muted" style={{ fontSize: '.8rem' }}>
-          Revisionnage : ta progression repart de zéro, ton historique ne bouge pas.
-        </p>
-      </div>
+      <button
+        type="button"
+        className="pill pill--on"
+        aria-pressed="true"
+        title="Chaque épisode coché ou décoché l'est aussi chez l'autre"
+        onClick={() => confirm(`Ne plus cocher ${show.name} pour ${who} ? Chacun garde ses épisodes.`) && stopDuo(d)}
+      >
+        🔗 Cochée aussi pour {who}
+      </button>
     )
   }
 
-  if (mode === 'start' && d) return null
-  if (mode === 'status' && !d) return null
-
-  if (d?.status === 'accepted') {
-    return (
-      <div className="duo">
-        <p>
-          👫 <strong>À deux avec {partnerName}</strong>
-          {rewatching ? ' (revisionnage)' : ''} : chaque épisode coché ou décoché pendant ce visionnage l'est
-          pour vous deux.
-        </p>
-        <button
-          className="link-btn muted"
-          onClick={() => confirm(`Arrêter de regarder ${show.name} à deux ? Chacun garde ses épisodes cochés.`) && stopDuo(d)}
-        >
-          Arrêter
-        </button>
-      </div>
-    )
-  }
-  if (d?.status === 'pending' && d.sentByMe) {
-    return (
-      <div className="duo">
-        <p>👫 Invitation envoyée à {partnerName} pour regarder {show.name} à deux.</p>
-        <button className="link-btn muted" onClick={() => stopDuo(d)}>Annuler</button>
-      </div>
-    )
-  }
-  if (d?.status === 'pending') {
-    return (
-      <div className="duo duo--invite">
-        <p>
-          👫 <strong>{partnerName}</strong> te propose de regarder {show.name} à deux : les épisodes que
-          vous cocherez pendant ce visionnage vaudront pour vous deux.
-        </p>
-        <div className="movie__actions">
-          <button className="btn btn--primary" onClick={() => start({ kind: 'accept', duo: d })}>Accepter</button>
-          <button className="link-btn muted" onClick={() => stopDuo(d)}>Refuser</button>
-        </div>
-      </div>
-    )
-  }
   if (!friends.length) return null
+  if (friends.length === 1) {
+    const f = friends[0]
+    return (
+      <button type="button" className="pill" aria-pressed="false" onClick={() => linkDuo(show, f)}>
+        🔗 Cocher aussi pour {nameOf(f)}
+      </button>
+    )
+  }
   if (!picking) {
     return (
-      <button className="pill" onClick={() => setPicking(true)}>
-        📺 Suivre à deux
+      <button type="button" className="pill" onClick={() => setPicking(true)}>
+        🔗 Cocher aussi pour…
       </button>
     )
   }
   return (
     <div className="duo">
-      <p>Avec qui regardes-tu {show.name} ?</p>
+      <p>Chaque épisode que tu coches sur {show.name} le sera aussi chez…</p>
       <div className="duo__friends">
         {friends.map((f) => (
-          <button key={f.user_id} className="btn btn--ghost" onClick={() => start({ kind: 'invite', friend: f })}>
+          <button key={f.user_id} className="btn btn--ghost" onClick={() => linkDuo(show, f).then(() => setPicking(false))}>
             {nameOf(f)}
           </button>
         ))}

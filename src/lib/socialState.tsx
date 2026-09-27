@@ -25,12 +25,10 @@ type SocialState = {
   relationWith: (userId: string) => 'none' | 'sent' | 'received' | 'friends'
   /** Séries à deux ; null si leurs tables manquent (schéma pas relancé). */
   duos: Duo[] | null
-  /** Invitations « à deux » reçues, en attente. */
-  incomingDuos: Duo[]
   duoFor: (showId: number) => Duo | undefined
   profileOf: (userId: string) => Profile | undefined
-  inviteDuo: (show: { id: number; name: string; image: string | null }, partner: Profile) => Promise<void>
-  acceptDuo: (d: Duo) => Promise<void>
+  /** Coche aussi pour cet ami chaque épisode de la série (et lui pour moi). */
+  linkDuo: (show: { id: number; name: string; image: string | null }, partner: Profile) => Promise<void>
   stopDuo: (d: Duo) => Promise<void>
   /** Recommandations reçues, les plus récentes d'abord ; null si leur table manque. */
   incomingRecs: Rec[] | null
@@ -47,12 +45,9 @@ const Ctx = createContext<SocialState | null>(null)
 
 export function SocialProvider({
   onError,
-  onDuoAccepted,
   children,
 }: {
   onError: (m: string) => void
-  /** Après une acceptation « à deux » : les épisodes de l'autre viennent d'arriver chez soi. */
-  onDuoAccepted?: () => void
   children: ReactNode
 }) {
   const [socialReady, setReady] = useState(true)
@@ -127,20 +122,13 @@ export function SocialProvider({
     [friendships],
   )
 
-  const inviteDuo = useCallback(
+  const linkDuo = useCallback(
     (show: { id: number; name: string; image: string | null }, partner: Profile) =>
       run(async () => {
-        await duo.inviteDuo(show, partner)
+        await duo.linkDuo(show, partner)
         notify({ event: 'duo', to: partner.user_id, showId: show.id })
-      }, 'Invitation impossible'),
+      }, 'Impossible'),
     [run],
-  )
-  const acceptDuo = useCallback(
-    async (d: Duo) => {
-      await run(() => duo.acceptDuo(d.show_id, d.partnerId), 'Acceptation impossible')
-      onDuoAccepted?.()
-    },
-    [run, onDuoAccepted],
   )
   const stopDuo = useCallback((d: Duo) => run(() => duo.stopDuo(d.show_id, d.partnerId), 'Arrêt impossible'), [run])
   const sendRecs = useCallback(
@@ -189,17 +177,15 @@ export function SocialProvider({
       remove,
       relationWith,
       duos,
-      incomingDuos: (duos ?? []).filter((d) => d.status === 'pending' && !d.sentByMe),
       duoFor,
       profileOf,
-      inviteDuo,
-      acceptDuo,
+      linkDuo,
       stopDuo,
       incomingRecs: allRecs && profile ? allRecs.filter((r) => r.recipient === profile.user_id) : allRecs && [],
       sendRecs,
       dismissRec,
     }),
-    [socialReady, loading, profile, friendships, refresh, ask, accept, remove, relationWith, duos, duoFor, profileOf, inviteDuo, acceptDuo, stopDuo, allRecs, sendRecs, dismissRec],
+    [socialReady, loading, profile, friendships, refresh, ask, accept, remove, relationWith, duos, duoFor, profileOf, linkDuo, stopDuo, allRecs, sendRecs, dismissRec],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

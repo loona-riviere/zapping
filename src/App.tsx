@@ -80,10 +80,10 @@ function AppContent() {
 }
 
 function WithBooks({ userId }: { userId: string }) {
-  const { showNotice, reloadShows } = useApp()
+  const { showNotice } = useApp()
   return (
     <BooksProvider userId={userId} onError={showNotice}>
-      <SocialProvider onError={showNotice} onDuoAccepted={reloadShows}>
+      <SocialProvider onError={showNotice}>
         <Shell />
       </SocialProvider>
     </BooksProvider>
@@ -95,8 +95,8 @@ function Shell() {
   const { notice, dismissNotice, tracked, movies, loading } = useApp()
   const { books, booksLoading } = useBooks()
   const { has } = usePrefs()
-  const { incoming, incomingDuos, incomingRecs } = useSocial()
-  const pending = incoming.length + incomingDuos.length + (incomingRecs?.length ?? 0)
+  const { incoming, incomingRecs } = useSocial()
+  const pending = incoming.length + (incomingRecs?.length ?? 0)
   const { onTap, message } = useLogoEasterEgg()
 
   // Garde les affiches préférées pour le mur du prochain lancement.

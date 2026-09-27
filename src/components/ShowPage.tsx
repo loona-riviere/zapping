@@ -271,7 +271,6 @@ export function ShowPage({ id }: { id: number }) {
             />
           </p>
         )}
-        <DuoPanel show={{ id: show.id, name: tracked.find((t) => t.show_id === show.id)?.name ?? show.name, image: show.image?.medium ?? null }} />
         <div className="pills">
           {data && (
             <ShowTogether
@@ -280,7 +279,7 @@ export function ShowPage({ id }: { id: number }) {
               watched={watched}
             />
           )}
-          <DuoPanel show={{ id: show.id, name: tracked.find((t) => t.show_id === show.id)?.name ?? show.name, image: show.image?.medium ?? null }} mode="start" />
+          <DuoPanel show={{ id: show.id, name: tracked.find((t) => t.show_id === show.id)?.name ?? show.name, image: show.image?.medium ?? null }} />
           <RecommendButton
             item={{
               kind: 'show',

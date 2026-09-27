@@ -94,7 +94,7 @@ function RelationButton({ other }: { other: Profile }) {
 }
 
 export function Friends() {
-  const { socialReady, loading, profile, friends, incoming, friendships, accept, remove, duos, incomingDuos, stopDuo, profileOf } =
+  const { socialReady, loading, profile, friends, incoming, friendships, accept, remove, duos, profileOf } =
     useSocial()
   const [editing, setEditing] = useState(false)
   const [query, setQuery] = useState('')
@@ -205,33 +205,6 @@ export function Friends() {
         </section>
       )}
 
-      {incomingDuos.length > 0 && (
-        <section>
-          <h2 className="section-title">Séries à deux proposées</h2>
-          <ul className="rows">
-            {incomingDuos.map((d) => {
-              const who = profileOf(d.partnerId)
-              return (
-                <li key={`${d.show_id}-${d.partnerId}`} className="row">
-                  <a href={href.show(d.show_id)} className="row__link">
-                    <Poster src={d.image_url} alt={d.show_name} />
-                    <div className="row__body">
-                      <h3>{d.show_name}</h3>
-                      <p className="muted">{who ? nameOf(who) : 'Un ami'} te propose de la regarder à deux</p>
-                    </div>
-                  </a>
-                  <div className="row__actions">
-                    {/* L'acceptation se fait sur la fiche : on peut y préciser revisionnage ou suite. */}
-                    <a className="btn btn--primary" href={href.show(d.show_id)}>Voir</a>
-                    <button className="link-btn muted row__drop" onClick={() => stopDuo(d)}>Refuser</button>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        </section>
-      )}
-
       <section>
         <h2 className="section-title">Ajouter un ami</h2>
         <label htmlFor="friend-q" className="visually-hidden">Pseudo</label>
@@ -284,7 +257,7 @@ export function Friends() {
 
       {(duos ?? []).some((d) => d.status === 'accepted') && (
         <section>
-          <h2 className="section-title">Séries à deux</h2>
+          <h2 className="section-title">Séries cochées à deux</h2>
           <ul className="rows">
             {(duos ?? [])
               .filter((d) => d.status === 'accepted')
@@ -296,7 +269,7 @@ export function Friends() {
                       <Poster src={d.image_url} alt={d.show_name} />
                       <div className="row__body">
                         <h3>{d.show_name}</h3>
-                        <p className="muted">👫 avec {who ? nameOf(who) : 'un ami'}</p>
+                        <p className="muted">🔗 avec {who ? nameOf(who) : 'un ami'}</p>
                       </div>
                     </a>
                   </li>
