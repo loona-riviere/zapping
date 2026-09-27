@@ -170,7 +170,8 @@ export function MoviePage({ id }: { id: number }) {
               {
                 key: 'now',
                 icon: '✓',
-                text: (movie.watched_at ? `Vu le ${formatShortDate(movie.watched_at)}` : 'Vu, date inconnue') + withLabel(movie.watched_with),
+                text: (movie.watched_at ? `Vu le ${formatShortDate(movie.watched_at)}` : 'Vu, date inconnue'),
+      with: withLabel(movie.watched_with),
                 edit: (
                   <span className="hist__dates">
                     <DateField label="Vu le" value={movie.watched_at} onChange={(v) => markMovieWatched(movie.movie_id, v)} />

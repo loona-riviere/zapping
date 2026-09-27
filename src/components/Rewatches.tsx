@@ -52,7 +52,8 @@ export function Rewatches({ show, episodes }: { show: TvShow; episodes: TvEpisod
     entries.push({
       key: 'running',
       icon: '🔁',
-      text: (rewatchDates.length ? `Revisionnage en cours, depuis le ${formatShortDate(rewatchDates[0])}` : 'Revisionnage en cours') + withLabel(linked),
+      text: (rewatchDates.length ? `Revisionnage en cours, depuis le ${formatShortDate(rewatchDates[0])}` : 'Revisionnage en cours'),
+      with: withLabel(linked),
     })
   }
   // Tous les visionnages terminés, du plus récent au plus ancien : celui des
@@ -62,7 +63,8 @@ export function Rewatches({ show, episodes }: { show: TvShow; episodes: TvEpisod
     at: v.finished_at ?? v.started_at ?? '',
     key: `past-${i}`,
     icon: '✓',
-    text: `Vue ${span(v.started_at, v.finished_at)}` + withLabel(v.with),
+    text: `Vue ${span(v.started_at, v.finished_at)}`,
+      with: withLabel(v.with),
     edit: (
       <span className="hist__dates">
         <DateField label="Du" value={v.started_at} onChange={(x) => save(past.map((p, j) => (j === i ? { ...p, started_at: x } : p)), n)} />
@@ -80,7 +82,8 @@ export function Rewatches({ show, episodes }: { show: TvShow; episodes: TvEpisod
       at: firstDates[firstDates.length - 1],
       key: 'first',
       icon: '✓',
-      text: (end ? `Vue ${span(firstDates[0], end)}` : `En cours, ${span(firstDates[0], end)}`) + withLabel(firstWith),
+      text: (end ? `Vue ${span(firstDates[0], end)}` : `En cours, ${span(firstDates[0], end)}`),
+      with: withLabel(firstWith),
       edit: (
         <span className="hist__dates">
           <span>{(end ? `Vue ${span(firstDates[0], end)}` : `En cours, ${span(firstDates[0], end)}`)}</span>

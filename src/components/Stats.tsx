@@ -7,11 +7,13 @@ import { findActivityIssues, findSeasonIssues, type ActivityIssue, type SeasonIs
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import {
-  computeBookTimeline, computeReadingStats, computeStats, computeTimeline, countByStatus, formatNumber, humanBreakdown, humanDuration, monthLabel,
+  computeBookTimeline, computeReadingStats, computeStats, computeTogether, computeTimeline, countByStatus, formatNumber, humanBreakdown, humanDuration, monthLabel,
   shortUnit, totalHours, type ReadingStats, type ShowTotal,
 } from '../lib/stats'
 import { STATUS_LABEL } from '../lib/store'
 import { useShowEpisodes } from '../lib/useShows'
+import { nameOf } from '../lib/social'
+import { useSocial } from '../lib/socialState'
 
 export function Stats() {
   const app = useApp()
@@ -32,6 +34,11 @@ export function Stats() {
     [tracked, historyFor, data, movies],
   )
   const byStatus = useMemo(() => countByStatus(tracked), [tracked])
+  const { duoFor, profileOf } = useSocial()
+  const together = useMemo(
+    () => computeTogether(tracked, historyFor, watchedFor, data, movies, (id) => duoFor(id)?.partnerId),
+    [tracked, historyFor, watchedFor, data, movies, duoFor],
+  )
   // Un graphique par type : additionner des heures de séries, de films et
   // des pages de livres dans une même barre ne voudrait rien dire.
   const showTimeline = useMemo(() => computeTimeline(tracked, historyFor, data, []), [tracked, historyFor, data])
@@ -124,6 +131,26 @@ export function Stats() {
       )}
 
       <TopShows shows={stats.topShows} />
+
+      {together.filter((t) => t.minutes > 0 && profileOf(t.friendId)).map((t) => {
+        const p = profileOf(t.friendId)!
+        const h = totalHours(t.minutes)
+        return (
+          <section key={t.friendId} className="together-card">
+            <p className="together-card__label">👫 À deux avec {nameOf(p)}</p>
+            <p className="together-card__value">{h.value} <small>{h.unit}</small></p>
+            <p className="muted together-card__detail">
+              {[
+                t.shows ? `${formatNumber(t.shows)} série${t.shows > 1 ? 's' : ''}` : null,
+                t.movies ? `${formatNumber(t.movies)} film${t.movies > 1 ? 's' : ''}` : null,
+                t.topShow ? `le plus : ${t.topShow}` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          </section>
+        )
+      })}
 
       {has('show') && (
         <Timeline

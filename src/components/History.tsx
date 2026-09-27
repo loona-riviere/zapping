@@ -7,6 +7,8 @@ export type HistoryEntry = {
   /** Ce qui remplace le texte en mode modification (champs de date…). */
   edit?: ReactNode
   onRemove?: () => void
+  /** Amis présents (« Juju »), affichés en petit à côté, carte dépliée seulement. */
+  with?: string
 }
 
 /**
@@ -66,7 +68,10 @@ export function History({
             {entries.map((e) => (
               <li key={e.key} className="hist__row">
                 <span className="hist__icon" aria-hidden="true">{e.icon}</span>
-                <span className="hist__text">{editing && e.edit ? e.edit : e.text}</span>
+                <span className="hist__text">
+                  {editing && e.edit ? e.edit : e.text}
+                  {!editing && e.with && <span className="hist__with" title={`avec ${e.with}`}>👫 {e.with}</span>}
+                </span>
                 {editing && e.onRemove && (
                   <button type="button" className="hist__remove" onClick={e.onRemove}>
                     Supprimer

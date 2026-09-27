@@ -1,7 +1,7 @@
 import { nameOf } from '../lib/social'
 import { useSocial } from '../lib/socialState'
 
-/** « avec Juju et Maman » à partir d'identifiants ; vide si personne. */
+/** « Juju et Maman » à partir d'identifiants ; vide si personne. */
 export function useWithLabel() {
   const { profileOf, profile } = useSocial()
   return (ids: string[] | undefined) => {
@@ -11,7 +11,7 @@ export function useWithLabel() {
       .filter((p): p is NonNullable<typeof p> => !!p)
       .map(nameOf)
     if (!names.length) return ''
-    return ` · 👫 avec ${names.length > 1 ? `${names.slice(0, -1).join(', ')} et ${names[names.length - 1]}` : names[0]}`
+    return names.length > 1 ? `${names.slice(0, -1).join(', ')} et ${names[names.length - 1]}` : names[0]
   }
 }
 

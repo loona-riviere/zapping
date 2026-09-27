@@ -357,3 +357,71 @@ export function computeBookTimeline(books: TrackedBook[]): { months: BookBucket[
     years: [...byYear.values()].sort((a, b) => b.key.localeCompare(a.key)),
   }
 }
+
+/* ----------------------------------------------------------------- à deux -- */
+
+export type Together = {
+  friendId: string
+  minutes: number
+  shows: number
+  movies: number
+  /** La série où vous avez passé le plus de temps ensemble. */
+  topShow: string | null
+}
+
+/**
+ * Le temps passé devant des séries et films avec chaque ami, d'après les
+ * « vu avec » : premier visionnage (first_with), revisionnages datés ou non
+ * (past_viewings[].with), visionnage en cours d'une série cochée à deux
+ * (`linkedWith`), et films (watched_with). Les épisodes d'un revisionnage
+ * terminé sont comptés comme ceux du premier visionnage.
+ */
+export function computeTogether(
+  tracked: TrackedShow[],
+  historyFor: (showId: number) => WatchedEpisodes,
+  watchedFor: (showId: number) => WatchedEpisodes,
+  data: Record<number, ShowWithEpisodes>,
+  movies: WatchedMovie[],
+  linkedWith: (showId: number) => string | undefined,
+): Together[] {
+  const acc = new Map<string, { minutes: number; shows: Set<number>; movies: number; perShow: Map<string, number> }>()
+  const add = (id: string, minutes: number, show?: { id: number; name: string }) => {
+    const a = acc.get(id) ?? { minutes: 0, shows: new Set<number>(), movies: 0, perShow: new Map<string, number>() }
+    a.minutes += minutes
+    if (show) {
+      a.shows.add(show.id)
+      a.perShow.set(show.name, (a.perShow.get(show.name) ?? 0) + minutes)
+    } else a.movies++
+    acc.set(id, a)
+  }
+
+  for (const t of tracked) {
+    const d = data[t.show_id]
+    if (!d) continue
+    const fallback = medianRuntime(d) ?? 0
+    const minutesOf = (seen: WatchedEpisodes) =>
+      d.episodes.reduce((sum, ep) => (seen.has(ep.id) ? sum + (typeof ep.runtime === 'number' && ep.runtime > 0 ? ep.runtime : fallback) : sum), 0)
+    const history = historyFor(t.show_id)
+    const first = minutesOf(history)
+    const show = { id: t.show_id, name: t.name }
+    for (const id of t.first_with ?? []) add(id, first, show)
+    for (const v of t.past_viewings ?? []) for (const id of v.with ?? []) add(id, first, show)
+    const partner = linkedWith(t.show_id)
+    if (partner && t.rewatching) add(partner, minutesOf(watchedFor(t.show_id)), show)
+    else if (partner && !(t.first_with ?? []).includes(partner)) add(partner, first, show)
+  }
+  for (const m of movies) {
+    if (m.status !== 'watched') continue
+    for (const id of m.watched_with ?? []) add(id, m.runtime ?? 0)
+  }
+
+  return [...acc.entries()]
+    .map(([friendId, a]) => ({
+      friendId,
+      minutes: a.minutes,
+      shows: a.shows.size,
+      movies: a.movies,
+      topShow: [...a.perShow.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? null,
+    }))
+    .sort((a, b) => b.minutes - a.minutes)
+}

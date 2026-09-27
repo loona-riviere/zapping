@@ -1179,3 +1179,14 @@ a.choice { text-decoration: none; }
 .comment__edit { display: flex; flex-direction: column; gap: .3rem; }
 .comment__save { padding: .35rem .8rem; font-size: .82rem; }
 .with-picker { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin-top: .35rem; font-size: .82rem; }
+.hist__with { display: inline-block; margin-left: .45rem; padding: .05rem .45rem; border-radius: 999px; font-size: .74rem; color: var(--muted); background: var(--bg); border: 1px solid var(--line); white-space: nowrap; }
+
+.together-card {
+  margin: 1rem 0; padding: 1rem 1.1rem; border-radius: var(--radius);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--surface)), var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+}
+.together-card__label { margin: 0; font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--accent); }
+.together-card__value { margin: .2rem 0 0; font-family: var(--display); font-size: 2.2rem; font-weight: 800; line-height: 1.1; }
+.together-card__value small { font-size: 1rem; font-weight: 600; color: var(--muted); }
+.together-card__detail { margin: .2rem 0 0; font-size: .88rem; }
