@@ -320,3 +320,21 @@ async function openLibraryDetails(workId: string): Promise<Book | null> {
     categories: (w.subjects ?? []).slice(0, 3),
   }
 }
+
+/**
+ * Le livre du catalogue qui correspond à un livre saisi sans source (titre
+ * et auteur seuls, import fait hors de l'app) : même titre principal, sous-
+ * titre et édition mis de côté. Null plutôt qu'un livre approchant.
+ */
+export async function findInCatalog(title: string, authors: string | null): Promise<Book | null> {
+  const main = (s: string) => fold(s.split(/[:(\[–—]| - /)[0])
+  const want = main(title)
+  if (want.length < 3) return null
+  const results = await searchBooks(`${title} ${authors ?? ''}`.trim())
+  return (
+    results.find((b) => {
+      const got = main(b.title)
+      return got === want || (got.length >= 6 && (got.startsWith(want) || want.startsWith(got)))
+    }) ?? null
+  )
+}

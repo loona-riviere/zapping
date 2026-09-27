@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { Book } from './books'
+import { findInCatalog, type Book } from './books'
 import * as store from './bookStore'
 import type { BookPatch, BookStatus, TrackedBook } from './bookStore'
 import { fetchRanks, isMissingSchema, rerank, saveRanks } from './store'
@@ -64,6 +64,64 @@ export function BooksProvider({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
+
+  // Livres ajoutés sans source (import fait pour toi hors de l'app) : on
+  // cherche leur fiche au catalogue, une fois par livre et par appareil,
+  // pour leur donner couverture, nombre de pages et description.
+  const loaded = !booksLoading
+  useEffect(() => {
+    if (!loaded) return
+    let alive = true
+    const KEY = 'zapping.relinkTried'
+    let tried: string[] = []
+    try {
+      tried = JSON.parse(localStorage.getItem(KEY) ?? '[]')
+    } catch {
+      /* stockage indisponible : on retentera au prochain lancement */
+    }
+    const todo = books.filter((b) => b.book_id.startsWith('manual:') && !b.cover_url && !tried.includes(b.book_id))
+    if (!todo.length) return
+    ;(async () => {
+      const owned = new Set(books.map((b) => b.book_id))
+      for (const b of todo) {
+        if (!alive) return
+        let found: Book | null
+        try {
+          found = await findInCatalog(b.title, b.authors)
+        } catch {
+          continue // réseau ou quota : on retentera au prochain lancement
+        }
+        tried.push(b.book_id)
+        try {
+          localStorage.setItem(KEY, JSON.stringify(tried))
+        } catch {
+          /* idem */
+        }
+        if (!found || owned.has(found.id) || !alive) continue
+        const pages = b.page_count ?? found.page_count
+        const patch = {
+          book_id: found.id,
+          cover_url: found.cover_url,
+          page_count: pages,
+          published_year: b.published_year ?? found.year,
+          authors: b.authors ?? (found.authors.length ? found.authors.join(', ') : null),
+          ...(b.status === 'read' && pages ? { current_page: pages } : {}),
+        }
+        try {
+          await store.relinkBook(b.book_id, patch)
+          owned.add(found.id)
+          setBooks((prev) => prev.map((x) => (x.book_id === b.book_id ? { ...x, ...patch } : x)))
+        } catch {
+          /* on garde le livre tel quel */
+        }
+      }
+    })()
+    return () => {
+      alive = false
+    }
+    // Une passe au chargement suffit : les ajouts depuis l'app ont déjà leur source.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, userId])
 
   const bookById = useCallback((id: string) => books.find((b) => b.book_id === id), [books])
 

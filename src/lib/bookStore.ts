@@ -110,6 +110,12 @@ export async function updateBook(bookId: string, patch: BookPatch & { updated_at
   if (error) throw error
 }
 
+/** Rattache un livre saisi sans source à sa fiche du catalogue (nouvel identifiant, couverture…). */
+export async function relinkBook(oldId: string, patch: Partial<TrackedBook> & { book_id: string }): Promise<void> {
+  const { error } = await supabase.from('tracked_books').update(patch).eq('book_id', oldId).eq('user_id', await me())
+  if (error) throw error
+}
+
 export async function deleteBook(bookId: string): Promise<void> {
   const { error } = await supabase.from('tracked_books').delete().eq('book_id', bookId)
   if (error) throw error
