@@ -95,8 +95,8 @@ function Shell() {
   const { notice, dismissNotice, tracked, movies, loading } = useApp()
   const { books, booksLoading } = useBooks()
   const { has } = usePrefs()
-  const { incoming, incomingDuos } = useSocial()
-  const pending = incoming.length + incomingDuos.length
+  const { incoming, incomingDuos, incomingRecs } = useSocial()
+  const pending = incoming.length + incomingDuos.length + (incomingRecs?.length ?? 0)
   const { onTap, message } = useLogoEasterEgg()
 
   // Garde les affiches préférées pour le mur du prochain lancement.

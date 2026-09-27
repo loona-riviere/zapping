@@ -847,3 +847,14 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 .duo__friends { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
 .duo__start { font-size: .9rem; }
 .duo-mark { font-size: .85em; margin-left: .3rem; }
+
+/* Recommandations */
+.rec__open { font-size: .9rem; }
+.rec__sent { margin: 0; font-size: .9rem; }
+.rec__has { font-weight: 400; font-size: .75rem; }
+.rec__note {
+  width: 100%; font: inherit; font-size: .9rem; padding: .5rem .7rem; color: var(--ink); resize: vertical;
+  border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--bg);
+}
+.rec__note:focus { outline: none; border-color: var(--accent); }
+.rec__quote { font-style: italic; font-size: .88rem; margin-top: .2rem !important; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }

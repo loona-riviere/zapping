@@ -3,6 +3,7 @@ import { href } from '../lib/route'
 import { inviteLink, nameOf, normalizeUsername, saveProfile, searchProfiles, USERNAME_RE, type Profile } from '../lib/social'
 import { useSocial } from '../lib/socialState'
 import { Poster } from './Poster'
+import { IncomingRecs } from './Recommend'
 
 /** Pastille avec l'initiale : pas de photo pour l'instant, une lettre suffit à se repérer. */
 export function Avatar({ profile, size = 'sm' }: { profile: Pick<Profile, 'username' | 'display_name'>; size?: 'sm' | 'lg' }) {
@@ -178,6 +179,8 @@ export function Friends() {
       <button className="btn btn--primary" onClick={share}>
         {shared ? 'Lien copié ✓' : 'Inviter un ami (partager mon lien)'}
       </button>
+
+      <IncomingRecs />
 
       {incoming.length > 0 && (
         <section>

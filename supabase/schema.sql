@@ -580,3 +580,42 @@ end;
 $$;
 revoke all on function public.sync_shared_episodes(integer, jsonb, boolean) from public, anon;
 grant execute on function public.sync_shared_episodes(integer, jsonb, boolean) to authenticated;
+
+-- ========================================================= recommandations ==
+-- Une série, un film ou un livre recommandé à un ami, avec un petit mot
+-- facultatif. Le destinataire l'ajoute à sa liste ou le refuse : dans les
+-- deux cas la recommandation disparaît (pas de modification possible, donc
+-- pas d'expéditeur falsifiable).
+
+create table if not exists public.recommendations (
+  id bigint generated always as identity primary key,
+  sender uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  recipient uuid not null references auth.users (id) on delete cascade,
+  kind text not null check (kind in ('show', 'movie', 'book')),
+  -- Identifiant du titre chez sa source : TVmaze, TMDB, ou « gb:… » / « ol:… ».
+  item_id text not null,
+  title text not null,
+  image_url text,
+  -- De quoi ajouter le titre à sa liste sans rien aller rechercher.
+  meta jsonb not null default '{}'::jsonb,
+  note text check (note is null or char_length(note) <= 280),
+  created_at timestamptz not null default now(),
+  unique (sender, recipient, kind, item_id),
+  check (sender <> recipient)
+);
+
+alter table public.recommendations enable row level security;
+
+drop policy if exists "recommendations: read" on public.recommendations;
+create policy "recommendations: read" on public.recommendations
+  for select to authenticated
+  using ((select auth.uid()) in (sender, recipient));
+-- Recommander seulement à un ami, en son nom.
+drop policy if exists "recommendations: send" on public.recommendations;
+create policy "recommendations: send" on public.recommendations
+  for insert to authenticated
+  with check ((select auth.uid()) = sender and public.is_my_friend(recipient));
+drop policy if exists "recommendations: remove" on public.recommendations;
+create policy "recommendations: remove" on public.recommendations
+  for delete to authenticated
+  using ((select auth.uid()) in (sender, recipient));

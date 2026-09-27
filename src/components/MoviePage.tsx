@@ -5,6 +5,7 @@ import { href } from '../lib/route'
 import { movieDetails, type MovieDetails } from '../lib/tmdb'
 import { Poster } from './Poster'
 import { HideToggle } from './HideToggle'
+import { RecommendButton } from './Recommend'
 import { RatingPicker } from './RatingPicker'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -152,6 +153,18 @@ export function MoviePage({ id }: { id: number }) {
           )}
         </div>
 
+        <RecommendButton
+          item={{
+            kind: 'movie',
+            itemId: String(id),
+            title,
+            image: posterUrl,
+            meta: {
+              kind: 'movie',
+              movie: { id, title, poster_url: posterUrl, year, release_date: releaseDate, overview: details?.overview ?? null },
+            },
+          }}
+        />
         {movie && (
           <HideToggle
             target={{ table: 'watched_movies', column: 'movie_id', id: movie.movie_id }}

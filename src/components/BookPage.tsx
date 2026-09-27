@@ -4,6 +4,7 @@ import { finishPatch, startPatch, useBooks } from '../lib/booksState'
 import { BOOK_STATUSES, BOOK_STATUS_LABEL, type BookPatch, type BookStatus, type TrackedBook } from '../lib/bookStore'
 import { href } from '../lib/route'
 import { HideToggle } from './HideToggle'
+import { RecommendButton } from './Recommend'
 import { PageInput } from './PageInput'
 import { Poster } from './Poster'
 import { RatingPicker } from './RatingPicker'
@@ -198,6 +199,27 @@ export function BookPage({ id }: { id: string }) {
           <RatingPicker rating={book.rating} onChange={(r) => updateBook(book.book_id, { rating: r })} />
         )}
 
+        <RecommendButton
+          item={{
+            kind: 'book',
+            itemId: id,
+            title,
+            image: cover,
+            meta: {
+              kind: 'book',
+              book: details ?? {
+                id,
+                title,
+                authors: authors ? authors.split(', ') : [],
+                cover_url: cover,
+                page_count: pages,
+                year,
+                description: null,
+                categories: [],
+              },
+            },
+          }}
+        />
         {book && (
           <HideToggle
             target={{ table: 'tracked_books', column: 'book_id', id: book.book_id }}

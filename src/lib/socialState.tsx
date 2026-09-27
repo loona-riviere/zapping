@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import * as duo from './duo'
 import type { Duo } from './duo'
+import * as recs from './recs'
+import type { Rec, RecKind, RecMeta } from './recs'
 import * as social from './social'
 import type { Friendship, Profile } from './social'
 import { isMissingSchema } from './store'
@@ -29,6 +31,15 @@ type SocialState = {
   inviteDuo: (show: { id: number; name: string; image: string | null }, partner: Profile) => Promise<void>
   acceptDuo: (d: Duo) => Promise<void>
   stopDuo: (d: Duo) => Promise<void>
+  /** Recommandations reçues, les plus récentes d'abord ; null si leur table manque. */
+  incomingRecs: Rec[] | null
+  sendRecs: (
+    recipients: string[],
+    item: { kind: RecKind; itemId: string; title: string; image: string | null; meta: RecMeta },
+    note: string,
+  ) => Promise<void>
+  /** Retire une recommandation reçue (ajoutée à sa liste, ou « non merci »). */
+  dismissRec: (r: Rec) => Promise<void>
 }
 
 const Ctx = createContext<SocialState | null>(null)
@@ -48,6 +59,7 @@ export function SocialProvider({
   const [profile, setProfile] = useState<Profile | null>(null)
   const [friendships, setFriendships] = useState<Friendship[]>([])
   const [duos, setDuos] = useState<Duo[] | null>(null)
+  const [allRecs, setRecs] = useState<Rec[] | null>(null)
 
   const refresh = useCallback(async () => {
     try {
@@ -56,6 +68,7 @@ export function SocialProvider({
       setFriendships(f)
       setReady(true)
       setDuos(await duo.fetchDuos().catch(() => null))
+      setRecs(await recs.fetchRecs().catch(() => null))
     } catch (e) {
       if (isMissingSchema(e)) setReady(false)
       // Réseau : on garde ce qu'on avait, ce n'est pas le cœur de l'app.
@@ -112,6 +125,27 @@ export function SocialProvider({
     [run, onDuoAccepted],
   )
   const stopDuo = useCallback((d: Duo) => run(() => duo.stopDuo(d.show_id, d.partnerId), 'Arrêt impossible'), [run])
+  const sendRecs = useCallback(
+    (
+      recipients: string[],
+      item: { kind: RecKind; itemId: string; title: string; image: string | null; meta: RecMeta },
+      note: string,
+    ) => run(() => recs.sendRecs(recipients, item, note), 'Recommandation impossible'),
+    [run],
+  )
+  const dismissRec = useCallback(
+    async (r: Rec) => {
+      setRecs((prev) => (prev ? prev.filter((x) => x.id !== r.id) : prev))
+      try {
+        await recs.removeRec(r.id)
+      } catch (e) {
+        onError(`Suppression impossible : ${(e as Error).message}`)
+        refresh()
+      }
+    },
+    [onError, refresh],
+  )
+
   const duoFor = useCallback((showId: number) => duos?.find((d) => d.show_id === showId), [duos])
   const profileOf = useCallback(
     (userId: string) => friendships.find((f) => f.other.user_id === userId)?.other,
@@ -139,8 +173,11 @@ export function SocialProvider({
       inviteDuo,
       acceptDuo,
       stopDuo,
+      incomingRecs: allRecs && profile ? allRecs.filter((r) => r.recipient === profile.user_id) : allRecs && [],
+      sendRecs,
+      dismissRec,
     }),
-    [socialReady, loading, profile, friendships, refresh, ask, accept, remove, relationWith, duos, duoFor, profileOf, inviteDuo, acceptDuo, stopDuo],
+    [socialReady, loading, profile, friendships, refresh, ask, accept, remove, relationWith, duos, duoFor, profileOf, inviteDuo, acceptDuo, stopDuo, allRecs, sendRecs, dismissRec],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
