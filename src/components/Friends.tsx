@@ -151,9 +151,10 @@ export function Friends() {
 
   async function share() {
     const link = inviteLink(profile!.username)
-    const text = `Ajoute-moi sur Zapping : ${link}`
     try {
-      if (navigator.share) await navigator.share({ title: 'Zapping', text, url: link })
+      // Le lien passe par `url` seulement : iPhone et Android l'ajoutent
+      // d'eux-mêmes après le texte, il apparaissait sinon deux fois.
+      if (navigator.share) await navigator.share({ title: 'Zapping', text: 'Ajoute-moi sur Zapping :', url: link })
       else {
         await navigator.clipboard.writeText(link)
         setShared(true)
