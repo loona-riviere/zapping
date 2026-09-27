@@ -1,6 +1,14 @@
 import { createClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
 
+// Côté serveur, pas de temps réel : sur un Node sans WebSocket natif (< 22),
+// supabase-js refuse sinon de se créer (« native WebSocket not found »). Le
+// transport fourni n'est jamais utilisé, on ne s'abonne à rien.
+const SERVER_OPTIONS = {
+  auth: { persistSession: false, autoRefreshToken: false },
+  realtime: { transport: class {} as unknown as typeof WebSocket },
+}
+
 // Tourne une fois par jour : les notifs arrivent avec jusqu'à ~24h de
 // retard sur la sortie réelle de l'épisode, pas en temps réel. Suffisant
 // pour « au courant qu'un nouvel épisode est sorti », pas pour « pile à
@@ -36,7 +44,7 @@ export default async () => {
   webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate)
   // Clé service_role : bypasse la RLS exprès, seule façon pour une tâche de
   // fond de lire/écrire pour tous les utilisateurs plutôt qu'un seul.
-  const db = createClient(supabaseUrl, serviceKey)
+  const db = createClient(supabaseUrl, serviceKey, SERVER_OPTIONS)
 
   const { data: subs } = await db.from('push_subscriptions').select('user_id, endpoint, p256dh, auth_key')
   const subsByUser = new Map<string, SubRow[]>()

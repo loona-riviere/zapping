@@ -1,6 +1,14 @@
 import { createClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
 
+// Côté serveur, pas de temps réel : sur un Node sans WebSocket natif (< 22),
+// supabase-js refuse sinon de se créer (« native WebSocket not found »). Le
+// transport fourni n'est jamais utilisé, on ne s'abonne à rien.
+const SERVER_OPTIONS = {
+  auth: { persistSession: false, autoRefreshToken: false },
+  realtime: { transport: class {} as unknown as typeof WebSocket },
+}
+
 // Notifs entre amis : demande reçue, demande acceptée, recommandation,
 // invitation à regarder une série à deux. L'app appelle cette fonction juste
 // après l'action ; la fonction ne croit que la base : l'événement doit y être
@@ -39,7 +47,7 @@ async function handle(req: Request): Promise<Response> {
     console.error(`notify: variables manquantes : ${missing.join(', ')}`)
     return Response.json({ sent: 0, reason: `Variables Netlify manquantes : ${missing.join(', ')}` }, { status: 500 })
   }
-  const db = createClient(supabaseUrl, serviceKey)
+  const db = createClient(supabaseUrl, serviceKey, SERVER_OPTIONS)
 
   const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
   if (!token) return new Response(null, { status: 401 })
