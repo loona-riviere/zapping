@@ -2,9 +2,7 @@ import { isLibrary } from './Library'
 import type React from 'react'
 import { href, type Route } from '../lib/route'
 
-// La bibliothèque a trois sous-onglets (séries, films, livres) : son bouton du
-// bas ramène en haut du sous-onglet ouvert au lieu de repartir sur les séries.
-const isLibraryHash = (h: string | null) => h === href.home
+let lastTap: { href: string | null; at: number } = { href: null, at: 0 }
 
 /**
  * Barre de navigation mobile, en bas d'écran comme les apps natives : plus
@@ -12,16 +10,40 @@ const isLibraryHash = (h: string | null) => h === href.home
  * garde son rôle sur desktop (souris, écran large) via une règle CSS qui
  * bascule l'un ou l'autre selon la largeur, pas le JS.
  */
+/**
+ * Remontée animée, qu'on voit défiler (le « smooth » natif est parfois
+ * instantané sur iPhone) : rapide au début, douce à l'arrivée.
+ */
+function scrollToTop() {
+  const from = window.scrollY
+  if (from <= 0) return
+  const duration = Math.min(650, 250 + from / 8)
+  const start = performance.now()
+  const ease = (t: number) => 1 - Math.pow(1 - t, 3)
+  const step = (now: number) => {
+    const t = Math.min(1, (now - start) / duration)
+    window.scrollTo(0, Math.round(from * (1 - ease(t))))
+    if (t < 1) requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
+}
+
 export function BottomNav({ route, pending = 0 }: { route: Route; pending?: number }) {
-  // Toucher l'onglet où l'on est déjà : retour en haut de l'écran, comme sur iPhone.
+  // Double appui sur l'onglet où l'on est déjà : retour en haut, animé.
+  // Un appui simple sur cet onglet ne fait rien (pas de rechargement).
   const onNav = (e: React.MouseEvent<HTMLElement>) => {
     const a = (e.target as HTMLElement).closest('a')
-    if (a?.getAttribute('aria-current') === 'page' && a.getAttribute('href') === window.location.hash) {
+    if (!a || a.getAttribute('aria-current') !== 'page') return
+    const target = a.getAttribute('href')
+    const now = Date.now()
+    const double = lastTap.href === target && now - lastTap.at < 400
+    lastTap = { href: target, at: now }
+    if (double) {
       e.preventDefault()
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    } else if (a?.getAttribute('aria-current') === 'page' && window.scrollY > 0 && isLibraryHash(a.getAttribute('href'))) {
+      lastTap = { href: null, at: 0 }
+      scrollToTop()
+    } else if (target === window.location.hash || (target === href.home && window.location.hash === '')) {
       e.preventDefault()
-      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
   return (
