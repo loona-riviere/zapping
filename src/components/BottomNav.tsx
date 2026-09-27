@@ -2,9 +2,7 @@ import { isLibrary } from './Library'
 import type React from 'react'
 import { href, type Route } from '../lib/route'
 
-// La bibliothèque a trois sous-onglets (séries, films, livres) : son bouton du
-// bas ramène en haut du sous-onglet ouvert au lieu de repartir sur les séries.
-const isLibraryHash = (h: string | null) => h === href.home
+let lastTap: { href: string | null; at: number } = { href: null, at: 0 }
 
 /**
  * Barre de navigation mobile, en bas d'écran comme les apps natives : plus
@@ -31,15 +29,21 @@ function scrollToTop() {
 }
 
 export function BottomNav({ route, pending = 0 }: { route: Route; pending?: number }) {
-  // Toucher l'onglet où l'on est déjà : retour en haut de l'écran, comme sur iPhone.
+  // Double appui sur l'onglet où l'on est déjà : retour en haut, animé.
+  // Un appui simple sur cet onglet ne fait rien (pas de rechargement).
   const onNav = (e: React.MouseEvent<HTMLElement>) => {
     const a = (e.target as HTMLElement).closest('a')
-    if (a?.getAttribute('aria-current') === 'page' && a.getAttribute('href') === window.location.hash) {
+    if (!a || a.getAttribute('aria-current') !== 'page') return
+    const target = a.getAttribute('href')
+    const now = Date.now()
+    const double = lastTap.href === target && now - lastTap.at < 400
+    lastTap = { href: target, at: now }
+    if (double) {
       e.preventDefault()
+      lastTap = { href: null, at: 0 }
       scrollToTop()
-    } else if (a?.getAttribute('aria-current') === 'page' && window.scrollY > 0 && isLibraryHash(a.getAttribute('href'))) {
+    } else if (target === window.location.hash || (target === href.home && window.location.hash === '')) {
       e.preventDefault()
-      scrollToTop()
     }
   }
   return (

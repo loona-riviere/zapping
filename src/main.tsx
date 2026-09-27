@@ -40,16 +40,20 @@ function clampScroll() {
   if (window.scrollY > max) window.scrollTo(0, max)
 }
 // Pendant la frappe, la barre du bas se cache (comme dans les apps natives) :
-// elle ne remonte plus avec le clavier.
-document.addEventListener('focusin', (e) => {
-  if (isTyping(e.target as Element)) document.documentElement.classList.add('is-typing')
-})
+// elle ne remonte plus avec le clavier. On se fie à la place réellement prise
+// par le clavier, pas au seul focus : un champ sélectionné d'office (la
+// recherche) sans clavier ouvert ne doit pas faire disparaître la barre.
+function syncTyping() {
+  const vv = window.visualViewport
+  const keyboard = !!vv && window.innerHeight - vv.height > 150
+  document.documentElement.classList.toggle('is-typing', keyboard && isTyping(document.activeElement))
+}
+document.addEventListener('focusin', () => setTimeout(syncTyping, 300))
 document.addEventListener('focusout', () => {
-  setTimeout(() => {
-    if (!isTyping(document.activeElement)) document.documentElement.classList.remove('is-typing')
-  }, 0)
+  setTimeout(syncTyping, 0)
   for (const delay of [100, 400, 800]) setTimeout(clampScroll, delay)
 })
+window.visualViewport?.addEventListener('resize', syncTyping)
 
 // Pincer pour zoomer : Safari ignore « user-scalable=no » dans un onglet, mais
 // on peut bloquer le geste. Seulement dans l'appli installée, pour laisser le
