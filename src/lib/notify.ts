@@ -7,6 +7,7 @@ type Event =
   | { event: 'movie_together'; to: string; movieId: number }
   | { event: 'show_together'; to: string; showId: number }
   | { event: 'test'; to: string }
+  | { event: 'comment'; to: string; commentId: number }
 
 /**
  * Prévient l'autre sur son téléphone (s'il a activé les notifications).

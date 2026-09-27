@@ -5,6 +5,7 @@ import { href } from '../lib/route'
 import { seasonEpisodesFr, type EpisodeFr } from '../lib/tmdb'
 import { getShowWithEpisodes, stripHtml, type ShowWithEpisodes } from '../lib/tvmaze'
 import { DateField } from './History'
+import { Comments } from './Comments'
 
 /**
  * La page d'un épisode, en plein écran : image, titre et résumé (en français
@@ -13,7 +14,7 @@ import { DateField } from './History'
  * enchaîner comme dans une appli de streaming.
  */
 export function EpisodePage({ showId, episodeId }: { showId: number; episodeId: number }) {
-  const { watchedFor, setWatched, isTracked, track, tracked } = useApp()
+  const { watchedFor, historyFor, setWatched, isTracked, track, tracked } = useApp()
   const [data, setData] = useState<ShowWithEpisodes | null>(null)
   const [error, setError] = useState(false)
   const [fr, setFr] = useState<Map<number, EpisodeFr> | null>(null)
@@ -54,6 +55,7 @@ export function EpisodePage({ showId, episodeId }: { showId: number; episodeId: 
   const prev = episodes[idx - 1]
   const next = episodes[idx + 1]
   const watched = watchedFor(showId)
+  const history = historyFor(showId)
   const seen = watched.has(ep.id)
   const seenAt = watched.get(ep.id) ?? null
   const aired = isAired(ep)
@@ -140,6 +142,8 @@ export function EpisodePage({ showId, episodeId }: { showId: number; episodeId: 
         )}
       </nav>
       {seen && seenAt && <p className="muted episode__foot">Vu le {formatShortDate(seenAt)}</p>}
+
+      <Comments kind="episode" itemId={String(ep.id)} showId={showId} title={`${showName} ${epCode(ep)}`} seen={seen || !!history?.has(ep.id)} />
     </article>
   )
 }

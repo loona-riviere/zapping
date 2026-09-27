@@ -754,3 +754,36 @@ create table if not exists public.movie_notifications (
   primary key (user_id, movie_id, kind)
 );
 alter table public.movie_notifications enable row level security;
+
+-- ------------------------------------------------------------------------
+-- Commentaires entre amis, sur un épisode, un film ou un livre. Visibles de
+-- leur auteur et de ses amis seulement.
+--   kind 'episode' : item_id = identifiant TVmaze de l'épisode, show_id rempli
+--   kind 'movie'   : item_id = identifiant TMDB
+--   kind 'book'    : item_id = identifiant du livre (« gb:… », « ol:… »…)
+create table if not exists public.comments (
+  id bigint generated always as identity primary key,
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  kind text not null check (kind in ('episode', 'movie', 'book')),
+  item_id text not null,
+  show_id integer,
+  title text not null,             -- « Friends S02E03 », pour la notif et la liste
+  body text not null check (char_length(body) between 1 and 1000),
+  spoiler boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index if not exists comments_item_idx on public.comments (kind, item_id, created_at);
+alter table public.comments enable row level security;
+
+drop policy if exists "comments: read" on public.comments;
+create policy "comments: read" on public.comments
+  for select to authenticated
+  using ((select auth.uid()) = user_id or public.is_my_friend(user_id));
+drop policy if exists "comments: write" on public.comments;
+create policy "comments: write" on public.comments
+  for insert to authenticated
+  with check ((select auth.uid()) = user_id);
+drop policy if exists "comments: delete" on public.comments;
+create policy "comments: delete" on public.comments
+  for delete to authenticated
+  using ((select auth.uid()) = user_id);

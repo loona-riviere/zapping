@@ -4,6 +4,7 @@ import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { movieDetails, type MovieDetails } from '../lib/tmdb'
 import { DateField, History } from './History'
+import { Comments } from './Comments'
 import { Poster } from './Poster'
 import { ActionBar, ActionButton, RatingAction } from './ActionBar'
 import { RecommendButton } from './Recommend'
@@ -214,6 +215,8 @@ export function MoviePage({ id }: { id: number }) {
       <WhereToWatch movieId={id} title={title} />
 
       {details?.overview && <Summary text={details.overview} />}
+
+      <Comments kind="movie" itemId={String(id)} title={title} seen={movie?.status === 'watched'} />
 
       {movie && (
         <button

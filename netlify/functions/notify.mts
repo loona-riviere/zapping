@@ -18,7 +18,7 @@ const SERVER_OPTIONS = {
 // Variables Netlify requises (portée Functions) : SUPABASE_URL,
 // SUPABASE_SERVICE_ROLE_KEY, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.
 
-type Body = { event?: string; to?: string; kind?: string; itemId?: string; showId?: number; movieId?: number }
+type Body = { event?: string; to?: string; kind?: string; itemId?: string; showId?: number; movieId?: number; commentId?: number }
 type SubRow = { endpoint: string; p256dh: string; auth_key: string }
 
 const RECENT_MS = 10 * 60 * 1000
@@ -63,14 +63,53 @@ async function handle(req: Request): Promise<Response> {
   }
   const to = body.to
   const isTest = body.event === 'test'
-  if (!to || (to === me && !isTest) || !/^[0-9a-f-]{36}$/i.test(to)) return new Response(null, { status: 400 })
+  const toSelfOk = isTest || body.event === 'comment'
+  if (!to || (to === me && !toSelfOk) || !/^[0-9a-f-]{36}$/i.test(to)) return new Response(null, { status: 400 })
 
   const { data: sender } = await db.from('profiles').select('username, display_name').eq('user_id', me).maybeSingle()
   const who = sender?.display_name?.trim() || (sender ? `@${sender.username}` : 'Quelqu’un')
 
   let payload: { title: string; body: string; url: string } | null = null
+  // Par défaut un seul destinataire ; un commentaire va à plusieurs amis.
+  let recipients: string[] = [to]
 
-  if (isTest) {
+  if (body.event === 'comment' && typeof body.commentId === 'number') {
+    // Mon commentaire, tout juste publié : on prévient mes amis qui ont ce titre.
+    const { data: c } = await db
+      .from('comments')
+      .select('kind, item_id, show_id, title, body, spoiler, created_at')
+      .eq('id', body.commentId)
+      .eq('user_id', me)
+      .maybeSingle()
+    if (c && Date.now() - new Date(c.created_at).getTime() < RECENT_MS) {
+      const { data: fs } = await db
+        .from('friendships')
+        .select('requester, addressee')
+        .eq('status', 'accepted')
+        .or(`requester.eq.${me},addressee.eq.${me}`)
+      const friendIds = (fs ?? []).map((f) => (f.requester === me ? f.addressee : f.requester))
+      let having: string[] = []
+      if (friendIds.length) {
+        const q =
+          c.kind === 'episode'
+            ? db.from('tracked_shows').select('user_id').eq('show_id', c.show_id)
+            : c.kind === 'movie'
+              ? db.from('watched_movies').select('user_id').eq('movie_id', Number(c.item_id))
+              : db.from('tracked_books').select('user_id').eq('book_id', c.item_id)
+        const { data: rows } = await q.in('user_id', friendIds)
+        having = [...new Set((rows ?? []).map((r) => r.user_id as string))]
+      }
+      recipients = having
+      const url =
+        c.kind === 'episode' ? `/#/show/${c.show_id}/ep/${c.item_id}` : c.kind === 'movie' ? `/#/movie/${c.item_id}` : `/#/livre/${encodeURIComponent(c.item_id)}`
+      payload = {
+        title: `${who} a commenté ${c.title}`,
+        // Un épisode peut divulgâcher : on ne recopie pas le texte dans la notif.
+        body: c.kind === 'episode' || c.spoiler ? 'Ouvre pour lire (attention aux spoilers).' : c.body.slice(0, 140),
+        url,
+      }
+    }
+  } else if (isTest) {
     if (to === me) payload = { title: 'Zapping', body: 'Les notifications marchent 🎉', url: '/#/parametres' }
   } else if (body.event === 'friend_request') {
     const { data } = await db
@@ -151,7 +190,8 @@ async function handle(req: Request): Promise<Response> {
   if (!payload) return Response.json({ sent: 0, reason: 'Rien à notifier' })
 
   webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate)
-  const { data: subs } = await db.from('push_subscriptions').select('endpoint, p256dh, auth_key').eq('user_id', to)
+  if (!recipients.length) return Response.json({ sent: 0, reason: 'Personne à prévenir' })
+  const { data: subs } = await db.from('push_subscriptions').select('endpoint, p256dh, auth_key').in('user_id', recipients)
   let sent = 0
   const errors: string[] = []
   for (const sub of (subs ?? []) as SubRow[]) {

@@ -8,6 +8,7 @@ import { ActionBar, ChoiceAction, RatingAction } from './ActionBar'
 import { RecommendButton } from './Recommend'
 import { Summary } from './Summary'
 import { DateField, History } from './History'
+import { Comments } from './Comments'
 import { PageInput } from './PageInput'
 import { Poster } from './Poster'
 
@@ -264,6 +265,8 @@ export function BookPage({ id }: { id: string }) {
       </div>
 
       {details?.description && <Summary text={details.description} />}
+
+      <Comments kind="book" itemId={id} title={title} seen={book?.status === 'read' || !!book?.past_reads?.length} />
 
       {book && (
         <button
