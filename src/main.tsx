@@ -23,26 +23,22 @@ if ('serviceWorker' in navigator) {
   })
 }
 
-// iPhone, app ajoutée à l'écran d'accueil : quand le clavier se ferme, iOS
-// laisse parfois les éléments fixés (barre du bas) remontés de la hauteur
-// du clavier, avec un grand vide dessous, jusqu'au prochain défilement. Un
-// petit défilement forcé, une fois le clavier parti, recale tout.
+// iPhone, app ajoutée à l'écran d'accueil : à l'ouverture du clavier, iOS
+// fait défiler la page pour montrer le champ ; à la fermeture, il oublie de
+// revenir et la page reste défilée au-delà de sa fin — un grand vide sous la
+// barre du bas. On ramène le défilement dans les limites de la page, à
+// plusieurs reprises le temps que l'animation du clavier se termine (un
+// recalage trop tôt est défait par iOS juste après).
+function clampScroll() {
+  const active = document.activeElement
+  if (active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) return // clavier encore là
+  const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
+  if (window.scrollY > max) window.scrollTo(0, max)
+  else if (window.visualViewport && window.visualViewport.offsetTop > 0) window.scrollTo(0, window.scrollY)
+}
 function realignAfterKeyboard() {
-  setTimeout(() => {
-    const active = document.activeElement
-    if (active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) return // clavier encore là
-    // Page trop courte pour défiler (le décalage vient alors d'iOS seul) :
-    // retour tout en haut. Sinon un pixel aller-retour, sans bouger la vue.
-    if (document.documentElement.scrollHeight <= window.innerHeight) {
-      window.scrollTo(0, 0)
-    } else {
-      window.scrollBy(0, 1)
-      window.scrollBy(0, -1)
-    }
-  }, 120)
+  for (const delay of [50, 250, 500, 900]) setTimeout(clampScroll, delay)
 }
 document.addEventListener('focusout', realignAfterKeyboard)
-window.visualViewport?.addEventListener('resize', () => {
-  // Le viewport visible retrouve (presque) toute la fenêtre : le clavier vient de partir.
-  if (window.visualViewport && window.visualViewport.height >= window.innerHeight - 1) realignAfterKeyboard()
-})
+window.visualViewport?.addEventListener('resize', realignAfterKeyboard)
+window.visualViewport?.addEventListener('scroll', () => setTimeout(clampScroll, 50))
