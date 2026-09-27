@@ -75,3 +75,27 @@ export async function disableNotifications(): Promise<void> {
   await sub.unsubscribe().catch(() => {})
   await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint)
 }
+
+const sameKey = (a: ArrayBuffer | null | undefined, b: Uint8Array) => {
+  if (!a) return false
+  const x = new Uint8Array(a)
+  return x.length === b.length && x.every((v, i) => v === b[i])
+}
+
+/**
+ * Au lancement : si l'abonnement de l'appareil a été fait avec une ancienne
+ * clé VAPID (clés changées côté serveur), on le refait avec la nouvelle, sans
+ * rien demander — la permission est déjà accordée.
+ */
+export async function refreshSubscriptionKey(): Promise<void> {
+  if (!pushSupported() || !VAPID_PUBLIC_KEY || Notification.permission !== 'granted') return
+  const reg = await navigator.serviceWorker.ready.catch(() => null)
+  const sub = await reg?.pushManager.getSubscription()
+  if (!reg || !sub) return
+  const key = urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+  if (sameKey(sub.options.applicationServerKey, key)) return
+  const oldEndpoint = sub.endpoint
+  await sub.unsubscribe().catch(() => {})
+  await supabase.from('push_subscriptions').delete().eq('endpoint', oldEndpoint)
+  await enableNotifications()
+}

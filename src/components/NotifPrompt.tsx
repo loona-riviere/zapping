@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { usePrefs } from '../lib/prefs'
-import { currentSubscription, enableNotifications, isStandalone, pushConfigured, pushSupported } from '../lib/push'
+import { currentSubscription, enableNotifications, isStandalone, pushConfigured, pushSupported, refreshSubscriptionKey } from '../lib/push'
 import { Sheet } from './Sheet'
 
 const KEY = 'zapping.notifPrompt'
@@ -39,6 +39,7 @@ export function NotifPrompt() {
     let alive = true
     const t = setTimeout(async () => {
       const sub = await currentSubscription().catch(() => null)
+      if (sub) void refreshSubscriptionKey().catch(() => {})
       if (!alive || sub) return
       if (Notification.permission === 'granted') {
         void enableNotifications()
