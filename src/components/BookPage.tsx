@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { bookDetails, type Book } from '../lib/books'
 import { finishPatch, startPatch, useBooks } from '../lib/booksState'
-import { BOOK_STATUSES, BOOK_STATUS_LABEL, type BookPatch, type BookStatus, type TrackedBook } from '../lib/bookStore'
+import { type BookPatch, type BookStatus, type TrackedBook } from '../lib/bookStore'
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
+import { ActionBar, ChoiceAction, RatingAction } from './ActionBar'
 import { RecommendButton } from './Recommend'
+import { Summary } from './Summary'
 import { DateField, History } from './History'
 import { PageInput } from './PageInput'
 import { Poster } from './Poster'
-import { RatingPicker } from './RatingPicker'
 
 /** « Lu du 3 au 10 août 2026 », « Commencé le 3 août 2026 »… en une ligne. */
 function datesLabel(status: BookStatus, start: string | null, end: string | null): string {
@@ -30,11 +31,17 @@ function statusPatch(b: TrackedBook, status: BookStatus): BookPatch {
   return { status }
 }
 
+const BOOK_STATUS_OPTIONS: { value: BookStatus; icon: string; label: string; hint: string }[] = [
+  { value: 'reading', icon: '📖', label: 'En cours', hint: 'Tu le lis en ce moment' },
+  { value: 'later', icon: '🔖', label: 'À lire', hint: 'Dans ta pile' },
+  { value: 'read', icon: '✓', label: 'Lu', hint: 'Terminé' },
+  { value: 'dropped', icon: '⏸️', label: 'Abandonné', hint: 'Arrêté en cours de route' },
+]
+
 export function BookPage({ id }: { id: string }) {
   const { bookById, addBook, updateBook, removeBook, booksReady } = useBooks()
   const [details, setDetails] = useState<Book | null>(null)
   const [error, setError] = useState(false)
-  const [expanded, setExpanded] = useState(false)
   const [editDates, setEditDates] = useState(false)
   const book = bookById(id)
 
@@ -73,6 +80,25 @@ export function BookPage({ id }: { id: string }) {
   const cover = book?.cover_url ?? details?.cover_url ?? null
   const year = book?.published_year ?? details?.year ?? null
   const pages = book?.page_count ?? details?.page_count ?? null
+  const recItem = {
+    kind: 'book' as const,
+    itemId: id,
+    title,
+    image: cover,
+    meta: {
+      kind: 'book' as const,
+      book: details ?? {
+        id,
+        title,
+        authors: authors ? authors.split(', ') : [],
+        cover_url: cover,
+        page_count: pages,
+        year,
+        description: null,
+        categories: [],
+      },
+    },
+  }
 
   return (
     <article className="show">
@@ -86,19 +112,6 @@ export function BookPage({ id }: { id: string }) {
               .filter(Boolean)
               .join(' · ')}
           </p>
-          {book && (
-            <select
-              className="status-picker"
-              aria-label="Statut de lecture"
-              value={book.status}
-              data-status={book.status === 'dropped' ? 'dropped' : undefined}
-              onChange={(e) => updateBook(book.book_id, statusPatch(book, e.target.value as BookStatus))}
-            >
-              {BOOK_STATUSES.map((s) => (
-                <option key={s} value={s}>{BOOK_STATUS_LABEL[s]}</option>
-              ))}
-            </select>
-          )}
         </div>
       </header>
 
@@ -124,30 +137,50 @@ export function BookPage({ id }: { id: string }) {
           <p className="error">Livres indisponibles : relance supabase/schema.sql dans ton projet Supabase.</p>
         )}
 
-        {book && (book.status === 'reading' || book.status === 'dropped') && <PageInput book={book} />}
-
-        {book?.status === 'reading' && (
-          <button className="btn btn--seen" onClick={() => updateBook(book.book_id, finishPatch(book))}>
-            Terminé
-          </button>
+        {book && (book.status === 'reading' || book.status === 'dropped') && (
+          <section className="readcard">
+            <PageInput book={book} />
+            {!book.page_count && (
+              <label className="pages__label">
+                Le livre fait
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  placeholder="?"
+                  onBlur={(e) => {
+                    const n = Math.round(Number(e.target.value))
+                    if (n > 0) updateBook(book.book_id, { page_count: n })
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
+                />
+                pages
+              </label>
+            )}
+            {book.status === 'reading' && (
+              <button className="btn btn--seen readcard__done" onClick={() => updateBook(book.book_id, finishPatch(book))}>
+                ✓ J'ai terminé
+              </button>
+            )}
+          </section>
         )}
 
-        {book && !book.page_count && (
-          <label className="pages__label">
-            Nombre de pages
-            <input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              placeholder="?"
-              onBlur={(e) => {
-                const n = Math.round(Number(e.target.value))
-                if (n > 0) updateBook(book.book_id, { page_count: n })
-              }}
-              onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
+        {book && (
+          <ActionBar>
+            <ChoiceAction
+              title="Où en es-tu ?"
+              value={book.status}
+              options={BOOK_STATUS_OPTIONS}
+              onChange={(v) => updateBook(book.book_id, statusPatch(book, v))}
             />
-          </label>
+            {book.status === 'read' && (
+              <RatingAction rating={book.rating} onChange={(r) => updateBook(book.book_id, { rating: r })} />
+            )}
+            <RecommendButton item={recItem} />
+          </ActionBar>
         )}
+        {!book && <ActionBar><RecommendButton item={recItem} /></ActionBar>}
+
 
         {book && (
           <History
@@ -228,48 +261,9 @@ export function BookPage({ id }: { id: string }) {
             }
           />
         )}
-
-        {book?.status === 'read' && (
-          <RatingPicker rating={book.rating} onChange={(r) => updateBook(book.book_id, { rating: r })} />
-        )}
-
-        <div className="pills">
-          <RecommendButton
-            item={{
-              kind: 'book',
-              itemId: id,
-              title,
-              image: cover,
-              meta: {
-                kind: 'book',
-                book: details ?? {
-                  id,
-                  title,
-                  authors: authors ? authors.split(', ') : [],
-                  cover_url: cover,
-                  page_count: pages,
-                  year,
-                  description: null,
-                  categories: [],
-                },
-              },
-            }}
-          />
-        </div>
       </div>
 
-      {details?.description && (
-        <>
-          <p className={`show__summary${expanded ? '' : ' show__summary--clamped'}`} style={{ whiteSpace: 'pre-line' }}>
-            {details.description}
-          </p>
-          {details.description.length > 240 && (
-            <button className="link-btn show__summary-more" onClick={() => setExpanded((v) => !v)}>
-              {expanded ? 'Réduire' : 'Lire la suite'}
-            </button>
-          )}
-        </>
-      )}
+      {details?.description && <Summary text={details.description} />}
 
       {book && (
         <button

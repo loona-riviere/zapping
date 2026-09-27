@@ -69,19 +69,44 @@ export function Rewatches({ show, episodes }: { show: TvShow; episodes: TvEpisod
   }
   dated.sort((a, b) => b.at.localeCompare(a.at))
   entries.push(...dated)
-  for (let k = 0; k < undated; k++) {
+  if (undated > 0) {
     entries.push({
-      key: `undated-${k}`,
+      key: 'undated',
       icon: '✓',
-      text: 'Vue, date inconnue',
-      onRemove: () => confirm('Supprimer ce visionnage ?') && save(past, n - 1),
+      text: undated > 1 ? `Vue ${undated} autres fois, dates inconnues` : 'Vue une autre fois, date inconnue',
+      onRemove: () => confirm('Retirer un de ces visionnages sans date ?') && save(past, n - 1),
     })
   }
+
+  const total = n + 1
+  const latest = dated[0]
+  const summaryLine = running
+    ? `Revisionnage en cours · vue ${total} fois`
+    : total > 1
+      ? `Vue ${total} fois${latest ? ` · ${latest.text.replace(/^Vue /, 'dernière ')}` : ''}`
+      : undefined
+
 
   return (
     <>
       <History
         title="Visionnages"
+        summary={summaryLine}
+        footer={
+          running &&
+          !complete && (
+            <button
+              type="button"
+              className="pill pill--small"
+              onClick={() =>
+                confirm(`Arrêter le revisionnage de ${show.name} ? La progression de cette passe sera perdue, pas l'historique.`) &&
+                endRewatch(show.id, false)
+              }
+            >
+              Arrêter le revisionnage
+            </button>
+          )
+        }
         actions={
           !running &&
           seen.size > 0 && (
@@ -114,25 +139,13 @@ export function Rewatches({ show, episodes }: { show: TvShow; episodes: TvEpisod
           </div>
         }
       />
-      {running ? (
+      {running && complete && (
         <div className="pills">
-          {complete ? (
-            <button className="btn btn--primary" onClick={() => endRewatch(show.id, true)}>
-              Terminer le revisionnage
-            </button>
-          ) : (
-            <button
-              className="pill"
-              onClick={() =>
-                confirm(`Arrêter le revisionnage de ${show.name} ? La progression de cette passe sera perdue, pas l'historique.`) &&
-                endRewatch(show.id, false)
-              }
-            >
-              Arrêter le revisionnage
-            </button>
-          )}
+          <button className="btn btn--primary" onClick={() => endRewatch(show.id, true)}>
+            Terminer le revisionnage
+          </button>
         </div>
-      ) : null}
+      )}
     </>
   )
 }

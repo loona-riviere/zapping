@@ -1,20 +1,27 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
+import type { ShowStatus } from '../lib/store'
 import { useApp } from '../lib/appState'
 import { computeProgress, epCode, formatDate, formatShortDate, isAired } from '../lib/progress'
 import { href } from '../lib/route'
 import { showDetailsFr } from '../lib/tmdb'
 import { getShowWithEpisodes, statusFr, stripHtml, type ShowWithEpisodes, type TvEpisode } from '../lib/tvmaze'
+import { ActionBar, ChoiceAction, RatingAction } from './ActionBar'
 import { RecommendButton } from './Recommend'
 import { ShowTogether } from './ShowTogether'
 import { NextEpisode } from './NextEpisode'
 import { Poster } from './Poster'
 import { Rewatches } from './Rewatches'
-import { StatusPicker } from './StatusPicker'
-import { RatingPicker } from './RatingPicker'
 import { WhereToWatch } from './WhereToWatch'
 
+const SHOW_STATUS_OPTIONS: { value: ShowStatus; icon: string; label: string; hint: string }[] = [
+  { value: 'watching', icon: '▶️', label: 'Suivie', hint: 'Dans « À suivre », avec le prochain épisode' },
+  { value: 'paused', icon: '⏸️', label: 'En pause', hint: 'Mise de côté, à reprendre' },
+  { value: 'later', icon: '🕒', label: 'Plus tard', hint: 'Dans ta liste « à regarder »' },
+  { value: 'dropped', icon: '✕', label: 'Abandonnée', hint: 'Tu ne la regardes plus' },
+]
+
 export function ShowPage({ id }: { id: number }) {
-  const { isTracked, track, untrack, watchedFor, historyFor, setWatched, isRewatching, tracked, renameShow, rateShow } =
+  const { statusOf, setStatus, isTracked, track, untrack, watchedFor, historyFor, setWatched, isRewatching, tracked, renameShow, rateShow } =
     useApp()
   const [data, setData] = useState<ShowWithEpisodes | null>(null)
   const [error, setError] = useState(false)
@@ -250,24 +257,36 @@ export function ShowPage({ id }: { id: number }) {
         </div>
       </header>
 
+      {followed && (
+        <NextEpisode
+          next={progress.next}
+          upcoming={progress.upcoming}
+          imdbId={show.externals?.imdb}
+          onSeen={toggle}
+        />
+      )}
+
       <div className="show__controls">
         {!followed && (
           <button type="button" className="btn btn--primary" onClick={() => track(show)}>
             Suivre cette série
           </button>
         )}
-        {followed && <Rewatches show={show} episodes={episodes} />}
-        {followed && (
-          <p className="show__status">
-            <label htmlFor="show-status">Statut</label>
-            <StatusPicker showId={show.id} id="show-status" />
-            <RatingPicker
+        <ActionBar>
+          {followed && (
+            <ChoiceAction
+              title="Statut"
+              value={statusOf(show.id)}
+              options={SHOW_STATUS_OPTIONS}
+              onChange={(v) => setStatus(show.id, v)}
+            />
+          )}
+          {followed && (
+            <RatingAction
               rating={tracked.find((t) => t.show_id === show.id)?.rating ?? null}
               onChange={(r) => rateShow(show.id, r)}
             />
-          </p>
-        )}
-        <div className="pills">
+          )}
           {data && (
             <ShowTogether
               show={{ id: show.id, name: tracked.find((t) => t.show_id === show.id)?.name ?? show.name, image: show.image?.medium ?? null }}
@@ -284,17 +303,9 @@ export function ShowPage({ id }: { id: number }) {
               meta: { kind: 'show', id: show.id, name: tracked.find((t) => t.show_id === show.id)?.name ?? show.name, image: show.image?.medium ?? null },
             }}
           />
-        </div>
+        </ActionBar>
+        {followed && <Rewatches show={show} episodes={episodes} />}
       </div>
-
-      {followed && (
-        <NextEpisode
-          next={progress.next}
-          upcoming={progress.upcoming}
-          imdbId={show.externals?.imdb}
-          onSeen={toggle}
-        />
-      )}
 
       <WhereToWatch imdbId={show.externals?.imdb} title={frName ?? show.name} />
 

@@ -5,6 +5,7 @@ import { LaunchScreen, Splash } from './components/Backdrop'
 import { BottomNav } from './components/BottomNav'
 import { EasterEggOverlay, useLogoEasterEgg } from './components/EasterEgg'
 import { EpisodePage } from './components/EpisodePage'
+import { InstallHint } from './components/InstallHint'
 import { NotifPrompt } from './components/NotifPrompt'
 import { Celebrations } from './components/Celebrations'
 import { Import } from './components/Import'
@@ -70,7 +71,13 @@ function AppContent() {
     )
   }
   if (session === undefined) return <Splash />
-  if (!session) return <Auth />
+  if (!session)
+    return (
+      <>
+        <InstallHint />
+        <Auth />
+      </>
+    )
 
   return (
     <PrefsProvider user={session.user}>
@@ -124,6 +131,7 @@ function Shell() {
       </header>
 
       <main className="main">
+        {isLibrary(route) && <InstallHint />}
         {isLibrary(route) && <Library route={route} />}
         {route.name === 'search' && <Search initialQuery={route.q} initialKind={route.kind} />}
         {route.name === 'import' && <Import />}

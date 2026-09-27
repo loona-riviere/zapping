@@ -3,6 +3,7 @@ import { notify } from '../lib/notify'
 import { nameOf, type Profile } from '../lib/social'
 import { useSocial } from '../lib/socialState'
 import { supabase } from '../lib/supabase'
+import { ActionButton } from './ActionBar'
 import { Sheet, Switch } from './Sheet'
 import type { TvEpisode } from '../lib/tvmaze'
 
@@ -41,9 +42,12 @@ export function ShowTogether({
 
   if (!open) {
     return (
-      <button type="button" className={`pill${link ? ' pill--on' : ''}`} onClick={() => setOpen(true)}>
-        👫 À deux{linkedWith ? ` · avec ${nameOf(linkedWith)} 🔗` : ''}
-      </button>
+      <ActionButton
+        icon="👫"
+        label={linkedWith ? `Avec ${nameOf(linkedWith)}` : 'À deux'}
+        active={!!link}
+        onClick={() => setOpen(true)}
+      />
     )
   }
 
@@ -92,9 +96,12 @@ export function ShowTogether({
 
   return (
     <>
-      <button type="button" className={`pill${link ? ' pill--on' : ''}`} onClick={() => setOpen(true)}>
-        👫 À deux{linkedWith ? ` · avec ${nameOf(linkedWith)} 🔗` : ''}
-      </button>
+      <ActionButton
+        icon="👫"
+        label={linkedWith ? `Avec ${nameOf(linkedWith)}` : 'À deux'}
+        active={!!link}
+        onClick={() => setOpen(true)}
+      />
       <Sheet title={`${show.name}, à deux`} onClose={close}>
         {friends.length > 1 && (
           <section className="sheet__section">

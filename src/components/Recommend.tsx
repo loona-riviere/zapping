@@ -7,6 +7,7 @@ import { nameOf } from '../lib/social'
 import { useSocial } from '../lib/socialState'
 import type { TvShow } from '../lib/tvmaze'
 import { Poster } from './Poster'
+import { ActionButton } from './ActionBar'
 import { Sheet } from './Sheet'
 
 type Item = { kind: RecKind; itemId: string; title: string; image: string | null; meta: RecMeta }
@@ -47,9 +48,7 @@ export function RecommendButton({ item }: { item: Item }) {
 
   return (
     <>
-      <button className="pill" onClick={() => setOpen(true)}>
-        📨 Recommander
-      </button>
+      <ActionButton icon="📨" label="Recommander" onClick={() => setOpen(true)} />
       {open && (
         <Sheet title={`Recommander ${item.title}`} onClose={close}>
           {sent ? (

@@ -4,6 +4,7 @@ import { formatShortDate } from '../lib/progress'
 import { nameOf, type Profile } from '../lib/social'
 import { useSocial } from '../lib/socialState'
 import { shareMovieViewing, type WatchedMovie } from '../lib/store'
+import { ActionButton } from './ActionBar'
 import { Sheet } from './Sheet'
 
 /**
@@ -29,9 +30,7 @@ export function WatchedTogether({ movie }: { movie: WatchedMovie }) {
 
   return (
     <>
-      <button type="button" className="pill" onClick={() => setOpen(true)}>
-        👫 À deux
-      </button>
+      <ActionButton icon="👫" label="À deux" onClick={() => setOpen(true)} />
       {open && (
         <Sheet title={`${movie.title}, à deux`} onClose={close}>
           {done ? (

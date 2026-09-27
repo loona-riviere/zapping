@@ -5,8 +5,9 @@ import { href } from '../lib/route'
 import { movieDetails, type MovieDetails } from '../lib/tmdb'
 import { DateField, History } from './History'
 import { Poster } from './Poster'
+import { ActionBar, ActionButton, RatingAction } from './ActionBar'
 import { RecommendButton } from './Recommend'
-import { RatingPicker } from './RatingPicker'
+import { Summary } from './Summary'
 import { WatchedTogether } from './WatchedTogether'
 import { WhereToWatch } from './WhereToWatch'
 
@@ -99,48 +100,51 @@ export function MoviePage({ id }: { id: number }) {
       </header>
 
       <div className="show__controls">
-        {movie?.status === 'watched' && (
-          <RatingPicker rating={movie.rating} onChange={(r) => rateMovie(movie.movie_id, r)} />
-        )}
-
-        <div className="movie__actions">
-          {movie?.status === 'watched' ? (
-            <button
-              className="btn btn--ghost"
-              onClick={() =>
-                confirm(
-                  movie.past_views?.length
-                    ? `Retirer le visionnage du ${movie.watched_at ? formatShortDate(movie.watched_at) : 'jour inconnu'} ? Les précédents restent.`
-                    : `Marquer ${title} comme pas vu ? Sa date de visionnage sera perdue.`,
-                ) && markMovieUnwatched(movie.movie_id)
-              }
-            >
-              Pas vu
-            </button>
-          ) : movie ? (
-            !notYetReleased && (
-              <button className="btn btn--primary" onClick={() => markMovieWatched(movie.movie_id, today())}>
+        {!movie && asMovie && (
+          <div className="movie__actions">
+            {!notYetReleased && (
+              <button className="btn btn--primary" onClick={() => addMovies([{ movie: asMovie, watchedAt: today() }])}>
                 Vu
               </button>
-            )
-          ) : (
-            asMovie && (
-              <>
-                {!notYetReleased && (
-                  <button
-                    className="btn btn--primary"
-                    onClick={() => addMovies([{ movie: asMovie, watchedAt: today() }])}
-                  >
-                    Vu
-                  </button>
-                )}
-                <button className="btn btn--ghost" onClick={() => addToWatchlist(asMovie)}>
-                  À voir
-                </button>
-              </>
-            )
+            )}
+            <button className="btn btn--ghost" onClick={() => addToWatchlist(asMovie)}>
+              À voir
+            </button>
+          </div>
+        )}
+
+        <ActionBar>
+          {movie && (movie.status === 'watched' || !notYetReleased) && (
+            <ActionButton
+              icon={movie.status === 'watched' ? '✓' : '👁️'}
+              label={movie.status === 'watched' ? 'Vu' : 'Marquer vu'}
+              active={movie.status === 'watched'}
+              onClick={() =>
+                movie.status === 'watched'
+                  ? confirm(
+                      movie.past_views?.length
+                        ? `Retirer le visionnage du ${movie.watched_at ? formatShortDate(movie.watched_at) : 'jour inconnu'} ? Les précédents restent.`
+                        : `Marquer ${title} comme pas vu ? Sa date de visionnage sera perdue.`,
+                    ) && markMovieUnwatched(movie.movie_id)
+                  : markMovieWatched(movie.movie_id, today())
+              }
+            />
           )}
-        </div>
+          {movie?.status === 'watched' && <RatingAction rating={movie.rating} onChange={(r) => rateMovie(movie.movie_id, r)} />}
+          {movie?.status === 'watched' && <WatchedTogether movie={movie} />}
+          <RecommendButton
+            item={{
+              kind: 'movie',
+              itemId: String(id),
+              title,
+              image: posterUrl,
+              meta: {
+                kind: 'movie',
+                movie: { id, title, poster_url: posterUrl, year, release_date: releaseDate, overview: details?.overview ?? null },
+              },
+            }}
+          />
+        </ActionBar>
 
         {movie?.status === 'watched' && (
           <History
@@ -205,27 +209,11 @@ export function MoviePage({ id }: { id: number }) {
           />
         )}
 
-
-        <div className="pills">
-          {movie?.status === 'watched' && <WatchedTogether movie={movie} />}
-          <RecommendButton
-            item={{
-              kind: 'movie',
-              itemId: String(id),
-              title,
-              image: posterUrl,
-              meta: {
-                kind: 'movie',
-                movie: { id, title, poster_url: posterUrl, year, release_date: releaseDate, overview: details?.overview ?? null },
-              },
-            }}
-          />
-        </div>
       </div>
 
-      {details?.overview && <p className="show__summary">{details.overview}</p>}
+      <WhereToWatch movieId={id} title={title} />
 
-      {movie?.status !== 'watched' && <WhereToWatch movieId={id} title={title} />}
+      {details?.overview && <Summary text={details.overview} />}
 
       {movie && (
         <button
