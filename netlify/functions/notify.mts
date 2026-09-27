@@ -6,6 +6,9 @@ import webpush from 'web-push'
 // après l'action ; la fonction ne croit que la base : l'événement doit y être
 // (et récent pour une recommandation), sinon rien n'est envoyé. Impossible
 // donc de faire recevoir à quelqu'un une notif pour une action inventée.
+//
+// Variables Netlify requises (portée Functions) : SUPABASE_URL,
+// SUPABASE_SERVICE_ROLE_KEY, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.
 
 type Body = { event?: string; to?: string; kind?: string; itemId?: string; showId?: number; movieId?: number }
 type SubRow = { endpoint: string; p256dh: string; auth_key: string }
