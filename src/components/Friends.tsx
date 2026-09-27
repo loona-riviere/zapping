@@ -93,7 +93,7 @@ function RelationButton({ other }: { other: Profile }) {
 }
 
 export function Friends() {
-  const { socialReady, loading, profile, friends, incoming, friendships, accept, remove, duos, incomingDuos, acceptDuo, stopDuo, profileOf } =
+  const { socialReady, loading, profile, friends, incoming, friendships, accept, remove, duos, incomingDuos, stopDuo, profileOf } =
     useSocial()
   const [editing, setEditing] = useState(false)
   const [query, setQuery] = useState('')
@@ -218,7 +218,8 @@ export function Friends() {
                     </div>
                   </a>
                   <div className="row__actions">
-                    <button className="btn btn--primary" onClick={() => acceptDuo(d)}>Accepter</button>
+                    {/* L'acceptation se fait sur la fiche : on peut y préciser revisionnage ou suite. */}
+                    <a className="btn btn--primary" href={href.show(d.show_id)}>Voir</a>
                     <button className="link-btn muted row__drop" onClick={() => stopDuo(d)}>Refuser</button>
                   </div>
                 </li>

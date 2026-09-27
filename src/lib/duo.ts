@@ -1,4 +1,6 @@
-// Séries à deux : une série regardée ensemble (en couple, entre amis).
+// Séries à deux : un visionnage fait ensemble (en couple, entre amis) —
+// une première vision ou un revisionnage. Seuls les épisodes cochés pendant
+// ce visionnage sont partagés ; ce que chacun a vu avant reste à lui.
 // L'écriture chez l'autre passe par des fonctions Supabase qui vérifient
 // que la série a bien été acceptée à deux (supabase/schema.sql).
 
@@ -99,4 +101,19 @@ export async function syncDuo(
   }))
   const { error } = await supabase.rpc('sync_shared_episodes', { p_show_id: showId, p_episodes: payload, p_watched: watched })
   if (error) console.warn('Série à deux : report impossible', error.message)
+}
+
+/**
+ * Fin du revisionnage d'une série : le visionnage à deux qui l'accompagnait
+ * s'arrête avec lui. Chacun garde ce qu'il a coché.
+ */
+export async function stopDuosForShow(showId: number): Promise<void> {
+  if (!acceptedShows.has(showId)) return
+  const uid = await me()
+  const { error } = await supabase
+    .from('shared_shows')
+    .delete()
+    .eq('show_id', showId)
+    .or(`inviter.eq.${uid},invitee.eq.${uid}`)
+  if (!error) acceptedShows.delete(showId)
 }

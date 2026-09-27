@@ -439,10 +439,13 @@ create policy "watched_episodes: friends read" on public.watched_episodes
   );
 
 -- ========================================================= séries à deux ==
--- Une série regardée à deux (en couple, entre amis) : une fois l'invitation
--- acceptée, les progressions fusionnent, puis chaque épisode coché ou
--- décoché par l'un l'est pour l'autre. On n'écrit dans la liste de l'autre
--- que par les fonctions ci-dessous, et seulement pour une série acceptée à deux.
+-- Un visionnage fait à deux (en couple, entre amis) : une première vision
+-- ou un revisionnage d'une série, ensemble. Une fois l'invitation acceptée,
+-- chaque épisode coché ou décoché par l'un pendant ce visionnage l'est pour
+-- l'autre — dans son revisionnage en cours s'il en a un, sinon dans son
+-- historique. Ce que chacun a vu avant reste à lui : rien n'est fusionné.
+-- On n'écrit dans la liste de l'autre que par les fonctions ci-dessous, et
+-- seulement pour une série acceptée à deux.
 
 create table if not exists public.shared_shows (
   show_id integer not null,
@@ -488,9 +491,8 @@ $$;
 revoke all on function public.duo_partners(integer) from public, anon;
 grant execute on function public.duo_partners(integer) to authenticated;
 
--- Accepte une invitation reçue, puis fusionne les deux progressions :
--- chacun récupère les épisodes vus par l'autre (sa date à lui, s'il l'avait
--- déjà coché).
+-- Accepte une invitation reçue. La série est ajoutée chez l'un et l'autre
+-- s'il le faut ; les épisodes déjà vus ne sont pas mis en commun.
 create or replace function public.accept_shared_show(p_show_id integer, p_inviter uuid)
 returns void
 language plpgsql
@@ -509,27 +511,16 @@ begin
   insert into public.tracked_shows (user_id, show_id, name, image_url, status)
   values (me, p_show_id, s.show_name, s.image_url, 'watching'), (p_inviter, p_show_id, s.show_name, s.image_url, 'watching')
   on conflict (user_id, show_id) do nothing;
-
-  insert into public.watched_episodes (user_id, episode_id, show_id, season, number, watched_at)
-  select me, episode_id, show_id, season, number, watched_at
-  from public.watched_episodes where user_id = p_inviter and show_id = p_show_id
-  on conflict (user_id, episode_id) do nothing;
-  insert into public.watched_episodes (user_id, episode_id, show_id, season, number, watched_at)
-  select p_inviter, episode_id, show_id, season, number, watched_at
-  from public.watched_episodes where user_id = me and show_id = p_show_id
-  on conflict (user_id, episode_id) do nothing;
-
-  update public.tracked_shows t
-  set last_watched_at = (select max(watched_at) from public.watched_episodes w where w.user_id = t.user_id and w.show_id = p_show_id),
-      status = case when t.status = 'later' then 'watching' else t.status end
-  where t.show_id = p_show_id and t.user_id in (me, p_inviter);
+  update public.tracked_shows set status = 'watching'
+  where show_id = p_show_id and user_id in (me, p_inviter) and status = 'later';
 end;
 $$;
 revoke all on function public.accept_shared_show(integer, uuid) from public, anon;
 grant execute on function public.accept_shared_show(integer, uuid) to authenticated;
 
 -- Reporte chez le(s) partenaire(s) des épisodes que la personne connectée
--- vient de cocher (p_watched) ou de décocher, pour une série à deux.
+-- vient de cocher (p_watched) ou de décocher : dans le revisionnage en cours
+-- du partenaire s'il en a un, sinon dans son historique.
 -- p_episodes : [{ "episode_id": 1, "season": 1, "number": 1, "watched_at": "…" }]
 create or replace function public.sync_shared_episodes(p_show_id integer, p_episodes jsonb, p_watched boolean)
 returns void
@@ -539,32 +530,51 @@ set search_path = public
 as $$
 declare
   partner uuid;
+  rewatching boolean;
 begin
   for partner in select public.duo_partners(p_show_id) loop
-    if p_watched then
-      insert into public.tracked_shows (user_id, show_id, name, status)
-      select partner, p_show_id, s.show_name, 'watching'
-      from public.shared_shows s
-      where s.show_id = p_show_id and s.status = 'accepted' and partner in (s.inviter, s.invitee)
-      limit 1
-      on conflict (user_id, show_id) do nothing;
+    insert into public.tracked_shows (user_id, show_id, name, status)
+    select partner, p_show_id, s.show_name, 'watching'
+    from public.shared_shows s
+    where s.show_id = p_show_id and s.status = 'accepted' and partner in (s.inviter, s.invitee)
+    limit 1
+    on conflict (user_id, show_id) do nothing;
 
-      insert into public.watched_episodes (user_id, episode_id, show_id, season, number, watched_at)
-      select partner, (e->>'episode_id')::integer, p_show_id, (e->>'season')::integer, (e->>'number')::integer,
-             nullif(e->>'watched_at', '')::timestamptz
-      from jsonb_array_elements(p_episodes) e
-      on conflict (user_id, episode_id) do nothing;
+    select t.rewatching into rewatching from public.tracked_shows t where t.user_id = partner and t.show_id = p_show_id;
 
-      update public.tracked_shows set status = 'watching' where user_id = partner and show_id = p_show_id and status = 'later';
+    if rewatching then
+      if p_watched then
+        insert into public.rewatch_progress (user_id, show_id, episode_id, watched_at)
+        select partner, p_show_id, (e->>'episode_id')::integer, nullif(e->>'watched_at', '')::timestamptz
+        from jsonb_array_elements(p_episodes) e
+        on conflict (user_id, episode_id) do nothing;
+      else
+        delete from public.rewatch_progress
+        where user_id = partner and show_id = p_show_id
+          and episode_id in (select (e->>'episode_id')::integer from jsonb_array_elements(p_episodes) e);
+      end if;
+      update public.tracked_shows
+      set last_watched_at = coalesce(
+        (select max(watched_at) from public.rewatch_progress r where r.user_id = partner and r.show_id = p_show_id),
+        (select max(watched_at) from public.watched_episodes w where w.user_id = partner and w.show_id = p_show_id))
+      where user_id = partner and show_id = p_show_id;
     else
-      delete from public.watched_episodes
-      where user_id = partner and show_id = p_show_id
-        and episode_id in (select (e->>'episode_id')::integer from jsonb_array_elements(p_episodes) e);
+      if p_watched then
+        insert into public.watched_episodes (user_id, episode_id, show_id, season, number, watched_at)
+        select partner, (e->>'episode_id')::integer, p_show_id, (e->>'season')::integer, (e->>'number')::integer,
+               nullif(e->>'watched_at', '')::timestamptz
+        from jsonb_array_elements(p_episodes) e
+        on conflict (user_id, episode_id) do nothing;
+        update public.tracked_shows set status = 'watching' where user_id = partner and show_id = p_show_id and status = 'later';
+      else
+        delete from public.watched_episodes
+        where user_id = partner and show_id = p_show_id
+          and episode_id in (select (e->>'episode_id')::integer from jsonb_array_elements(p_episodes) e);
+      end if;
+      update public.tracked_shows
+      set last_watched_at = (select max(watched_at) from public.watched_episodes w where w.user_id = partner and w.show_id = p_show_id)
+      where user_id = partner and show_id = p_show_id;
     end if;
-
-    update public.tracked_shows
-    set last_watched_at = (select max(watched_at) from public.watched_episodes w where w.user_id = partner and w.show_id = p_show_id)
-    where user_id = partner and show_id = p_show_id;
   end loop;
 end;
 $$;
