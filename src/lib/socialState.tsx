@@ -3,6 +3,7 @@ import * as duo from './duo'
 import type { Duo } from './duo'
 import * as recs from './recs'
 import type { Rec, RecKind, RecMeta } from './recs'
+import { notify } from './notify'
 import * as social from './social'
 import type { Friendship, Profile } from './social'
 import { isMissingSchema } from './store'
@@ -98,8 +99,22 @@ export function SocialProvider({
     [onError, refresh],
   )
 
-  const ask = useCallback((other: Profile) => run(() => social.askFriend(other, friendships), 'Demande impossible'), [run, friendships])
-  const accept = useCallback((other: Profile) => run(() => social.acceptFriend(other.user_id), 'Acceptation impossible'), [run])
+  const ask = useCallback(
+    (other: Profile) =>
+      run(async () => {
+        await social.askFriend(other, friendships)
+        notify({ event: 'friend_request', to: other.user_id })
+      }, 'Demande impossible'),
+    [run, friendships],
+  )
+  const accept = useCallback(
+    (other: Profile) =>
+      run(async () => {
+        await social.acceptFriend(other.user_id)
+        notify({ event: 'friend_accept', to: other.user_id })
+      }, 'Acceptation impossible'),
+    [run],
+  )
   const remove = useCallback((other: Profile) => run(() => social.removeFriend(other.user_id), 'Suppression impossible'), [run])
 
   const relationWith = useCallback(
@@ -114,7 +129,10 @@ export function SocialProvider({
 
   const inviteDuo = useCallback(
     (show: { id: number; name: string; image: string | null }, partner: Profile) =>
-      run(() => duo.inviteDuo(show, partner), 'Invitation impossible'),
+      run(async () => {
+        await duo.inviteDuo(show, partner)
+        notify({ event: 'duo', to: partner.user_id, showId: show.id })
+      }, 'Invitation impossible'),
     [run],
   )
   const acceptDuo = useCallback(
@@ -130,7 +148,11 @@ export function SocialProvider({
       recipients: string[],
       item: { kind: RecKind; itemId: string; title: string; image: string | null; meta: RecMeta },
       note: string,
-    ) => run(() => recs.sendRecs(recipients, item, note), 'Recommandation impossible'),
+    ) =>
+      run(async () => {
+        await recs.sendRecs(recipients, item, note)
+        for (const to of recipients) notify({ event: 'rec', to, kind: item.kind, itemId: item.itemId })
+      }, 'Recommandation impossible'),
     [run],
   )
   const dismissRec = useCallback(

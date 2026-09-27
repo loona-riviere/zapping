@@ -48,7 +48,7 @@ export function Settings() {
         </div>
       </section>
 
-      {has('show') && <Notifications />}
+      <Notifications />
 
       {(has('show') || has('movie') || has('book')) && (
       <section>

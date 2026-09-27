@@ -51,7 +51,7 @@ export function Notifications() {
       )}
       {(state === 'on' || state === 'off' || state === 'checking') && (
         <>
-          <p className="muted">Reçois une notif quand un nouvel épisode d'une série suivie sort.</p>
+          <p className="muted">Une notif quand un nouvel épisode d'une série suivie sort, quand un ami te recommande quelque chose, te demande en ami ou accepte ta demande.</p>
           <button
             type="button"
             className="btn btn--ghost"
