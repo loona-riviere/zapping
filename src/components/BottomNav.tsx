@@ -12,16 +12,34 @@ const isLibraryHash = (h: string | null) => h === href.home
  * garde son rôle sur desktop (souris, écran large) via une règle CSS qui
  * bascule l'un ou l'autre selon la largeur, pas le JS.
  */
+/**
+ * Remontée animée, qu'on voit défiler (le « smooth » natif est parfois
+ * instantané sur iPhone) : rapide au début, douce à l'arrivée.
+ */
+function scrollToTop() {
+  const from = window.scrollY
+  if (from <= 0) return
+  const duration = Math.min(650, 250 + from / 8)
+  const start = performance.now()
+  const ease = (t: number) => 1 - Math.pow(1 - t, 3)
+  const step = (now: number) => {
+    const t = Math.min(1, (now - start) / duration)
+    window.scrollTo(0, Math.round(from * (1 - ease(t))))
+    if (t < 1) requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
+}
+
 export function BottomNav({ route, pending = 0 }: { route: Route; pending?: number }) {
   // Toucher l'onglet où l'on est déjà : retour en haut de l'écran, comme sur iPhone.
   const onNav = (e: React.MouseEvent<HTMLElement>) => {
     const a = (e.target as HTMLElement).closest('a')
     if (a?.getAttribute('aria-current') === 'page' && a.getAttribute('href') === window.location.hash) {
       e.preventDefault()
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      scrollToTop()
     } else if (a?.getAttribute('aria-current') === 'page' && window.scrollY > 0 && isLibraryHash(a.getAttribute('href'))) {
       e.preventDefault()
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      scrollToTop()
     }
   }
   return (
