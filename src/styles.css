@@ -877,3 +877,14 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 /* Dates d'une lecture : une ligne discrète, qu'on touche pour modifier. */
 .dates-line { background: none; border: 0; padding: 0; font: inherit; font-size: .92rem; color: var(--muted); cursor: pointer; text-align: left; }
 .dates-line span { text-decoration: underline dotted; text-underline-offset: 3px; }
+
+/* Import Kindle */
+.kindle__row { align-items: flex-start; }
+.kindle__row > input[type='checkbox'] { width: 1.3rem; height: 1.3rem; margin-top: 1.6rem; accent-color: var(--accent); flex: none; }
+.kindle__meta, .kindle__raw { font-size: .8rem; }
+.kindle__raw { font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kindle__actions { display: flex; align-items: center; gap: .75rem; margin-top: .4rem; flex-wrap: wrap; }
+.kindle__fix { margin-top: .5rem; }
+.kindle__fix form { display: flex; gap: .5rem; }
+.kindle__fix .search__input { margin: 0; flex: 1; }
+.kindle__pick { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }

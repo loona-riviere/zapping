@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { ImportKindle } from './ImportKindle'
 import { ImportList } from './ImportList'
 import { ImportNetflix } from './ImportNetflix'
 
-type Tab = 'netflix' | 'list'
+type Tab = 'netflix' | 'list' | 'kindle'
 
 export function Import() {
   const [tab, setTab] = useState<Tab>('netflix')
@@ -27,8 +28,18 @@ export function Import() {
         >
           Liste à coller
         </button>
+        <button
+          role="tab"
+          aria-selected={tab === 'kindle'}
+          className="tabs__tab"
+          onClick={() => setTab('kindle')}
+        >
+          Kindle
+        </button>
       </div>
-      {tab === 'netflix' ? <ImportNetflix /> : <ImportList />}
+      {tab === 'netflix' && <ImportNetflix />}
+      {tab === 'list' && <ImportList />}
+      {tab === 'kindle' && <ImportKindle />}
     </div>
   )
 }

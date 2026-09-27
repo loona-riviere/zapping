@@ -50,11 +50,11 @@ export function Settings() {
 
       {has('show') && <Notifications />}
 
-      {(has('show') || has('movie')) && (
+      {(has('show') || has('movie') || has('book')) && (
       <section>
         <h2 className="section-title">Import</h2>
         <p className="muted">
-          Un historique Netflix à importer ? <a href={href.import}>C'est par ici</a>.
+          Un historique Netflix ou Kindle à importer ? <a href={href.import}>C'est par ici</a>.
         </p>
       </section>
       )}

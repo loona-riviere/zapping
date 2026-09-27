@@ -83,6 +83,9 @@ export function Books() {
         <h2>Aucun livre pour l'instant</h2>
         <p>Cherche un livre pour l'ajouter à ta pile, puis note ta page au fil de la lecture.</p>
         <a className="btn btn--primary" href={href.searchFor('', 'book')}>Chercher un livre</a>
+        <p className="muted empty__alt">
+          Tu lis sur Kindle ? <a href={href.import}>Importe ton historique</a>.
+        </p>
       </section>
     )
   }
