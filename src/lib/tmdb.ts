@@ -473,6 +473,51 @@ export async function seasonEpisodesFr(
   return eps
 }
 
+/**
+ * Films à l'affiche en France en ce moment, les plus populaires d'abord
+ * (deux pages TMDB). Gardés 12 h.
+ */
+export async function moviesNowPlaying(): Promise<Movie[]> {
+  if (!KEY) return []
+  const key = 'tmdb:now-playing:v1:FR'
+  const hit = readCache<Movie[]>(key, CACHE_TTL / 2)
+  if (hit) return hit
+  const pages = await Promise.all(
+    ['1', '2'].map((page) => get<{ results: RawMovie[] }>('/movie/now_playing', { region: 'FR', page })),
+  )
+  const byId = new Map<number, RawMovie>()
+  pages.flatMap((p) => p.results).forEach((r) => byId.set(r.id, r))
+  const movies = [...byId.values()]
+    .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
+    .map(toMovie)
+  writeCache(key, movies)
+  return movies
+}
+
+/**
+ * Films qui sortent bientôt au cinéma en France, du plus proche au plus
+ * lointain ; seulement ceux dont la date est à venir et qui intéressent
+ * un minimum (popularité), pour ne pas lister les sorties confidentielles.
+ */
+export async function moviesUpcoming(): Promise<Movie[]> {
+  if (!KEY) return []
+  const key = 'tmdb:upcoming:v1:FR'
+  const hit = readCache<Movie[]>(key, CACHE_TTL / 2)
+  if (hit) return hit
+  const today = new Date().toISOString().slice(0, 10)
+  const pages = await Promise.all(
+    ['1', '2', '3'].map((page) => get<{ results: RawMovie[] }>('/movie/upcoming', { region: 'FR', page })),
+  )
+  const byId = new Map<number, RawMovie>()
+  pages.flatMap((p) => p.results).forEach((r) => byId.set(r.id, r))
+  const movies = [...byId.values()]
+    .filter((r) => r.release_date && r.release_date > today && (r.popularity ?? 0) >= 5)
+    .sort((a, b) => (a.release_date ?? '').localeCompare(b.release_date ?? ''))
+    .map(toMovie)
+  writeCache(key, movies)
+  return movies
+}
+
 function readCache<T>(key: string, ttl: number): T | undefined {
   try {
     const raw = localStorage.getItem(key)

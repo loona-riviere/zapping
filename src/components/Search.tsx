@@ -11,6 +11,7 @@ import { buildEnvNames, searchMovies, tmdbConfigured, type Movie } from '../lib/
 import type { TvShow } from '../lib/tvmaze'
 import { useShowEpisodes } from '../lib/useShows'
 import { Poster } from './Poster'
+import { MovieReleases } from './MovieReleases'
 import { MovieRecommendations, ShowRecommendations } from './Recommendations'
 
 type Kind = SearchKind
@@ -283,6 +284,7 @@ function MovieSearch({ query }: { query: string }) {
         <p className="muted">Aucun film trouvé pour « {query.trim()} ».</p>
       )}
       {!query.trim() && <MovieRecommendations />}
+      {!query.trim() && <MovieReleases />}
 
       <ul className="rows">
         {results.slice(0, 10).map((m) => {

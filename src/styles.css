@@ -1095,3 +1095,11 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
   display: block; width: 100%; margin: .6rem 0 0; padding: .6rem; border-radius: 12px; cursor: pointer;
   border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: .88rem; font-weight: 600;
 }
+
+.release__poster { position: relative; display: block; }
+.release__badge {
+  position: absolute; top: .3rem; right: .3rem; min-width: 1.4rem; height: 1.4rem; padding: 0 .25rem; border-radius: 999px;
+  display: grid; place-items: center; font-size: .75rem; font-weight: 800; background: var(--accent); color: #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / .3);
+}
+.shelf__item > a { text-decoration: none; color: inherit; }
