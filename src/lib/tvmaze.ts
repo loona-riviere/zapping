@@ -110,6 +110,16 @@ async function fetchShow(id: number): Promise<ShowWithEpisodes> {
     .map(({ id, season, number, name, airdate, airstamp, runtime, summary, image }) => ({
       id, season, number, name, airdate, airstamp, runtime, summary: summary ?? null, image: image ?? null,
     }))
+  // Saison mise en ligne d'un coup sur une plateforme : TVmaze ne date souvent
+  // que les premiers épisodes. Un épisode sans date prend celle du précédent
+  // de la même saison — sinon il resterait « pas encore sorti », impossible à cocher.
+  for (let i = 1; i < episodes.length; i++) {
+    const ep = episodes[i]
+    const prev = episodes[i - 1]
+    if (!ep.airdate && prev.season === ep.season && prev.airdate) {
+      episodes[i] = { ...ep, airdate: prev.airdate, airstamp: prev.airstamp }
+    }
+  }
   const s: TvShow = {
     id: show.id, name: show.name, image: show.image, premiered: show.premiered,
     status: show.status, summary: show.summary, genres: show.genres,
