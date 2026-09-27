@@ -34,7 +34,8 @@ export function History({
   actions?: ReactNode
   entries: HistoryEntry[]
   editing: boolean
-  onToggle: () => void
+  /** Absent : liste en lecture seule, sans « Modifier les dates ». */
+  onToggle?: () => void
   /** Sous la liste, en mode modification : ajouter une entrée passée. */
   extra?: ReactNode
   /** Sous la liste, déplié hors modification (arrêter un revisionnage…). */
@@ -51,7 +52,7 @@ export function History({
         className="hist__summary"
         aria-expanded={expanded}
         onClick={() => {
-          if (editing) onToggle()
+          if (editing) onToggle?.()
           setOpen((v) => !v)
         }}
       >
@@ -84,9 +85,11 @@ export function History({
           <div className="hist__foot">
             {!editing && actions}
             {!editing && footer}
-            <button type="button" className="pill pill--small" onClick={onToggle}>
-              {editing ? 'OK' : 'Modifier les dates'}
-            </button>
+            {onToggle && (
+              <button type="button" className="pill pill--small" onClick={onToggle}>
+                {editing ? 'OK' : 'Modifier les dates'}
+              </button>
+            )}
           </div>
         </>
       )}

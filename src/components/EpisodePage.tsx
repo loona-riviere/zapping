@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useShows } from '../lib/showsState'
-import { epCode, formatDate, formatShortDate, isAired } from '../lib/progress'
+import { epCode, formatDate, isAired } from '../lib/progress'
 import { href } from '../lib/route'
 import { seasonEpisodesFr, type EpisodeFr } from '../lib/tmdb'
 import { getShowWithEpisodes, stripHtml, type ShowWithEpisodes } from '../lib/tvmaze'
 import { DateField } from './History'
 import { Comments } from './Comments'
+import { EpisodeViewings } from './EpisodeViewings'
 import { SkeletonPage } from './Skeleton'
 
 /**
@@ -122,6 +123,8 @@ export function EpisodePage({ showId, episodeId }: { showId: number; episodeId: 
         )}
       </div>
 
+      <EpisodeViewings showId={showId} ep={ep} />
+
       {summary ? <p className="episode__summary">{summary}</p> : <p className="muted">Pas de résumé pour cet épisode.</p>}
 
       <nav className="episode__nav" aria-label="Autres épisodes">
@@ -142,7 +145,6 @@ export function EpisodePage({ showId, episodeId }: { showId: number; episodeId: 
           <span />
         )}
       </nav>
-      {seen && seenAt && <p className="muted episode__foot">Vu le {formatShortDate(seenAt)}</p>}
 
       <Comments kind="episode" itemId={String(ep.id)} showId={showId} title={`${showName} ${epCode(ep)}`} seen={seen || !!history?.has(ep.id)} />
     </article>
