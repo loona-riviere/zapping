@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { useApp } from '../lib/appState'
 import { computeProgress, epCode, formatDate, formatShortDate, isAired } from '../lib/progress'
 import { href } from '../lib/route'
-import { seasonOverviewsFr, showDetailsFr } from '../lib/tmdb'
+import { showDetailsFr } from '../lib/tmdb'
 import { getShowWithEpisodes, statusFr, stripHtml, type ShowWithEpisodes, type TvEpisode } from '../lib/tvmaze'
 import { RecommendButton } from './Recommend'
 import { ShowTogether } from './ShowTogether'
@@ -20,6 +20,22 @@ export function ShowPage({ id }: { id: number }) {
   const [error, setError] = useState(false)
   const [catchUp, setCatchUp] = useState<TvEpisode[] | null>(null)
   const [confirmUncheck, setConfirmUncheck] = useState<TvEpisode | null>(null)
+  // Appui long sur une case : ouvre la page de l'épisode au lieu de le cocher.
+  const pressed = useRef(false)
+  const pressTimer = useRef<number | null>(null)
+  const longPress = (open: () => void) => ({
+    onPointerDown: () => {
+      pressed.current = false
+      pressTimer.current = window.setTimeout(() => {
+        pressed.current = true
+        navigator.vibrate?.(10)
+        open()
+      }, 450)
+    },
+    onPointerUp: () => pressTimer.current && clearTimeout(pressTimer.current),
+    onPointerLeave: () => pressTimer.current && clearTimeout(pressTimer.current),
+    onPointerCancel: () => pressTimer.current && clearTimeout(pressTimer.current),
+  })
   const [refresh, setRefresh] = useState<'idle' | 'busy' | 'done' | 'nochange' | 'failed'>('idle')
   const [openSeasons, setOpenSeasons] = useState<Set<number>>(new Set())
   // Grilles repliées ou dépliées à la main ; sans choix explicite, seule la
@@ -27,13 +43,11 @@ export function ShowPage({ id }: { id: number }) {
   const [gridChoice, setGridChoice] = useState<Map<number, boolean>>(new Map())
   const [menuSeason, setMenuSeason] = useState<number | null>(null)
   const [summaryOpen, setSummaryOpen] = useState(false)
-  const [openSummaries, setOpenSummaries] = useState<Set<number>>(new Set())
   // Titre et résumé en français, via TMDB — absents tant qu'ils n'ont pas fini
   // de charger ou si TMDB n'a rien pour cette série ; on retombe alors sur
   // l'anglais de TVmaze.
   const [frName, setFrName] = useState<string | null>(null)
   const [frOverview, setFrOverview] = useState<string | null>(null)
-  const [frEpisodes, setFrEpisodes] = useState<Map<number, Map<number, string>>>(new Map())
 
   useEffect(() => {
     let alive = true
@@ -45,7 +59,6 @@ export function ShowPage({ id }: { id: number }) {
     setSummaryOpen(false)
     setFrName(null)
     setFrOverview(null)
-    setFrEpisodes(new Map())
     getShowWithEpisodes(id)
       .then((d) => alive && setData(d))
       .catch(() => alive && setError(true))
@@ -207,25 +220,9 @@ export function ShowPage({ id }: { id: number }) {
   }
 
   function toggleList(season: number) {
-    const opening = !openSeasons.has(season)
     setOpenSeasons((prev) => {
       const next = new Set(prev)
       next.has(season) ? next.delete(season) : next.add(season)
-      return next
-    })
-    if (opening && show.externals?.imdb && !frEpisodes.has(season)) {
-      seasonOverviewsFr(show.externals.imdb, season)
-        .then((eps) => eps && setFrEpisodes((prev) => new Map(prev).set(season, eps)))
-        .catch(() => {
-          /* pas de traduction dispo : on garde l'anglais de TVmaze */
-        })
-    }
-  }
-
-  function toggleSummary(episodeId: number) {
-    setOpenSummaries((prev) => {
-      const next = new Set(prev)
-      next.has(episodeId) ? next.delete(episodeId) : next.add(episodeId)
       return next
     })
   }
@@ -422,7 +419,9 @@ export function ShowPage({ id }: { id: number }) {
                           : `, le ${formatDate(ep.airstamp ?? ep.airdate)}`
                     }`}
                     aria-label={`${epCode(ep)} ${ep.name}${!out ? ', pas encore diffusé' : on ? ', vu' : ''}`}
-                    onClick={() => toggle(ep)}
+                    {...longPress(() => (window.location.hash = href.episode(show.id, ep.id)))}
+                    onClick={() => (pressed.current ? (pressed.current = false) : toggle(ep))}
+                    onContextMenu={(e) => e.preventDefault()}
                   >
                     {ep.number}
                   </button>
@@ -439,14 +438,15 @@ export function ShowPage({ id }: { id: number }) {
                   const out = isAired(ep)
                   const seenAt = watched.get(ep.id)
                   const editable = watched.has(ep.id)
-                  const epSummary = frEpisodes.get(season)?.get(ep.number) ?? (ep.summary ? stripHtml(ep.summary) : '')
                   return (
                     <li key={ep.id}>
                       <label className={out ? '' : 'is-future'}>
                         <input type="checkbox" checked={watched.has(ep.id)} disabled={!out} onChange={() => toggle(ep)} />
                         <span className="eplist__code">{epCode(ep)}</span>
-                        <span className="eplist__name">{ep.name}</span>
                       </label>
+                      <a className="eplist__name eplist__link" href={href.episode(show.id, ep.id)}>
+                        {ep.name} <span aria-hidden="true">›</span>
+                      </a>
                       {watched.has(ep.id) ? (
                         editable ? (
                           <span className="eplist__date eplist__date--edit">
@@ -473,20 +473,6 @@ export function ShowPage({ id }: { id: number }) {
                         </span>
                       ) : (
                         ep.airdate && <span className="eplist__date">{formatDate(ep.airstamp ?? ep.airdate)}</span>
-                      )}
-                      {epSummary && (
-                        <>
-                          <button
-                            type="button"
-                            className="link-btn eplist__toggle"
-                            onClick={() => toggleSummary(ep.id)}
-                          >
-                            {openSummaries.has(ep.id) ? 'Masquer le résumé' : 'Résumé'}
-                          </button>
-                          {openSummaries.has(ep.id) && (
-                            <p className="eplist__summary muted">{epSummary}</p>
-                          )}
-                        </>
                       )}
                     </li>
                   )

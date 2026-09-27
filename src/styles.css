@@ -990,3 +990,30 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 .notif-prompt__bell { font-size: 2.6rem; line-height: 1; }
 .notif-prompt ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; text-align: left; font-size: .95rem; }
 .notif-prompt p { margin: 0; font-size: .85rem; }
+
+/* Page d'un épisode */
+.episode { display: flex; flex-direction: column; gap: .6rem; max-width: 40rem; }
+.episode__back { align-self: flex-start; font-weight: 600; color: var(--accent); text-decoration: none; margin-top: .3rem; }
+.episode__hero {
+  margin: .2rem -1rem 0; aspect-ratio: 16 / 9; background: var(--line); overflow: hidden; touch-action: pan-y;
+  display: grid; place-items: center;
+}
+.episode__hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.episode__hero--empty span { font-family: var(--display); font-size: 2rem; font-weight: 800; color: var(--muted); }
+@media (min-width: 700px) { .episode__hero { margin: .2rem 0 0; border-radius: var(--radius); } }
+.episode__code { margin: .4rem 0 0; font-size: .82rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); }
+.episode__title { margin: 0; font-size: clamp(1.4rem, 5.5vw, 2rem); font-weight: 800; letter-spacing: -.01em; line-height: 1.15; }
+.episode__meta { margin: 0; font-size: .9rem; }
+.episode__actions { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem .9rem; margin: .3rem 0; }
+.episode__summary { margin: .2rem 0 0; line-height: 1.6; }
+.episode__nav { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-top: 1rem; }
+.episode__step {
+  display: flex; flex-direction: column; gap: .1rem; padding: .7rem .9rem; border-radius: var(--radius);
+  border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; font-weight: 600;
+}
+.episode__step .muted { font-size: .8rem; font-weight: 500; }
+.episode__step--next { text-align: right; align-items: flex-end; }
+.episode__foot { font-size: .8rem; margin: 0; }
+.eplist__link { color: var(--ink); text-decoration: none; font-weight: 500; }
+.eplist__link span { color: var(--muted); }
+.tile { -webkit-touch-callout: none; user-select: none; }

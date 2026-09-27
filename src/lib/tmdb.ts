@@ -439,6 +439,40 @@ export async function seasonOverviewsFr(
   return episodes
 }
 
+export type EpisodeFr = { name: string | null; overview: string | null; still: string | null }
+
+/**
+ * Titre, résumé et image de chaque épisode d'une saison, en français (TMDB),
+ * pour la page d'un épisode. Une requête par saison, gardée comme les résumés.
+ */
+export async function seasonEpisodesFr(
+  imdbId: string | null | undefined,
+  season: number,
+): Promise<Map<number, EpisodeFr> | null> {
+  if (!KEY || !imdbId) return null
+  const key = `tmdb:season-full:${imdbId}:${season}`
+  const cached = readCache<[number, EpisodeFr][]>(key, SUMMARY_TTL)
+  if (cached) return new Map(cached)
+  const tvId = await resolveTvId(imdbId)
+  if (!tvId) return null
+  const data = await get<{
+    episodes: { episode_number: number; name: string | null; overview: string | null; still_path: string | null }[]
+  }>(`/tv/${tvId}/season/${season}`, {})
+  const eps = new Map(
+    data.episodes.map((e) => [
+      e.episode_number,
+      {
+        // TMDB met « Épisode 3 » quand il n'a pas de titre traduit : autant garder celui de TVmaze.
+        name: e.name && !/^(Épisode|Episode) \d+$/.test(e.name) ? e.name : null,
+        overview: e.overview || null,
+        still: e.still_path ? `https://image.tmdb.org/t/p/w780${e.still_path}` : null,
+      },
+    ]),
+  )
+  writeCache(key, [...eps.entries()])
+  return eps
+}
+
 function readCache<T>(key: string, ttl: number): T | undefined {
   try {
     const raw = localStorage.getItem(key)

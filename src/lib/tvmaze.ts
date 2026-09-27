@@ -28,6 +28,8 @@ export type TvEpisode = {
   airstamp: string | null
   runtime: number | null
   summary: string | null
+  /** Image de l'épisode (TVmaze), absente des fiches mises en cache avant ce champ. */
+  image?: { medium: string; original: string } | null
 }
 
 export type ShowWithEpisodes = { show: TvShow; episodes: TvEpisode[] }
@@ -105,8 +107,8 @@ async function fetchShow(id: number): Promise<ShowWithEpisodes> {
   >(`/shows/${id}?embed=episodes`)
   const episodes = _embedded.episodes
     .filter((e): e is TvEpisode => e.number !== null) // on ignore les épisodes spéciaux
-    .map(({ id, season, number, name, airdate, airstamp, runtime, summary }) => ({
-      id, season, number, name, airdate, airstamp, runtime, summary: summary ?? null,
+    .map(({ id, season, number, name, airdate, airstamp, runtime, summary, image }) => ({
+      id, season, number, name, airdate, airstamp, runtime, summary: summary ?? null, image: image ?? null,
     }))
   const s: TvShow = {
     id: show.id, name: show.name, image: show.image, premiered: show.premiered,

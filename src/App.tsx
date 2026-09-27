@@ -4,6 +4,7 @@ import { Auth } from './components/Auth'
 import { LaunchScreen, Splash } from './components/Backdrop'
 import { BottomNav } from './components/BottomNav'
 import { EasterEggOverlay, useLogoEasterEgg } from './components/EasterEgg'
+import { EpisodePage } from './components/EpisodePage'
 import { NotifPrompt } from './components/NotifPrompt'
 import { Celebrations } from './components/Celebrations'
 import { Import } from './components/Import'
@@ -129,6 +130,7 @@ function Shell() {
         {route.name === 'stats' && <Stats />}
         {route.name === 'settings' && <Settings />}
         {route.name === 'show' && <ShowPage id={route.id} />}
+        {route.name === 'episode' && <EpisodePage showId={route.showId} episodeId={route.episodeId} />}
         {route.name === 'movie' && <MoviePage id={route.id} />}
         {route.name === 'book' && <BookPage id={route.id} />}
         {route.name === 'friends' && <Friends />}

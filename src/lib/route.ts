@@ -10,6 +10,7 @@ export type Route =
   | { name: 'stats' }
   | { name: 'settings' }
   | { name: 'show'; id: number }
+  | { name: 'episode'; showId: number; episodeId: number }
   | { name: 'movie'; id: number }
   | { name: 'books' }
   | { name: 'book'; id: string }
@@ -35,6 +36,8 @@ function parse(hash: string): Route {
   if (friend) return { name: 'friend', username: decodeURIComponent(friend[1]) }
   if (hash.startsWith('#/stats')) return { name: 'stats' }
   if (hash.startsWith('#/parametres')) return { name: 'settings' }
+  const ep = hash.match(/^#\/show\/(\d+)\/ep\/(\d+)/)
+  if (ep) return { name: 'episode', showId: Number(ep[1]), episodeId: Number(ep[2]) }
   const show = hash.match(/^#\/show\/(\d+)/)
   if (show) return { name: 'show', id: Number(show[1]) }
   const movie = hash.match(/^#\/movie\/(\d+)/)
@@ -68,6 +71,7 @@ export const href = {
   stats: '#/stats',
   settings: '#/parametres',
   show: (id: number) => `#/show/${id}`,
+  episode: (showId: number, episodeId: number) => `#/show/${showId}/ep/${episodeId}`,
   movie: (id: number) => `#/movie/${id}`,
   books: '#/livres',
   book: (id: string) => `#/livre/${encodeURIComponent(id)}`,
