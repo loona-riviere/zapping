@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { useApp } from '../lib/appState'
+import { useShows } from '../lib/showsState'
+import { useMovies } from '../lib/moviesState'
 import { useBooks } from '../lib/booksState'
 import { usePrefs } from '../lib/prefs'
 import { buildBackup, downloadBackup } from '../lib/backup'
@@ -16,14 +17,15 @@ import { nameOf } from '../lib/social'
 import { useSocial } from '../lib/socialState'
 
 export function Stats() {
-  const app = useApp()
-  const { loading, historyFor, watchedFor, isRewatching, fillMovieRuntimes, fixActivity } = app
+  const shows = useShows()
+  const { loading, historyFor, watchedFor, isRewatching, fixActivity } = shows
+  const { movies: allMovies, fillMovieRuntimes } = useMovies()
   const { has } = usePrefs()
   const booksState = useBooks()
   // Un type décoché dans les paramètres sort des statistiques, comme de la
   // bibliothèque : ses chiffres ne comptent plus nulle part.
-  const tracked = useMemo(() => (has('show') ? app.tracked : []), [has, app.tracked])
-  const movies = useMemo(() => (has('movie') ? app.movies : []), [has, app.movies])
+  const tracked = useMemo(() => (has('show') ? shows.tracked : []), [has, shows.tracked])
+  const movies = useMemo(() => (has('movie') ? allMovies : []), [has, allMovies])
   const books = useMemo(() => (has('book') ? booksState.books : []), [has, booksState.books])
   const reading = useMemo(() => computeReadingStats(books), [books])
   const [filling, setFilling] = useState<{ done: number; total: number } | null>(null)
@@ -282,7 +284,7 @@ export function Stats() {
           <button
             className="link-btn"
             onClick={() =>
-              downloadBackup(buildBackup(app.tracked, historyFor, watchedFor, isRewatching, data, app.movies, booksState.books))
+              downloadBackup(buildBackup(shows.tracked, historyFor, watchedFor, isRewatching, data, allMovies, booksState.books))
             }
           >
             Exporter mes données (JSON)

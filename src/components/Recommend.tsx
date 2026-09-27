@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useApp } from '../lib/appState'
+import { useShows } from '../lib/showsState'
+import { useMovies } from '../lib/moviesState'
 import { useBooks } from '../lib/booksState'
 import { friendsWhoHave, type Rec, type RecKind, type RecMeta } from '../lib/recs'
 import { href } from '../lib/route'
@@ -120,7 +121,8 @@ const KIND_WORD: Record<RecKind, string> = { show: 'la série', movie: 'le film'
 /** Recommandations reçues : ajouter à sa liste « à voir / à lire », ou non merci. */
 export function IncomingRecs() {
   const { incomingRecs, profileOf, dismissRec } = useSocial()
-  const { track, addToWatchlist, isTracked, movies } = useApp()
+  const { track, isTracked } = useShows()
+  const { addToWatchlist, movies } = useMovies()
   const { addBook, bookById } = useBooks()
   if (!incomingRecs?.length) return null
 

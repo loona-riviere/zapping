@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   dismissedNames, generateAiPicks, libraryLines, loadAiPicks, type AiCandidate, type AiResult,
 } from '../lib/ai'
-import { useApp } from '../lib/appState'
+import { useShows } from '../lib/showsState'
+import { useMovies } from '../lib/moviesState'
+import { useDismissed } from '../lib/dismissedState'
 import { daysSince, mapLimited, rankRecommendations, seedWeight, type Ranked, type SeedList } from '../lib/recommend'
 import { href } from '../lib/route'
 import {
@@ -21,7 +23,7 @@ const stripArticle = (s: string) => s.replace(/^(the|a|an|le|la|les)\s+/i, '').r
 const normalizeTitle = (s: string) => stripArticle(s.toLowerCase().trim())
 
 function useTrackedNames() {
-  const { tracked } = useApp()
+  const { tracked } = useShows()
   return useMemo(() => new Set(tracked.map((t) => normalizeTitle(t.name))), [tracked])
 }
 
@@ -146,7 +148,9 @@ function useAiPicks<T extends { id: number }>(
   ready: boolean,
   gather: () => Promise<Pooled<T>[]>,
 ): AiState<T> {
-  const { tracked, movies, dismissed } = useApp()
+  const { tracked } = useShows()
+  const { movies } = useMovies()
+  const { dismissed } = useDismissed()
   const [result, setResult] = useState<AiResult<T> | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [stale, setStale] = useState(false)
@@ -238,7 +242,8 @@ type Seed = { id: number; label: string; weight: number }
  * Sans Gemini, le classement lib/recommend.ts s'affiche tel quel.
  */
 export function MovieRecommendations() {
-  const { movies, isDismissed, dismissRec, loading } = useApp()
+  const { movies, moviesLoading: loading } = useMovies()
+  const { isDismissed, dismissRec } = useDismissed()
 
   const seeds = useMemo<Seed[]>(() => {
     const watched = movies.filter((m) => m.status === 'watched')
@@ -338,7 +343,8 @@ export function MovieRecommendations() {
  * contre-exemples).
  */
 export function ShowRecommendations() {
-  const { tracked, isDismissed, dismissRec, loading } = useApp()
+  const { tracked, loading } = useShows()
+  const { isDismissed, dismissRec } = useDismissed()
   const trackedNames = useTrackedNames()
   const opener = useOpenShow()
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useApp } from '../lib/appState'
+import { useMovies } from '../lib/moviesState'
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { buildEnvNames, movieDetails, tmdbConfigured } from '../lib/tmdb'
@@ -19,7 +19,7 @@ const normalize = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 export function Movies() {
-  const { movies, moviesReady, loading, markMovieWatched, markMovieUnwatched, removeMovie, restoreMovie, fillMovieMeta, reorderMovies } = useApp()
+  const { movies, moviesReady, moviesLoading: loading, markMovieWatched, markMovieUnwatched, removeMovie, restoreMovie, fillMovieMeta, reorderMovies } = useMovies()
   const [query, setQuery] = useState('')
   const [undo, setUndo] = useState<{ text: string; revert: () => void } | null>(null)
   // Mode rangement de « À voir » : poignées à gauche, gestes et boutons de côté.

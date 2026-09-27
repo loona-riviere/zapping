@@ -1,5 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-import webpush from 'web-push'
+import { sendPush, setupPush, subscriptionsByUser, type PushPayload } from '../lib/push'
 
 // Tous les matins : pour chaque film « à voir » des utilisateurs abonnés aux
 // notifs, deux nouvelles possibles —
@@ -10,13 +9,6 @@ import webpush from 'web-push'
 // rien. movie_notifications empêche de répéter une même nouvelle.
 export const config = { schedule: '0 7 * * *' }
 
-// Même raison que dans notify : pas de WebSocket natif sur le Node des fonctions.
-const SERVER_OPTIONS = {
-  auth: { persistSession: false, autoRefreshToken: false },
-  realtime: { transport: class {} as unknown as typeof WebSocket },
-}
-
-type SubRow = { user_id: string; endpoint: string; p256dh: string; auth_key: string }
 type Movie = {
   title: string
   release_dates?: { results: { iso_3166_1: string; release_dates: { type: number; release_date: string }[] }[] }
@@ -26,22 +18,15 @@ type Movie = {
 const today = () => new Date().toISOString().slice(0, 10)
 
 export default async () => {
-  const supabaseUrl = Netlify.env.get('SUPABASE_URL') || Netlify.env.get('VITE_SUPABASE_URL')
-  const serviceKey = Netlify.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  const vapidPublic = Netlify.env.get('VAPID_PUBLIC_KEY')
-  const vapidPrivate = Netlify.env.get('VAPID_PRIVATE_KEY')
-  const vapidSubject = Netlify.env.get('VAPID_SUBJECT')
   const tmdbKey = Netlify.env.get('TMDB_KEY') || Netlify.env.get('VITE_TMDB_KEY')
-  if (!supabaseUrl || !serviceKey || !vapidPublic || !vapidPrivate || !vapidSubject || !tmdbKey) {
-    console.error('movie-releases : variables manquantes')
+  const setup = setupPush()
+  if (!setup.db || !tmdbKey) {
+    console.error(`movie-releases : variables manquantes : ${[...(setup.missing ?? []), ...(tmdbKey ? [] : ['TMDB_KEY'])].join(', ')}`)
     return
   }
-  webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate)
-  const db = createClient(supabaseUrl, serviceKey, SERVER_OPTIONS)
+  const db = setup.db
 
-  const { data: subs } = await db.from('push_subscriptions').select('user_id, endpoint, p256dh, auth_key')
-  const subsByUser = new Map<string, SubRow[]>()
-  for (const s of (subs ?? []) as SubRow[]) subsByUser.set(s.user_id, [...(subsByUser.get(s.user_id) ?? []), s])
+  const subsByUser = await subscriptionsByUser(db)
   if (!subsByUser.size) return
 
   const { data: wanted } = await db
@@ -66,18 +51,11 @@ export default async () => {
     return res.ok ? ((await res.json()) as Movie) : null
   }
 
-  async function push(userId: string, movieId: number, kind: string, payload: { title: string; body: string; url: string }) {
+  async function push(userId: string, movieId: number, kind: string, payload: PushPayload) {
     // La ligne d'abord : si elle existe déjà, cette nouvelle a été envoyée.
     const { error } = await db.from('movie_notifications').insert({ user_id: userId, movie_id: movieId, kind })
     if (error) return
-    for (const sub of subsByUser.get(userId) ?? []) {
-      try {
-        await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } }, JSON.stringify(payload))
-      } catch (e) {
-        const status = (e as { statusCode?: number }).statusCode
-        if (status === 404 || status === 410) await db.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
-      }
-    }
+    await sendPush(db, subsByUser.get(userId) ?? [], payload)
   }
 
   for (const [movieId, userIds] of usersByMovie) {

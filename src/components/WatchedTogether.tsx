@@ -3,7 +3,7 @@ import { notify } from '../lib/notify'
 import { formatShortDate } from '../lib/progress'
 import { nameOf, type Profile } from '../lib/social'
 import { useSocial } from '../lib/socialState'
-import { useApp } from '../lib/appState'
+import { useMovies } from '../lib/moviesState'
 import { shareMovieViewing, type WatchedMovie } from '../lib/store'
 import { ActionButton } from './ActionBar'
 import { Sheet } from './Sheet'
@@ -14,7 +14,7 @@ import { Sheet } from './Sheet'
  */
 export function WatchedTogether({ movie }: { movie: WatchedMovie }) {
   const { socialReady, profile, friends } = useSocial()
-  const { setMovieWith } = useApp()
+  const { setMovieWith } = useMovies()
   const [open, setOpen] = useState(false)
   const [friendId, setFriendId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)

@@ -1,9 +1,9 @@
-import { useApp } from '../lib/appState'
+import { useShows } from '../lib/showsState'
 import { STATUSES, STATUS_LABEL, type ShowStatus } from '../lib/store'
 
 /** Sélecteur de statut : en cours, en pause, à regarder plus tard, abandonnée. */
 export function StatusPicker({ showId, id }: { showId: number; id?: string }) {
-  const { statusOf, setStatus } = useApp()
+  const { statusOf, setStatus } = useShows()
   const current = statusOf(showId)
   return (
     <select

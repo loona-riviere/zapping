@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useApp } from '../lib/appState'
+import { useMovies } from '../lib/moviesState'
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { movieDetails, type MovieDetails } from '../lib/tmdb'
@@ -24,8 +24,7 @@ const fmtRuntime = (min: number) => {
 }
 
 export function MoviePage({ id }: { id: number }) {
-  const { movies, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, rewatchMovie, removePastView, setMovieViews, setMovieWith, removeMovie, fillMovieMeta, rateMovie } =
-    useApp()
+  const { movies, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, rewatchMovie, removePastView, setMovieViews, setMovieWith, removeMovie, fillMovieMeta, rateMovie } = useMovies()
   const [details, setDetails] = useState<MovieDetails | null>(null)
   const [error, setError] = useState(false)
   const [editViews, setEditViews] = useState(false)

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useApp } from '../lib/appState'
+import { useMovies } from '../lib/moviesState'
 import { href } from '../lib/route'
 import { moviesNowPlaying, moviesUpcoming, tmdbConfigured, type Movie } from '../lib/tmdb'
 import { Poster } from './Poster'
@@ -13,7 +13,7 @@ const shortDate = (d: string) =>
  * (✓ vu, 🔖 à voir). Tes films « à voir » qui sortent bientôt passent devant.
  */
 export function MovieReleases() {
-  const { movies } = useApp()
+  const { movies } = useMovies()
   const [now, setNow] = useState<Movie[] | null>(null)
   const [soon, setSoon] = useState<Movie[] | null>(null)
 
