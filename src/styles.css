@@ -16,7 +16,6 @@
   color-scheme: light dark;
   box-sizing: border-box;
   padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -73,7 +72,17 @@ button { font: inherit; color: inherit; }
 .topbar__nav a[aria-current='page'] { color: var(--ink); text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 3px; text-underline-offset: 6px; }
 .topbar__nav .link-btn { color: var(--muted); }
 
-.main { max-width: 44rem; margin: 0 auto; padding: 1rem 1rem 6rem; }
+/* La page est une colonne qui fait au moins la hauteur de l'écran : la
+   barre du bas (mobile) en est le dernier élément, collée en bas, au lieu
+   d'être « fixée » à l'écran. iOS décale les éléments fixés quand le
+   clavier se ferme dans une app ajoutée à l'écran d'accueil (grand vide
+   sous la barre) ; un élément dans le flux de la page n'a pas ce défaut. */
+#root {
+  display: flex; flex-direction: column;
+  min-height: calc(100vh - env(safe-area-inset-top, 0px));
+  min-height: calc(100dvh - env(safe-area-inset-top, 0px));
+}
+.main { flex: 1 0 auto; width: 100%; max-width: 44rem; margin: 0 auto; padding: 1rem 1rem 6rem; }
 
 /* Barre de navigation mobile : masquée par défaut, la media query ci-dessous
    la révèle et cache le header texte à la place. */
@@ -413,11 +422,9 @@ button { font: inherit; color: inherit; }
      du bas avec icônes, plus proche du pouce et des habitudes des apps
      natives ; seule la déconnexion reste dans le header. */
   .topbar__nav > a { display: none; }
-  /* Place pour la barre du bas fixe, encoche comprise : sans ça elle
-     recouvre la fin de la page. */
-  .main { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); }
+  .main { padding-bottom: 1.5rem; }
   .bottomnav {
-    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    display: flex; position: sticky; bottom: 0; z-index: 20;
     padding: .35rem .5rem calc(.35rem + env(safe-area-inset-bottom, 0px));
     background: color-mix(in srgb, var(--bg) 92%, transparent);
     backdrop-filter: blur(10px);
