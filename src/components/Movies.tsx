@@ -5,6 +5,7 @@ import { href } from '../lib/route'
 import { buildEnvNames, movieDetails, tmdbConfigured } from '../lib/tmdb'
 import { Poster } from './Poster'
 import { DragHandle, EditToggle, WishRows } from './Reorder'
+import { Limited } from './ShowMore'
 import { SwipeRow } from './SwipeRow'
 import { byWish, type WatchedMovie } from '../lib/store'
 
@@ -115,6 +116,7 @@ export function Movies() {
       return a.title.localeCompare(b.title, 'fr')
     })
 
+
   return (
     <div className="movies">
       <div className="home__search">
@@ -197,8 +199,10 @@ export function Movies() {
           )}
         </p>
       )}
+      <Limited items={watched} limit={8} all={!!q}>
+        {(visible) => (
       <ul className="rows">
-        {watched.map((m) => (
+        {visible.map((m) => (
           <SwipeRow key={m.movie_id} {...swipe(m)}>
             <a href={href.movie(m.movie_id)} className="row__link">
               <Poster src={m.poster_url} alt={m.title} />
@@ -225,6 +229,8 @@ export function Movies() {
           </SwipeRow>
         ))}
       </ul>
+        )}
+      </Limited>
 
       {movies.length > 0 && (
         <p className="muted swipe__hint">

@@ -1091,3 +1091,7 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 }
 .install-steps__icon { display: inline-flex; vertical-align: -3px; color: #0a84ff; }
 .install-steps__foot { margin: 0; font-size: .85rem; text-align: center; }
+.show-more {
+  display: block; width: 100%; margin: .6rem 0 0; padding: .6rem; border-radius: 12px; cursor: pointer;
+  border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: .88rem; font-weight: 600;
+}

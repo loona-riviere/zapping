@@ -7,6 +7,7 @@ import { href } from '../lib/route'
 import { PageInput } from './PageInput'
 import { Poster } from './Poster'
 import { DragHandle, EditToggle, WishRows } from './Reorder'
+import { Limited } from './ShowMore'
 import { SwipeRow } from './SwipeRow'
 
 /** Insensible aux accents et à la casse : « etranger » retrouve « L'Étranger ». */
@@ -200,8 +201,10 @@ export function Books() {
       {read.length > 0 && (
         <section>
           <h2 className="section-title">Lus <span className="muted">({read.length})</span></h2>
+          <Limited items={read} limit={8} all={!!q}>
+            {(visible) => (
           <ul className="rows">
-            {read.map((b) => (
+            {visible.map((b) => (
               <SwipeRow key={b.book_id} {...swipe(b)}>
                 <a href={href.book(b.book_id)} className="row__link">
                   <Poster src={b.cover_url} alt={b.title} />
@@ -217,6 +220,8 @@ export function Books() {
               </SwipeRow>
             ))}
           </ul>
+            )}
+          </Limited>
         </section>
       )}
 

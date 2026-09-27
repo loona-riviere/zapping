@@ -9,6 +9,7 @@ import { useShowEpisodes } from '../lib/useShows'
 import { Poster } from './Poster'
 import { StatusPicker } from './StatusPicker'
 import { DragHandle, EditToggle, WishRows } from './Reorder'
+import { Limited } from './ShowMore'
 import { SwipeRow } from './SwipeRow'
 
 type Row = {
@@ -400,9 +401,12 @@ function HomeSkeleton() {
 }
 
 function Shelf({ rows, withLabel }: { rows: Row[]; withLabel?: boolean }) {
+  // Deux rangées d'affiches, le reste derrière « Voir plus ».
   return (
+    <Limited items={rows} limit={8}>
+      {(visible) => (
     <ul className="shelf">
-      {rows.map((r) => (
+      {visible.map((r) => (
         <li key={r.id}>
           <a href={href.show(r.id)} title={r.name}>
             <Poster src={r.image} alt={r.name} />
@@ -411,6 +415,8 @@ function Shelf({ rows, withLabel }: { rows: Row[]; withLabel?: boolean }) {
         </li>
       ))}
     </ul>
+      )}
+    </Limited>
   )
 }
 
