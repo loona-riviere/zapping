@@ -54,26 +54,28 @@ export function Notifications() {
       {(state === 'on' || state === 'off' || state === 'checking') && (
         <>
           <p className="muted">Une notif quand un nouvel épisode d'une série suivie sort, quand un ami te recommande quelque chose, te demande en ami ou accepte ta demande.</p>
+          <div className="settings__actions">
           <button
             type="button"
-            className="btn btn--ghost"
+            className={`btn ${state === 'on' ? 'btn--ghost' : 'btn--primary'}`}
             onClick={toggle}
             disabled={state === 'checking'}
           >
-            {state === 'on' ? 'Désactiver les notifications' : 'Activer les notifications'}
+            {state === 'on' ? 'Désactiver' : 'Activer les notifications'}
           </button>
           {state === 'on' && (
             <button
               type="button"
-              className="link-btn"
+              className="btn btn--ghost"
               onClick={async () => {
                 setTest('Envoi…')
                 setTest(await testNotification())
               }}
             >
-              M'envoyer une notif de test
+              🔔 Tester
             </button>
           )}
+          </div>
           {test && <p className="muted" style={{ fontSize: '.85rem' }}>{test}</p>}
         </>
       )}

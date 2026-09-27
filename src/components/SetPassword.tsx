@@ -29,9 +29,9 @@ export function SetPassword() {
   }
 
   return (
-    <div className="set-password-wrap">
-      <button type="button" className="link-btn" onClick={() => setOpen((o) => !o)}>
-        Mot de passe
+    <>
+      <button type="button" className="btn btn--ghost" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        🔑 Mot de passe
       </button>
       {open && (
         <form onSubmit={save} className="auth__form set-password">
@@ -57,6 +57,6 @@ export function SetPassword() {
           {error && <p className="error">{error}</p>}
         </form>
       )}
-    </div>
+    </>
   )
 }

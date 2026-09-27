@@ -1,3 +1,4 @@
+import { Limited } from './ShowMore'
 import { useApp } from '../lib/appState'
 import { useBooks } from '../lib/booksState'
 import { KINDS, KIND_LABEL, usePrefs } from '../lib/prefs'
@@ -23,10 +24,12 @@ export function Settings() {
       <section>
         <h2 className="section-title">Compte</h2>
         <p className="muted">Connectée avec un compte Google, et/ou un mot de passe.</p>
-        <SetPassword />
-        <button className="btn btn--ghost settings__signout" onClick={() => supabase.auth.signOut()}>
-          Déconnexion
-        </button>
+        <div className="settings__actions">
+          <SetPassword />
+          <button className="btn btn--ghost" onClick={() => supabase.auth.signOut()}>
+            Déconnexion
+          </button>
+        </div>
       </section>
 
       <section>
@@ -105,8 +108,10 @@ export function Settings() {
         {dismissed.length === 0 ? (
           <p className="muted">Aucune suggestion écartée pour l'instant.</p>
         ) : (
+          <Limited items={dismissed} limit={5}>
+            {(visible) => (
           <ul className="rows">
-            {dismissed.map((d) => (
+            {visible.map((d) => (
               <li key={`${d.kind}-${d.tmdb_id}`} className="row">
                 <div className="row__link">
                   <Poster src={d.poster_url} alt={d.name} />
@@ -120,6 +125,8 @@ export function Settings() {
               </li>
             ))}
           </ul>
+            )}
+          </Limited>
         )}
       </section>
 
