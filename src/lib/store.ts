@@ -1,5 +1,6 @@
 import { me, supabase } from './supabase'
 import { nestedMapCodec, offlineCached } from './offline'
+import { queueable } from './offlineQueue'
 import type { Movie } from './tmdb'
 import type { TvEpisode, TvShow } from './tvmaze'
 
@@ -223,13 +224,13 @@ export async function setShowViewings(showId: number, past: Viewing[], rewatches
   if (error) throw error
 }
 
-export async function setShowStatus(showId: number, status: ShowStatus): Promise<void> {
+async function setShowStatusNow(showId: number, status: ShowStatus): Promise<void> {
   const { error } = await supabase.from('tracked_shows').update({ status }).eq('show_id', showId)
   if (error) throw error
 }
 
 /** Note une série suivie ; `null` retire la note. */
-export async function rateShow(showId: number, rating: Rating | null): Promise<void> {
+async function rateShowNow(showId: number, rating: Rating | null): Promise<void> {
   const { error } = await supabase.from('tracked_shows').update({ rating }).eq('show_id', showId)
   if (error) throw error
 }
@@ -248,7 +249,7 @@ function chunks<T>(arr: T[], size: number): T[][] {
  * ce qui permet de corriger après coup des dates fausses, quand une reprise en
  * masse antérieure avait horodaté à la date du jour.
  */
-export async function markWatched(
+async function markWatchedNow(
   userId: string,
   showId: number,
   eps: TvEpisode[],
@@ -280,7 +281,7 @@ export async function markWatched(
   if (error) throw error
 }
 
-export async function markUnwatched(ids: number[]): Promise<void> {
+async function markUnwatchedNow(ids: number[]): Promise<void> {
   for (const batch of chunks(ids, 300)) {
     const { error } = await supabase.from('watched_episodes').delete().in('episode_id', batch)
     if (error) throw error
@@ -385,7 +386,7 @@ export async function addToWatchlist(userId: string, movie: Movie): Promise<void
 }
 
 /** Bascule un film « à voir » sur « vu », à la date donnée (ou inconnue). */
-export async function markMovieWatched(movieId: number, watchedAt: string | null): Promise<void> {
+async function markMovieWatchedNow(movieId: number, watchedAt: string | null): Promise<void> {
   const { error } = await supabase
     .from('watched_movies')
     .update({ status: 'watched', watched_at: watchedAt })
@@ -394,7 +395,7 @@ export async function markMovieWatched(movieId: number, watchedAt: string | null
 }
 
 /** Revoir : le visionnage courant rejoint ceux d'avant, le nouveau prend sa place. */
-export async function setMovieViews(movieId: number, watchedAt: string | null, pastViews: (string | null)[]): Promise<void> {
+async function setMovieViewsNow(movieId: number, watchedAt: string | null, pastViews: (string | null)[]): Promise<void> {
   const { error } = await supabase
     .from('watched_movies')
     .update({ status: 'watched', watched_at: watchedAt, past_views: pastViews })
@@ -419,7 +420,7 @@ export async function shareMovieViewing(friendId: string, m: WatchedMovie): Prom
 }
 
 /** Annule un « vu » par erreur : retour à « à voir », sans perdre la fiche. */
-export async function markMovieUnwatched(movieId: number): Promise<void> {
+async function markMovieUnwatchedNow(movieId: number): Promise<void> {
   const { error } = await supabase
     .from('watched_movies')
     .update({ status: 'later', watched_at: null })
@@ -444,7 +445,7 @@ export async function removeMovie(movieId: number): Promise<void> {
 }
 
 /** Note un film vu ; `null` retire la note. */
-export async function rateMovie(movieId: number, rating: Rating | null): Promise<void> {
+async function rateMovieNow(movieId: number, rating: Rating | null): Promise<void> {
   const { error } = await supabase.from('watched_movies').update({ rating }).eq('movie_id', movieId)
   if (error) throw error
 }
@@ -516,7 +517,7 @@ export async function clearRewatchProgress(showId: number): Promise<void> {
   if (error) throw error
 }
 
-export async function markRewatched(
+async function markRewatchedNow(
   userId: string,
   showId: number,
   eps: TvEpisode[],
@@ -543,7 +544,7 @@ export async function markRewatched(
 }
 
 /** Fixe la date d'activité d'une série pour le tri de l'accueil ; null s'il n'en reste aucune. */
-export async function touchLastWatched(showId: number, at: string | null): Promise<void> {
+async function touchLastWatchedNow(showId: number, at: string | null): Promise<void> {
   const { error } = await supabase.from('tracked_shows').update({ last_watched_at: at }).eq('show_id', showId)
   if (error) throw error
 }
@@ -554,7 +555,7 @@ export async function renameShow(showId: number, name: string): Promise<void> {
   if (error) throw error
 }
 
-export async function unmarkRewatched(ids: number[]): Promise<void> {
+async function unmarkRewatchedNow(ids: number[]): Promise<void> {
   for (const batch of chunks(ids, 300)) {
     const { error } = await supabase.from('rewatch_progress').delete().in('episode_id', batch)
     if (error) throw error
@@ -662,3 +663,24 @@ export const fetchTracked = () => offlineCached('tracked', fetchTrackedRemote)
 export const fetchWatched = () => offlineCached('watched', fetchWatchedRemote, nestedMapCodec)
 export const fetchRewatchProgress = () => offlineCached('rewatch', fetchRewatchProgressRemote, nestedMapCodec)
 export const fetchMovies = () => offlineCached('movies', fetchMoviesRemote)
+
+/* Écritures courantes : sans réseau, mises en file et rejouées au retour du réseau. */
+type MarkArgs = [userId: string, showId: number, eps: TvEpisode[], dates?: Map<number, string | null>, overwrite?: boolean]
+const withDates = {
+  save: ([u, s, eps, d, o]: MarkArgs) => [u, s, eps, d ? [...d.entries()] : null, o],
+  restore: (raw: unknown): MarkArgs => {
+    const [u, s, eps, d, o] = raw as [string, number, TvEpisode[], [number, string | null][] | null, boolean | undefined]
+    return [u, s, eps, d ? new Map(d) : undefined, o]
+  },
+}
+export const markWatched = queueable('markWatched', markWatchedNow, withDates)
+export const markRewatched = queueable('markRewatched', markRewatchedNow, withDates)
+export const markUnwatched = queueable('markUnwatched', markUnwatchedNow)
+export const unmarkRewatched = queueable('unmarkRewatched', unmarkRewatchedNow)
+export const touchLastWatched = queueable('touchLastWatched', touchLastWatchedNow)
+export const setShowStatus = queueable('setShowStatus', setShowStatusNow)
+export const rateShow = queueable('rateShow', rateShowNow)
+export const markMovieWatched = queueable('markMovieWatched', markMovieWatchedNow)
+export const markMovieUnwatched = queueable('markMovieUnwatched', markMovieUnwatchedNow)
+export const setMovieViews = queueable('setMovieViews', setMovieViewsNow)
+export const rateMovie = queueable('rateMovie', rateMovieNow)

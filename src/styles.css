@@ -1237,3 +1237,4 @@ a.choice { text-decoration: none; }
 .skeleton--poster-fill { display: block; width: 100%; aspect-ratio: 2 / 3; border-radius: 6px; }
 .skeleton-page .skeleton--text { display: block; }
 .offline-banner { margin: 0; padding: .5rem 1rem; font-size: .85rem; text-align: center; background: var(--amber); color: #1a1300; font-weight: 600; }
+.offline-banner--ok { background: #2e9d5b; color: #fff; }

@@ -3,6 +3,7 @@ import type { Rating } from './store'
 import { isMissingSchema } from './store'
 import { me, supabase } from './supabase'
 import { offlineCached } from './offline'
+import { queueable } from './offlineQueue'
 
 /** Où en est un livre : en cours, lu, à lire, abandonné. */
 export type BookStatus = 'reading' | 'read' | 'later' | 'dropped'
@@ -111,7 +112,7 @@ export async function insertBook(userId: string, row: TrackedBook): Promise<void
   if (retry.error) throw retry.error
 }
 
-export async function updateBook(bookId: string, patch: BookPatch & { updated_at: string }): Promise<void> {
+async function updateBookNow(bookId: string, patch: BookPatch & { updated_at: string }): Promise<void> {
   const { error } = await supabase.from('tracked_books').update(patch).eq('book_id', bookId)
   if (error) throw error
 }
@@ -128,3 +129,6 @@ export async function deleteBook(bookId: string): Promise<void> {
 }
 
 export const fetchBooks = () => offlineCached('books', fetchBooksRemote)
+
+/** Avancer sa page, changer un statut… : mis en file sans réseau, rejoué ensuite. */
+export const updateBook = queueable('updateBook', updateBookNow)
