@@ -6,6 +6,7 @@ import { seasonEpisodesFr, type EpisodeFr } from '../lib/tmdb'
 import { getShowWithEpisodes, stripHtml, type ShowWithEpisodes } from '../lib/tvmaze'
 import { DateField } from './History'
 import { Comments } from './Comments'
+import { SkeletonPage } from './Skeleton'
 
 /**
  * La page d'un épisode, en plein écran : image, titre et résumé (en français
@@ -47,7 +48,7 @@ export function EpisodePage({ showId, episodeId }: { showId: number; episodeId: 
   }, [imdb, ep?.season])
 
   if (error) return <p className="error pad">Impossible de charger cet épisode. <a href={href.show(showId)}>Retour</a></p>
-  if (!data) return <p className="muted pad">Chargement…</p>
+  if (!data) return <SkeletonPage />
   if (!ep) return <p className="error pad">Épisode introuvable. <a href={href.show(showId)}>Retour à la série</a></p>
 
   const { show, episodes } = data

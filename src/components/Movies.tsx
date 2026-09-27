@@ -8,6 +8,7 @@ import { DragHandle, EditToggle, WishRows } from './Reorder'
 import { Limited } from './ShowMore'
 import { SwipeRow } from './SwipeRow'
 import { byWish, type WatchedMovie } from '../lib/store'
+import { SkeletonRows } from './Skeleton'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -137,7 +138,7 @@ export function Movies() {
           <EditToggle editing={ordering} onToggle={() => setOrdering((v) => !v)} label="tes films à voir" />
         )}
       </h2>
-      {loading && <p className="muted">Chargement…</p>}
+      {loading && <SkeletonRows count={5} />}
       {!loading && !toWatch.length && (
         <p className="muted">
           {q ? (

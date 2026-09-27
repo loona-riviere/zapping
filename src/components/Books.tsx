@@ -9,6 +9,7 @@ import { Poster } from './Poster'
 import { DragHandle, EditToggle, WishRows } from './Reorder'
 import { Limited } from './ShowMore'
 import { SwipeRow } from './SwipeRow'
+import { SkeletonRows } from './Skeleton'
 
 /** Insensible aux accents et à la casse : « etranger » retrouve « L'Étranger ». */
 const normalize = (s: string) =>
@@ -120,7 +121,7 @@ export function Books() {
         />
       </div>
 
-      {booksLoading && <p className="muted">Chargement…</p>}
+      {booksLoading && <SkeletonRows count={5} />}
 
       {q && !visible.length && (
         <p className="muted pad">

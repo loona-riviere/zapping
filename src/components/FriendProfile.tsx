@@ -4,6 +4,7 @@ import { fetchFriendLibrary, findProfile, nameOf, type FriendLibrary, type Profi
 import { useSocial } from '../lib/socialState'
 import { Avatar, RelationButton } from './Friends'
 import { Poster } from './Poster'
+import { SkeletonPage } from './Skeleton'
 
 type Tile = { key: string; href: string; src: string | null; title: string; caption?: string }
 
@@ -62,7 +63,7 @@ export function FriendProfile({ username }: { username: string }) {
   }, [other, relation])
 
   if (!socialReady) return <p className="muted pad">Les amis ne sont pas encore installés : relance schema.sql.</p>
-  if (other === undefined) return <p className="muted pad">Chargement…</p>
+  if (other === undefined) return <SkeletonPage />
   if (!other) return <p className="muted pad">Personne avec le pseudo « {username} ». <a href={href.friends}>Retour</a></p>
   if (me && other.user_id === me.user_id) {
     return (

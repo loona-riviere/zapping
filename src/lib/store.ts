@@ -1,4 +1,5 @@
 import { me, supabase } from './supabase'
+import { nestedMapCodec, offlineCached } from './offline'
 import type { Movie } from './tmdb'
 import type { TvEpisode, TvShow } from './tvmaze'
 
@@ -92,7 +93,7 @@ export function isMissingSchema(error: unknown): boolean {
 
 const LEGACY_COLUMNS = 'show_id, name, image_url, added_at, last_watched_at'
 
-export async function fetchTracked(): Promise<TrackedShow[]> {
+async function fetchTrackedRemote(): Promise<TrackedShow[]> {
   const uid = await me()
   const full = await supabase
     .from('tracked_shows')
@@ -138,7 +139,7 @@ export async function fetchTracked(): Promise<TrackedShow[]> {
   }))
 }
 
-export async function fetchWatched(): Promise<WatchedMap> {
+async function fetchWatchedRemote(): Promise<WatchedMap> {
   const map: WatchedMap = new Map()
   const uid = await me()
   // Supabase renvoie 1000 lignes max par requête : on pagine.
@@ -288,7 +289,7 @@ export async function markUnwatched(ids: number[]): Promise<void> {
 
 /* ---------------------------------------------------------------- films --- */
 
-export async function fetchMovies(): Promise<WatchedMovie[]> {
+async function fetchMoviesRemote(): Promise<WatchedMovie[]> {
   const out: WatchedMovie[] = []
   const uid = await me()
   // `*` plutôt qu'une liste de colonnes : si `status` n'existe pas encore
@@ -477,7 +478,7 @@ export async function fillMovieMeta(
 
 /* --------------------------------------------------- revisionnage en cours -- */
 
-export async function fetchRewatchProgress(): Promise<WatchedMap> {
+async function fetchRewatchProgressRemote(): Promise<WatchedMap> {
   const map: WatchedMap = new Map()
   const uid = await me()
   for (let from = 0; ; from += PAGE) {
@@ -655,3 +656,9 @@ export function byWish<T extends { wish_rank?: number | null }>(items: T[]): T[]
     })
     .map((x) => x.t)
 }
+
+/* Chargements servis depuis la dernière copie de l'appareil quand le réseau manque. */
+export const fetchTracked = () => offlineCached('tracked', fetchTrackedRemote)
+export const fetchWatched = () => offlineCached('watched', fetchWatchedRemote, nestedMapCodec)
+export const fetchRewatchProgress = () => offlineCached('rewatch', fetchRewatchProgressRemote, nestedMapCodec)
+export const fetchMovies = () => offlineCached('movies', fetchMoviesRemote)

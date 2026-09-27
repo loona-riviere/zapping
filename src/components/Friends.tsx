@@ -4,6 +4,7 @@ import { inviteLink, nameOf, normalizeUsername, saveProfile, searchProfiles, USE
 import { useSocial } from '../lib/socialState'
 import { Poster } from './Poster'
 import { IncomingRecs } from './Recommend'
+import { SkeletonRows } from './Skeleton'
 
 /** Pastille avec l'initiale : pas de photo pour l'instant, une lettre suffit à se repérer. */
 export function Avatar({ profile, size = 'sm' }: { profile: Pick<Profile, 'username' | 'display_name'>; size?: 'sm' | 'lg' }) {
@@ -130,7 +131,7 @@ export function Friends() {
       </section>
     )
   }
-  if (loading) return <p className="muted pad">Chargement…</p>
+  if (loading) return <SkeletonRows count={4} />
 
   if (!profile || editing) {
     return (

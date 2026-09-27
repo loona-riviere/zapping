@@ -14,6 +14,7 @@ import { STATUS_LABEL } from '../lib/store'
 import { useShowEpisodes } from '../lib/useShows'
 import { nameOf } from '../lib/social'
 import { useSocial } from '../lib/socialState'
+import { SkeletonRows } from './Skeleton'
 
 export function Stats() {
   const app = useApp()
@@ -47,7 +48,7 @@ export function Stats() {
   const [report, setReport] = useState<{ activity: ActivityIssue[]; season: SeasonIssue[] } | null>(null)
   const [fixingAll, setFixingAll] = useState(false)
 
-  if (loading) return <p className="muted pad">Chargement…</p>
+  if (loading) return <SkeletonRows count={6} />
   if (!tracked.length && !movies.length && !books.length) {
     return (
       <section className="empty">
@@ -187,6 +188,8 @@ export function Stats() {
           label={(b) => <>{formatNumber(b.books)} livre{b.books > 1 ? 's' : ''}{b.pages > 0 && <span className="muted"> · {formatNumber(b.pages)} p.</span>}</>}
         />
       )}
+
+      {books.some((b) => !b.cover_url) && <CoverCheck />}
 
       {has('show') && (
       <section className="diag">
@@ -447,6 +450,40 @@ function TopShows({ shows }: { shows: ShowTotal[] }) {
           })}
         </ul>
       )}
+    </section>
+  )
+}
+
+/** « Livres sans couverture » : relance la recherche d'une couverture dans une autre édition. */
+function CoverCheck() {
+  const { books, fillCovers } = useBooks()
+  const [state, setState] = useState<string | null>(null)
+  const missing = books.filter((b) => !b.cover_url)
+  return (
+    <section className="diag">
+      <div className="diag__head">
+        <h3 className="chart__title">
+          {missing.length} livre{missing.length > 1 ? 's' : ''} sans couverture
+        </h3>
+        <button
+          className="link-btn"
+          disabled={state === 'busy'}
+          onClick={async () => {
+            setState('busy')
+            const r = await fillCovers(true)
+            setState(
+              r.found
+                ? `${r.found} couverture${r.found > 1 ? 's' : ''} trouvée${r.found > 1 ? 's' : ''}.`
+                : 'Aucune couverture trouvée pour ceux-là, même dans d’autres éditions.',
+            )
+          }}
+        >
+          {state === 'busy' ? 'Recherche…' : 'Chercher les couvertures'}
+        </button>
+      </div>
+      <p className="muted" style={{ fontSize: '.85rem', margin: 0 }}>
+        {state && state !== 'busy' ? state : missing.slice(0, 4).map((b) => b.title).join(', ') + (missing.length > 4 ? '…' : '')}
+      </p>
     </section>
   )
 }

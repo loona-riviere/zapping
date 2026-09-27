@@ -3,6 +3,7 @@ import { useApp } from '../lib/appState'
 import { href } from '../lib/route'
 import { moviesNowPlaying, moviesUpcoming, tmdbConfigured, type Movie } from '../lib/tmdb'
 import { Poster } from './Poster'
+import { SkeletonShelf } from './Skeleton'
 
 const shortDate = (d: string) =>
   new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
@@ -58,7 +59,7 @@ export function MovieReleases() {
       <section>
         <h2 className="section-title">Au cinéma</h2>
         {now === null ? (
-          <p className="muted">Chargement…</p>
+          <SkeletonShelf />
         ) : now.length ? (
           <ul className="shelf shelf--carousel">
             {now.slice(0, 20).map((m) => tile(m, m.release_date ? `sorti le ${shortDate(m.release_date)}` : ''))}
@@ -70,7 +71,7 @@ export function MovieReleases() {
       <section>
         <h2 className="section-title">Bientôt au cinéma</h2>
         {soon === null ? (
-          <p className="muted">Chargement…</p>
+          <SkeletonShelf />
         ) : soonAll.length ? (
           <ul className="shelf shelf--carousel">
             {soonAll.slice(0, 25).map((m) => tile(m, m.release_date ? `le ${shortDate(m.release_date)}` : 'bientôt'))}

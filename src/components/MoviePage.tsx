@@ -14,6 +14,7 @@ import { Summary } from './Summary'
 import { WatchedTogether } from './WatchedTogether'
 import { useWithLabel, WithPicker } from './WithPicker'
 import { WhereToWatch } from './WhereToWatch'
+import { SkeletonPage } from './Skeleton'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -60,7 +61,7 @@ export function MoviePage({ id }: { id: number }) {
   if (error) {
     return <p className="error pad">Impossible de charger ce film depuis TMDB. <a href={href.search}>Retour</a></p>
   }
-  if (!movie && !details) return <p className="muted pad">Chargement…</p>
+  if (!movie && !details) return <SkeletonPage />
 
   // Un film déjà suivi a la main sur son propre titre/affiche/année (peuvent
   // avoir été corrigés à la main) ; sinon, tout vient de TMDB — c'est le cas

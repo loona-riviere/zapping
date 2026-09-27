@@ -13,6 +13,7 @@ import { DateField, History } from './History'
 import { Comments } from './Comments'
 import { PageInput } from './PageInput'
 import { Poster } from './Poster'
+import { SkeletonPage } from './Skeleton'
 
 /** « Lu du 3 au 10 août 2026 », « Commencé le 3 août 2026 »… en une ligne. */
 function datesLabel(status: BookStatus, start: string | null, end: string | null): string {
@@ -76,7 +77,7 @@ export function BookPage({ id }: { id: string }) {
   if (error && !book) {
     return <p className="error pad">Impossible de charger ce livre. <a href={href.search}>Retour</a></p>
   }
-  if (!book && !details) return <p className="muted pad">Chargement…</p>
+  if (!book && !details) return <SkeletonPage />
 
   const title = book?.title ?? details!.title
   const authors = book?.authors ?? (details?.authors.length ? details.authors.join(', ') : null)

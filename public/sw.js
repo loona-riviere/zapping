@@ -1,7 +1,73 @@
-// Service worker minimal : juste de quoi recevoir et afficher les
-// notifications push, même appli fermée. Pas de mise en cache hors-ligne
-// ici (pas demandé, pas fait), un service worker sert de point d'entrée
-// obligatoire pour le Push API que l'app soit ouverte ou non.
+// Service worker : notifications push, et de quoi ouvrir l'appli sans réseau.
+//   — pages : réseau d'abord (toujours la dernière version), copie sinon ;
+//   — fichiers /assets/ (nommés par leur contenu, donc immuables) : copie
+//     d'abord, réseau sinon ;
+//   — icônes, manifeste : copie tout de suite, mise à jour en arrière-plan.
+// Les appels aux API (Supabase, TMDB, fonctions Netlify…) ne passent pas ici.
+const CACHE = 'zapping-v1'
+
+self.addEventListener('install', () => self.skipWaiting())
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim()),
+  )
+})
+
+self.addEventListener('fetch', (event) => {
+  const req = event.request
+  if (req.method !== 'GET') return
+  const url = new URL(req.url)
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/.netlify/')) return
+
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          const copy = res.clone()
+          caches.open(CACHE).then((c) => c.put('/index.html', copy))
+          return res
+        })
+        .catch(() => caches.match('/index.html').then((r) => r || Response.error())),
+    )
+    return
+  }
+
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      caches.match(req).then(
+        (hit) =>
+          hit ||
+          fetch(req).then((res) => {
+            if (res.ok) {
+              const copy = res.clone()
+              caches.open(CACHE).then((c) => c.put(req, copy))
+            }
+            return res
+          }),
+      ),
+    )
+    return
+  }
+
+  if (/\.(png|svg|webmanifest|ico)$/.test(url.pathname)) {
+    event.respondWith(
+      caches.match(req).then((hit) => {
+        const fresh = fetch(req)
+          .then((res) => {
+            if (res.ok) {
+              const copy = res.clone()
+              caches.open(CACHE).then((c) => c.put(req, copy))
+            }
+            return res
+          })
+          .catch(() => hit)
+        return hit || fresh
+      }),
+    )
+  }
+})
 
 self.addEventListener('push', (event) => {
   let payload = { title: 'Zapping', body: '' }

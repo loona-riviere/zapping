@@ -6,6 +6,7 @@ import { BottomNav } from './components/BottomNav'
 import { EasterEggOverlay, useLogoEasterEgg } from './components/EasterEgg'
 import { EpisodePage } from './components/EpisodePage'
 import { InstallHint } from './components/InstallHint'
+import { OfflineBanner } from './components/OfflineBanner'
 import { NotifPrompt } from './components/NotifPrompt'
 import { Celebrations } from './components/Celebrations'
 import { Import } from './components/Import'
@@ -130,6 +131,7 @@ function Shell() {
         </nav>
       </header>
 
+      <OfflineBanner />
       <main className="main">
         {isLibrary(route) && <InstallHint />}
         {isLibrary(route) && <Library route={route} />}

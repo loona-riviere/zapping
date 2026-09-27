@@ -2,6 +2,7 @@ import type { Book } from './books'
 import type { Rating } from './store'
 import { isMissingSchema } from './store'
 import { me, supabase } from './supabase'
+import { offlineCached } from './offline'
 
 /** Où en est un livre : en cours, lu, à lire, abandonné. */
 export type BookStatus = 'reading' | 'read' | 'later' | 'dropped'
@@ -51,7 +52,7 @@ export type BookPatch = Partial<
 
 const PAGE = 1000
 
-export async function fetchBooks(): Promise<TrackedBook[]> {
+async function fetchBooksRemote(): Promise<TrackedBook[]> {
   const out: TrackedBook[] = []
   const uid = await me()
   for (let from = 0; ; from += PAGE) {
@@ -125,3 +126,5 @@ export async function deleteBook(bookId: string): Promise<void> {
   const { error } = await supabase.from('tracked_books').delete().eq('book_id', bookId)
   if (error) throw error
 }
+
+export const fetchBooks = () => offlineCached('books', fetchBooksRemote)

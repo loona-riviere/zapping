@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { findInCatalog, type Book } from './books'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { findCover, findInCatalog, type Book } from './books'
 import * as store from './bookStore'
 import type { BookPatch, BookStatus, TrackedBook } from './bookStore'
 import { fetchRanks, isMissingSchema, rerank, saveRanks } from './store'
@@ -20,6 +20,8 @@ type BooksState = {
   reorderBooks: (orderedIds: string[]) => Promise<void>
   /** Reflète localement « caché à mes amis » (l'écriture est faite par HideToggle). */
   patchBookHidden: (bookId: string, hidden: boolean) => void
+  /** Cherche une couverture pour les livres qui n'en ont pas. */
+  fillCovers: (force: boolean) => Promise<{ found: number; missing: number }>
 }
 
 const Ctx = createContext<BooksState | null>(null)
@@ -41,6 +43,8 @@ export function BooksProvider({
   const [books, setBooks] = useState<TrackedBook[]>([])
   const [booksReady, setBooksReady] = useState(true)
   const [booksLoading, setBooksLoading] = useState(true)
+  const booksRef = useRef(books)
+  booksRef.current = books
 
   useEffect(() => {
     let alive = true
@@ -65,6 +69,45 @@ export function BooksProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
+  // Livres sans couverture (édition sans image, livre ajouté sans source) :
+  // on en cherche une dans une autre édition. Automatique au chargement,
+  // réessayé chaque semaine ; `force` (bouton des Stats) réessaie tout de suite.
+  const fillCovers = useCallback(
+    async (force: boolean): Promise<{ found: number; missing: number }> => {
+      const COVER_KEY = 'zapping.coverTried'
+      let coverTried: Record<string, number> = {}
+      try {
+        coverTried = JSON.parse(localStorage.getItem(COVER_KEY) ?? '{}')
+      } catch {
+        /* rien */
+      }
+      const week = 7 * 24 * 3600 * 1000
+      const list = booksRef.current.filter((b) => !b.cover_url && (force || Date.now() - (coverTried[b.book_id] ?? 0) > week))
+      let found = 0
+      for (const b of list) {
+        const hit = await findCover(b.title, b.authors).catch(() => undefined)
+        if (hit === undefined) continue // réseau : on retentera
+        coverTried[b.book_id] = Date.now()
+        try {
+          localStorage.setItem(COVER_KEY, JSON.stringify(coverTried))
+        } catch {
+          /* rien */
+        }
+        if (!hit) continue
+        const patch = { cover_url: hit.cover_url, ...(b.page_count ? {} : hit.page_count ? { page_count: hit.page_count } : {}) }
+        try {
+          await store.updateBook(b.book_id, { ...patch, updated_at: b.updated_at })
+          setBooks((prev) => prev.map((x) => (x.book_id === b.book_id ? { ...x, ...patch } : x)))
+          found++
+        } catch {
+          /* tant pis */
+        }
+      }
+      return { found, missing: booksRef.current.filter((b) => !b.cover_url).length - found }
+    },
+    [],
+  )
+
   // Livres ajoutés sans source (import fait pour toi hors de l'app) : on
   // cherche leur fiche au catalogue, une fois par livre et par appareil,
   // pour leur donner couverture, nombre de pages et description.
@@ -80,6 +123,7 @@ export function BooksProvider({
       /* stockage indisponible : on retentera au prochain lancement */
     }
     const todo = books.filter((b) => b.book_id.startsWith('manual:') && !b.cover_url && !tried.includes(b.book_id))
+    void fillCovers(false)
     if (!todo.length) return
     ;(async () => {
       const owned = new Set(books.map((b) => b.book_id))
@@ -237,8 +281,8 @@ export function BooksProvider({
   }, [])
 
   const value = useMemo<BooksState>(
-    () => ({ books, booksReady, booksLoading, bookById, addBook, updateBook, removeBook, restoreBook, reorderBooks, patchBookHidden }),
-    [books, booksReady, booksLoading, bookById, addBook, updateBook, removeBook, restoreBook, reorderBooks, patchBookHidden],
+    () => ({ books, booksReady, booksLoading, bookById, addBook, updateBook, removeBook, restoreBook, reorderBooks, patchBookHidden, fillCovers }),
+    [books, booksReady, booksLoading, bookById, addBook, updateBook, removeBook, restoreBook, reorderBooks, patchBookHidden, fillCovers],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

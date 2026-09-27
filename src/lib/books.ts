@@ -326,15 +326,33 @@ async function openLibraryDetails(workId: string): Promise<Book | null> {
  * et auteur seuls, import fait hors de l'app) : même titre principal, sous-
  * titre et édition mis de côté. Null plutôt qu'un livre approchant.
  */
+const mainTitle = (s: string) => fold(s.split(/[:(\[–—]| - /)[0])
+const sameTitle = (a: string, b: string) => {
+  const x = mainTitle(a)
+  const y = mainTitle(b)
+  return x === y || (y.length >= 6 && x.length >= 3 && (y.startsWith(x) || x.startsWith(y)))
+}
+
 export async function findInCatalog(title: string, authors: string | null): Promise<Book | null> {
-  const main = (s: string) => fold(s.split(/[:(\[–—]| - /)[0])
-  const want = main(title)
-  if (want.length < 3) return null
+  if (mainTitle(title).length < 3) return null
   const results = await searchBooks(`${title} ${authors ?? ''}`.trim())
-  return (
-    results.find((b) => {
-      const got = main(b.title)
-      return got === want || (got.length >= 6 && (got.startsWith(want) || want.startsWith(got)))
-    }) ?? null
-  )
+  const matches = results.filter((b) => sameTitle(title, b.title))
+  // Une édition avec couverture plutôt qu'une sans, à titre égal.
+  return matches.find((b) => b.cover_url) ?? matches[0] ?? null
+}
+
+/**
+ * Une couverture pour un livre qui n'en a pas : une autre édition du même
+ * titre (même auteur si on le connaît), chez Google puis chez Open Library.
+ */
+export async function findCover(title: string, authors: string | null): Promise<{ cover_url: string; page_count: number | null } | null> {
+  if (mainTitle(title).length < 3) return null
+  const q = `${title} ${authors ?? ''}`.trim()
+  const author = authors ? fold(authors.split(',')[0]).slice(-5) : null
+  const pick = (list: Book[]) =>
+    list.find((b) => b.cover_url && sameTitle(title, b.title) && (!author || fold(b.authors.join(' ')).includes(author)))
+  const google = pick(await searchBooks(q).catch(() => []))
+  if (google?.cover_url) return { cover_url: google.cover_url, page_count: google.page_count }
+  const ol = pick(await searchOpenLibrary(q).catch(() => []))
+  return ol?.cover_url ? { cover_url: ol.cover_url, page_count: ol.page_count } : null
 }

@@ -14,6 +14,7 @@ import { NextEpisode } from './NextEpisode'
 import { Poster } from './Poster'
 import { Rewatches } from './Rewatches'
 import { WhereToWatch } from './WhereToWatch'
+import { SkeletonPage } from './Skeleton'
 
 const SHOW_STATUS_OPTIONS: { value: ShowStatus; icon: string; label: string; hint: string }[] = [
   { value: 'watching', icon: '▶️', label: 'Suivie', hint: 'Dans « À suivre », avec le prochain épisode' },
@@ -120,7 +121,7 @@ export function ShowPage({ id }: { id: number }) {
   }, [data])
 
   if (error) return <p className="error pad">Impossible de charger cette série depuis TVmaze. <a href={href.home}>Retour</a></p>
-  if (!data) return <p className="muted pad">Chargement…</p>
+  if (!data) return <SkeletonPage />
 
   const { show, episodes } = data
   const followed = isTracked(show.id)

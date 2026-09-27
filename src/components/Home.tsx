@@ -12,6 +12,7 @@ import { DragHandle, EditToggle, WishRows } from './Reorder'
 import { Limited } from './ShowMore'
 import { SwipeRow } from './SwipeRow'
 
+
 type Row = {
   id: number
   name: string
@@ -186,7 +187,7 @@ export function Home() {
                         <ProgressBar p={r.progress} />
                       </>
                     ) : (
-                      <p className="muted">{failed.has(r.id) ? 'Épisodes indisponibles pour le moment' : 'Chargement…'}</p>
+                      failed.has(r.id) ? <p className="muted">Épisodes indisponibles pour le moment</p> : <><span className="skeleton skeleton--text" /><span className="skeleton skeleton--bar" /></>
                     )}
                   </div>
                 </a>
