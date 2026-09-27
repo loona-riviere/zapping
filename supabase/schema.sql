@@ -806,3 +806,16 @@ create policy "comments: edit" on public.comments
 -- (champ « with »). Pour un film, le visionnage le plus récent.
 alter table public.tracked_shows add column if not exists first_with uuid[] not null default '{}';
 alter table public.watched_movies add column if not exists watched_with uuid[] not null default '{}';
+
+-- Notifs « vu ensemble » en attente, envoyées groupées par la tâche
+-- flush-notifs (clé service_role, hors RLS).
+create table if not exists public.notif_queue (
+  id bigint generated always as identity primary key,
+  recipient uuid not null references auth.users (id) on delete cascade,
+  sender uuid not null references auth.users (id) on delete cascade,
+  label text not null,
+  url text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists notif_queue_pair_idx on public.notif_queue (recipient, sender, created_at);
+alter table public.notif_queue enable row level security;

@@ -187,7 +187,9 @@ async function handle(req: Request): Promise<Response> {
     const theirs = rows?.find((r) => r.user_id === to)
     const day = (d: string | null) => (d ? d.slice(0, 10) : null)
     if (mine && theirs && theirs.status === 'watched' && day(mine.watched_at) === day(theirs.watched_at)) {
-      payload = { title: 'Vu ensemble', body: `${who} a noté que vous avez vu ${theirs.title} ensemble.`, url: `/#/movie/${body.movieId}` }
+      // Pas envoyé tout de suite : regroupé avec les suivants (tâche flush-notifs).
+      await db.from('notif_queue').insert({ recipient: to, sender: me, label: theirs.title, url: `/#/movie/${body.movieId}` })
+      return Response.json({ sent: 0, queued: true })
     }
   } else if (body.event === 'show_together' && typeof body.showId === 'number') {
     const { data } = await db
@@ -202,7 +204,8 @@ async function handle(req: Request): Promise<Response> {
       .eq('status', 'accepted')
       .or(`and(requester.eq.${me},addressee.eq.${to}),and(requester.eq.${to},addressee.eq.${me})`)
     if (data && friends?.length) {
-      payload = { title: 'Vu ensemble', body: `${who} a coché chez toi des épisodes de ${data.name} vus ensemble.`, url: `/#/show/${body.showId}` }
+      await db.from('notif_queue').insert({ recipient: to, sender: me, label: data.name, url: `/#/show/${body.showId}` })
+      return Response.json({ sent: 0, queued: true })
     }
   }
 
