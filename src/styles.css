@@ -1191,3 +1191,12 @@ a.choice { text-decoration: none; }
 .together-card__value { margin: .2rem 0 0; font-family: var(--display); font-size: 2.2rem; font-weight: 800; line-height: 1.1; }
 .together-card__value small { font-size: 1rem; font-weight: 600; color: var(--muted); }
 .together-card__detail { margin: .2rem 0 0; font-size: .88rem; }
+
+/* Au doigt : zones à toucher d'au moins 44 px (recommandation Apple), sans
+   changer l'apparence — la zone s'agrandit, pas le texte. */
+@media (pointer: coarse) {
+  .link-btn:not(.show__untrack), .season__toggle, .season__menu-btn, .episode__back, .hbars__name, .row__drop {
+    min-height: 44px; display: inline-flex; align-items: center;
+  }
+  .season__menu-btn { min-width: 44px; justify-content: center; }
+}
