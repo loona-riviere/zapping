@@ -185,12 +185,25 @@ export type TmdbEpisode = {
  * avec leur date : sert à compléter TVmaze quand il lui manque des dates ou
  * une saison entière. Gardé 3 jours.
  */
-export async function tvEpisodesOutline(imdbId: string | null | undefined): Promise<TmdbEpisode[] | null> {
-  if (!KEY || !imdbId) return null
-  const key = `tmdb:outline:v1:${imdbId}`
+export async function tvEpisodesOutline(
+  imdbId: string | null | undefined,
+  fallback?: { name: string; year: number | null },
+): Promise<TmdbEpisode[] | null> {
+  if (!KEY || (!imdbId && !fallback)) return null
+  const key = `tmdb:outline:v1:${imdbId ?? `${fallback!.name}:${fallback!.year ?? ''}`}`
   const cached = readCache<TmdbEpisode[]>(key, 3 * 24 * 3600 * 1000)
   if (cached) return cached
-  const tvId = await resolveTvId(imdbId)
+  // Sans IMDb (fréquent pour les séries françaises chez TVmaze) : recherche
+  // par titre, et par année de première diffusion pour éviter les homonymes.
+  let tvId = imdbId ? await resolveTvId(imdbId) : null
+  if (!tvId && fallback) {
+    const params: Record<string, string> = { query: fallback.name }
+    if (fallback.year) params.first_air_date_year = String(fallback.year)
+    const found = await get<{ results: { id: number; name: string; original_name: string }[] }>('/search/tv', params)
+    const want = normalizeTitle(fallback.name)
+    tvId =
+      found.results.find((r) => normalizeTitle(r.name) === want || normalizeTitle(r.original_name) === want)?.id ?? null
+  }
   if (!tvId) return null
   const show = await get<{ seasons: { season_number: number; episode_count: number }[] }>(`/tv/${tvId}`, {})
   const out: TmdbEpisode[] = []

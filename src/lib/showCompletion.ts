@@ -13,10 +13,10 @@ import { storeShow, type ShowWithEpisodes, type TvEpisode } from './tvmaze'
 
 /** Vrai si la fiche vient d'être complétée ; la nouvelle fiche est en cache. */
 export async function completeFromTmdb(data: ShowWithEpisodes): Promise<ShowWithEpisodes | null> {
-  const imdb = data.show.externals?.imdb
-  if (!imdb) return null
+  const imdb = data.show.externals?.imdb ?? null
+  const year = data.show.premiered ? Number(data.show.premiered.slice(0, 4)) : null
   // TMDB est gardé 3 jours sur l'appareil : le réseau n'est sollicité qu'alors.
-  const outline = await tvEpisodesOutline(imdb).catch(() => null)
+  const outline = await tvEpisodesOutline(imdb, { name: data.show.name, year }).catch(() => null)
   if (!outline?.length) return null
 
   const key = (s: number, n: number) => `${s}:${n}`
