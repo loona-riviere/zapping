@@ -5,13 +5,10 @@ import { BOOK_STATUSES, BOOK_STATUS_LABEL, type BookPatch, type BookStatus, type
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { RecommendButton } from './Recommend'
+import { DateField, History } from './History'
 import { PageInput } from './PageInput'
 import { Poster } from './Poster'
 import { RatingPicker } from './RatingPicker'
-
-const today = () => new Date().toISOString().slice(0, 10)
-/** Midi UTC : une date choisie au calendrier reste le même jour quel que soit le fuseau. */
-const atNoon = (day: string) => `${day}T12:00:00.000Z`
 
 /** « Lu du 3 au 10 août 2026 », « Commencé le 3 août 2026 »… en une ligne. */
 function datesLabel(status: BookStatus, start: string | null, end: string | null): string {
@@ -20,9 +17,10 @@ function datesLabel(status: BookStatus, start: string | null, end: string | null
     if (start && end) return `Lu du ${d(start)} au ${d(end)}`
     if (end) return `Lu le ${d(end)}`
     if (start) return `Commencé le ${d(start)}`
-    return 'Lu, dates inconnues — ajouter'
+    return 'Lu, date inconnue'
   }
-  return start ? `Commencé le ${d(start)}` : 'Date de début — ajouter'
+  if (status === 'dropped') return start ? `Arrêté, commencé le ${d(start)}` : 'Arrêté'
+  return start ? `En cours depuis le ${d(start)}` : 'En cours'
 }
 
 /** Ce que change le passage d'un statut à l'autre, au-delà du statut lui-même. */
@@ -151,83 +149,65 @@ export function BookPage({ id }: { id: string }) {
           </label>
         )}
 
-        {book && book.status !== 'later' && !editDates && (
-          <button type="button" className="dates-line" onClick={() => setEditDates(true)} title="Modifier les dates">
-            <span>{datesLabel(book.status, book.started_at, book.finished_at)}</span>
-          </button>
-        )}
-        {book && book.status !== 'later' && editDates && (
-          <div className="book__dates">
-            <label>
-              Commencé le
-              <input
-                type="date"
-                value={book.started_at?.slice(0, 10) ?? ''}
-                max={today()}
-                onChange={(e) => updateBook(book.book_id, { started_at: e.target.value ? atNoon(e.target.value) : null })}
+        {book && (
+          <History
+            title="Lectures"
+            editing={editDates}
+            onToggle={() => setEditDates((v) => !v)}
+            entries={[
+              ...(book.status !== 'later'
+                ? [
+                    {
+                      key: 'now',
+                      icon: book.status === 'read' ? '✓' : book.status === 'reading' ? '📖' : '⏸',
+                      text: datesLabel(book.status, book.started_at, book.finished_at),
+                      edit: (
+                        <span className="hist__dates">
+                          <DateField label="Début" value={book.started_at} onChange={(v) => updateBook(book.book_id, { started_at: v })} />
+                          {book.status === 'read' && (
+                            <DateField label="Fin" value={book.finished_at} onChange={(v) => updateBook(book.book_id, { finished_at: v })} />
+                          )}
+                        </span>
+                      ),
+                    },
+                  ]
+                : []),
+              ...(book.past_reads ?? [])
+                .map((r, i) => ({ r, i }))
+                .reverse()
+                .map(({ r, i }) => ({
+                  key: `past-${i}`,
+                  icon: '✓',
+                  text: r.finished_at ? `Lu le ${formatShortDate(r.finished_at)}` : 'Lu, date inconnue',
+                  edit: (
+                    <DateField
+                      label="Fin"
+                      value={r.finished_at}
+                      onChange={(v) =>
+                        updateBook(book.book_id, {
+                          past_reads: (book.past_reads ?? []).map((x, j) => (j === i ? { ...x, finished_at: v } : x)),
+                        })
+                      }
+                    />
+                  ),
+                  onRemove: () =>
+                    confirm('Supprimer cette lecture ?') &&
+                    updateBook(book.book_id, { past_reads: (book.past_reads ?? []).filter((_, j) => j !== i) }),
+                })),
+            ]}
+            extra={
+              <DateField
+                label="Ajouter une lecture finie le"
+                value={null}
+                onChange={(v) => {
+                  if (!v) return
+                  const past = [...(book.past_reads ?? []), { started_at: null, finished_at: v }]
+                  past.sort((a, b) => (a.finished_at ?? '').localeCompare(b.finished_at ?? ''))
+                  updateBook(book.book_id, { past_reads: past })
+                }}
               />
-              {book.started_at && (
-                <button type="button" className="link-btn" onClick={() => updateBook(book.book_id, { started_at: null })}>
-                  oublier
-                </button>
-              )}
-            </label>
-            {book.status === 'read' && (
-              <label>
-                Fini le
-                <input
-                  type="date"
-                  value={book.finished_at?.slice(0, 10) ?? ''}
-                  max={today()}
-                  onChange={(e) => updateBook(book.book_id, { finished_at: e.target.value ? atNoon(e.target.value) : null })}
-                />
-                {book.finished_at && (
-                  <button type="button" className="link-btn" onClick={() => updateBook(book.book_id, { finished_at: null })}>
-                    oublier
-                  </button>
-                )}
-              </label>
-            )}
-            <button type="button" className="link-btn" onClick={() => setEditDates(false)}>OK</button>
-          </div>
-        )}
-
-        {book && (book.past_reads ?? []).length > 0 && (
-          <p className="muted past-views">
-            {book.status === 'read' ? 'Aussi lu' : 'Déjà lu'}{' '}
-            {(book.past_reads ?? []).map((r, i) => (
-              <span key={i} className="past-views__item">
-                {r.finished_at ? `le ${formatShortDate(r.finished_at)}` : 'une fois (date inconnue)'}
-                <button
-                  type="button"
-                  className="link-btn muted"
-                  aria-label="Oublier cette lecture"
-                  onClick={() =>
-                    confirm('Oublier cette lecture ?') &&
-                    updateBook(book.book_id, { past_reads: (book.past_reads ?? []).filter((_, j) => j !== i) })
-                  }
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </p>
-        )}
-        {book && editDates && (
-          <label className="pages__label">
-            Une autre lecture, finie le
-            <input
-              type="date"
-              max={today()}
-              onChange={(e) => {
-                if (!e.target.value) return
-                const past = [...(book.past_reads ?? []), { started_at: null, finished_at: atNoon(e.target.value) }]
-                past.sort((a, b) => (a.finished_at ?? '').localeCompare(b.finished_at ?? ''))
-                updateBook(book.book_id, { past_reads: past })
-                e.target.value = ''
-              }}
-            />
-          </label>
+            }
+          />
         )}
 
         {book?.status === 'read' && (

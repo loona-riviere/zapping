@@ -3,6 +3,7 @@ import { useApp } from '../lib/appState'
 import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { movieDetails, type MovieDetails } from '../lib/tmdb'
+import { DateField, History } from './History'
 import { Poster } from './Poster'
 import { RecommendButton } from './Recommend'
 import { RatingPicker } from './RatingPicker'
@@ -18,10 +19,11 @@ const fmtRuntime = (min: number) => {
 }
 
 export function MoviePage({ id }: { id: number }) {
-  const { movies, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, rewatchMovie, removePastView, removeMovie, fillMovieMeta, rateMovie } =
+  const { movies, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, rewatchMovie, removePastView, setMovieViews, removeMovie, fillMovieMeta, rateMovie } =
     useApp()
   const [details, setDetails] = useState<MovieDetails | null>(null)
   const [error, setError] = useState(false)
+  const [editViews, setEditViews] = useState(false)
   const movie = movies.find((m) => m.movie_id === id)
 
   useEffect(() => {
@@ -84,35 +86,10 @@ export function MoviePage({ id }: { id: number }) {
             {[year, runtime ? fmtRuntime(runtime) : null, details?.genres.join(', ')].filter(Boolean).join(' · ')}
           </p>
           {movie?.status === 'watched' ? (
-            <>
-              <p className="show__count eplist__date--edit">
-                Vu le
-                <input
-                  type="date"
-                  value={movie.watched_at ? movie.watched_at.slice(0, 10) : ''}
-                  max={today()}
-                  onChange={(e) => e.target.value && markMovieWatched(movie.movie_id, `${e.target.value}T12:00:00.000Z`)}
-                />
-              </p>
-              {(movie.past_views ?? []).length > 0 && (
-                <p className="muted past-views">
-                  Aussi vu{' '}
-                  {(movie.past_views ?? []).map((at, i) => (
-                    <span key={i} className="past-views__item">
-                      {at ? `le ${formatShortDate(at)}` : 'une fois (date inconnue)'}
-                      <button
-                        type="button"
-                        className="link-btn muted"
-                        aria-label="Oublier ce visionnage"
-                        onClick={() => confirm('Oublier ce visionnage ?') && removePastView(movie.movie_id, i)}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </p>
-              )}
-            </>
+            <p className="show__count">
+              {movie.watched_at ? `Vu le ${formatShortDate(movie.watched_at)}` : 'Vu'}
+              {(movie.past_views ?? []).length > 0 && <span className="muted"> · {1 + (movie.past_views ?? []).length} fois</span>}
+            </p>
           ) : (
             <p className="show__count muted">
               {notYetReleased ? `Sort le ${formatShortDate(releaseDate!)}` : 'À voir'}
@@ -165,15 +142,64 @@ export function MoviePage({ id }: { id: number }) {
           )}
         </div>
 
-        {movie?.status === 'watched' && details?.releaseDate && !movie.watched_at?.startsWith(details.releaseDate) && (
-          <button
-            type="button"
-            className="link-btn muted show__untrack"
-            onClick={() => markMovieWatched(movie.movie_id, `${details.releaseDate}T12:00:00.000Z`)}
-          >
-            Dater à sa sortie ({formatShortDate(details.releaseDate)})
-          </button>
+        {movie?.status === 'watched' && (
+          <History
+            title="Visionnages"
+            editing={editViews}
+            onToggle={() => setEditViews((v) => !v)}
+            entries={[
+              {
+                key: 'now',
+                icon: '✓',
+                text: movie.watched_at ? `Vu le ${formatShortDate(movie.watched_at)}` : 'Vu, date inconnue',
+                edit: (
+                  <span className="hist__dates">
+                    <DateField label="Vu le" value={movie.watched_at} onChange={(v) => markMovieWatched(movie.movie_id, v)} />
+                    {details?.releaseDate && !movie.watched_at?.startsWith(details.releaseDate) && (
+                      <button
+                        type="button"
+                        className="link-btn"
+                        onClick={() => markMovieWatched(movie.movie_id, `${details.releaseDate}T12:00:00.000Z`)}
+                      >
+                        À sa sortie
+                      </button>
+                    )}
+                  </span>
+                ),
+              },
+              ...(movie.past_views ?? [])
+                .map((at, i) => ({ at, i }))
+                .reverse()
+                .map(({ at, i }) => ({
+                  key: `past-${i}`,
+                  icon: '✓',
+                  text: at ? `Vu le ${formatShortDate(at)}` : 'Vu, date inconnue',
+                  edit: (
+                    <DateField
+                      label="Vu le"
+                      value={at}
+                      onChange={(v) =>
+                        setMovieViews(movie.movie_id, movie.watched_at, (movie.past_views ?? []).map((x, j) => (j === i ? v : x)))
+                      }
+                    />
+                  ),
+                  onRemove: () => confirm('Supprimer ce visionnage ?') && removePastView(movie.movie_id, i),
+                })),
+            ]}
+            extra={
+              <DateField
+                label="Ajouter un visionnage le"
+                value={null}
+                onChange={(v) => {
+                  if (!v) return
+                  const past = [...(movie.past_views ?? []), v].sort((a, b) => (a ?? '').localeCompare(b ?? ''))
+                  setMovieViews(movie.movie_id, movie.watched_at, past)
+                }}
+              />
+            }
+          />
         )}
+
 
         <div className="pills">
           {movie?.status === 'watched' && (

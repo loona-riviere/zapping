@@ -101,7 +101,12 @@ button { font: inherit; color: inherit; }
   transition: transform .12s ease;
 }
 .btn--seen:active { transform: scale(.94); }
-.link-btn { background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.link-btn {
+  background: none; border: 0; padding: 0; cursor: pointer; font: inherit; font-weight: 600;
+  color: var(--accent); text-decoration: none;
+}
+.link-btn.muted { color: var(--muted); font-weight: 500; }
+.link-btn:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 /* Affiches */
 .poster {
@@ -210,7 +215,12 @@ button { font: inherit; color: inherit; }
 .show__meta p { margin: 0; }
 .show__controls { display: flex; flex-direction: column; align-items: flex-start; gap: .6rem; margin-top: 1rem; }
 .show__controls p { margin: 0; }
-.show__untrack { margin-top: .6rem; font-size: .85rem; }
+/* Retirer : un vrai bouton, discret, en bas de fiche, loin des gestes courants. */
+.show__untrack.link-btn {
+  display: block; margin: 2rem auto .5rem; padding: .5rem 1.1rem; font-size: .85rem; font-weight: 500;
+  color: var(--muted); border: 1.5px solid var(--line); border-radius: 999px; text-decoration: none;
+}
+.show__untrack.link-btn:hover { color: #c0392b; border-color: currentColor; text-decoration: none; }
 .show__count { font-variant-numeric: tabular-nums; }
 .show__count strong { font-family: var(--display); font-size: 1.4rem; }
 .show__summary { color: var(--muted); max-width: 38rem; margin: 1.25rem 0 0; line-height: 1.6; }
@@ -868,9 +878,6 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
   background: var(--surface); border: 1.5px solid var(--line); color: var(--ink);
 }
 .pill:hover, .pill:focus-visible { border-color: var(--accent); color: var(--accent); }
-/* Dates d'une lecture : une ligne discrète, qu'on touche pour modifier. */
-.dates-line { background: none; border: 0; padding: 0; font: inherit; font-size: .92rem; color: var(--muted); cursor: pointer; text-align: left; }
-.dates-line span { text-decoration: underline dotted; text-underline-offset: 3px; }
 
 /* Import Kindle */
 .kindle__row { align-items: flex-start; }
@@ -883,8 +890,23 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 .kindle__fix .search__input { margin: 0; flex: 1; }
 .kindle__pick { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 
-/* Visionnages et lectures d'avant, sous la date principale */
-.past-views { margin: .2rem 0 0; font-size: .88rem; }
-.past-views__item { white-space: nowrap; }
-.past-views__item + .past-views__item::before { content: ','; margin-right: .3em; }
-.past-views__item .link-btn { padding: 0 .25rem; }
+
+.pill--small { font-size: .8rem; padding: .25rem .7rem; }
+
+/* Lectures d'un livre, visionnages d'un film */
+.hist { width: 100%; max-width: 30rem; box-sizing: border-box; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: .6rem .9rem .7rem; }
+.hist__head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .2rem; }
+.hist__head h3 { margin: 0; font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.hist ul { list-style: none; margin: 0; padding: 0; }
+.hist__row { display: flex; align-items: center; gap: .6rem; padding: .35rem 0; font-size: .92rem; }
+.hist__row + .hist__row { border-top: 1px solid var(--line); }
+.hist__icon { width: 1.3rem; text-align: center; flex: none; }
+.hist__text { flex: 1; min-width: 0; }
+.hist__dates { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .8rem; }
+.hist__date { display: inline-flex; align-items: center; gap: .4rem; font-size: .85rem; color: var(--muted); }
+.hist > .hist__date { margin-top: .5rem; }
+.hist__date input {
+  font: inherit; font-size: .88rem; padding: .25rem .45rem; color: var(--ink);
+  border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--bg);
+}
+.hist__remove { background: none; border: 0; font: inherit; font-size: .8rem; color: #c0392b; cursor: pointer; padding: .2rem; }

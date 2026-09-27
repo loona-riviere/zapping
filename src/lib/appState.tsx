@@ -62,6 +62,8 @@ type AppState = {
   markMovieUnwatched: (movieId: number) => Promise<void>
   /** Revu : ajoute un visionnage à la date donnée, les précédents sont gardés. */
   rewatchMovie: (movieId: number, at: string) => Promise<void>
+  /** Réécrit tous les visionnages d'un film : le plus récent et ceux d'avant. */
+  setMovieViews: (movieId: number, watchedAt: string | null, past: (string | null)[]) => Promise<void>
   /** Oublie un visionnage d'avant (index dans past_views). */
   removePastView: (movieId: number, index: number) => Promise<void>
   removeMovie: (movieId: number) => Promise<void>
@@ -859,13 +861,13 @@ export function AppProvider({ userId, children }: { userId: string; children: Re
       isTracked, statusOf, watchedFor, historyFor, rewatchesOf, setRewatches,
       isRewatching, startRewatch, endRewatch,
       track, untrack, setStatus, setWatched,
-      addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, rewatchMovie, removePastView, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
+      addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, rewatchMovie, removePastView, setMovieViews: setViews, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
       ranksReady, reorderMovies, reorderShows, patchHidden, reloadShows,
       dismissed, isDismissed, dismissRec, undismissRec,
     }),
     [userId, tracked, watched, rewatch, movies, moviesReady, loading, notice, isTracked, statusOf, watchedFor,
      historyFor, rewatchesOf, setRewatches, isRewatching, startRewatch, endRewatch,
-     track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, rewatchMovie, removePastView, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
+     track, untrack, setStatus, setWatched, addMovies, addToWatchlist, markMovieWatched, markMovieUnwatched, rewatchMovie, removePastView, setViews, removeMovie, restoreMovie, fillMovieRuntimes, fillMovieMeta, fixActivity, renameShow, rateShow, rateMovie,
      ranksReady, reorderMovies, reorderShows, patchHidden, reloadShows,
      dismissed, isDismissed, dismissRec, undismissRec],
   )
