@@ -270,7 +270,7 @@ button { font: inherit; color: inherit; }
 /* La grille d'épisodes : l'élément signature de l'app. */
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
 .tile {
-  position: relative; aspect-ratio: 1; border-radius: 7px; cursor: pointer;
+  aspect-ratio: 1; border-radius: 7px; cursor: pointer;
   border: 1.5px solid var(--line); background: var(--surface);
   font-family: var(--display); font-weight: 600; font-size: .95rem;
   font-variant-numeric: tabular-nums;
@@ -1255,12 +1255,3 @@ a.choice { text-decoration: none; }
 .notif-prefs[open] > summary::after { transform: rotate(90deg); }
 .notif-prefs .kinds--list { padding: 0 .9rem; margin-bottom: .6rem; }
 .notif-prefs__hint { font-size: .8rem; padding: 0 .9rem .75rem; margin: 0; }
-
-/* Commentaires sur un épisode : pastille dans le coin de sa case. */
-.tile__comments {
-  position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; padding: 0 4px;
-  border-radius: 999px; background: var(--ink); color: var(--bg); border: 2px solid var(--bg);
-  font-family: var(--body); font-size: .62rem; font-weight: 800; line-height: 13px; text-align: center;
-  pointer-events: none;
-}
-.tile__comments::before { content: '💬'; font-size: .55rem; margin-right: 1px; }

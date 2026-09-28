@@ -16,7 +16,6 @@ import { Poster } from './Poster'
 import { Rewatches } from './Rewatches'
 import { WhereToWatch } from './WhereToWatch'
 import { SkeletonPage } from './Skeleton'
-import { episodeCommentCounts } from '../lib/comments'
 
 const SHOW_STATUS_OPTIONS: { value: ShowStatus; icon: string; label: string; hint: string }[] = [
   { value: 'watching', icon: '▶️', label: 'Suivie', hint: 'Dans « À suivre », avec le prochain épisode' },
@@ -54,20 +53,6 @@ export function ShowPage({ id }: { id: number }) {
   const [gridChoice, setGridChoice] = useState<Map<number, boolean>>(new Map())
   const [menuSeason, setMenuSeason] = useState<number | null>(null)
   const [summaryOpen, setSummaryOpen] = useState(false)
-  // Commentaires par épisode (moi et mes amis) : un petit badge sur la case.
-  const [commentCounts, setCommentCounts] = useState<Map<number, number>>(new Map())
-  useEffect(() => {
-    let alive = true
-    setCommentCounts(new Map())
-    episodeCommentCounts(id)
-      .then((m) => alive && setCommentCounts(m))
-      .catch(() => {
-        /* pas de badge : les commentaires restent sur la page de l'épisode */
-      })
-    return () => {
-      alive = false
-    }
-  }, [id])
   // Titre et résumé en français, via TMDB — absents tant qu'ils n'ont pas fini
   // de charger ou si TMDB n'a rien pour cette série ; on retombe alors sur
   // l'anglais de TVmaze.
@@ -470,9 +455,7 @@ export function ShowPage({ id }: { id: number }) {
                           ? ''
                           : `, le ${formatDate(ep.airstamp ?? ep.airdate)}`
                     }`}
-                    aria-label={`${epCode(ep)} ${ep.name}${!out ? ', pas encore diffusé' : on ? ', vu' : ''}${
-                      commentCounts.get(ep.id) ? `, ${commentCounts.get(ep.id)} commentaire${commentCounts.get(ep.id)! > 1 ? 's' : ''}` : ''
-                    }`}
+                    aria-label={`${epCode(ep)} ${ep.name}${!out ? ', pas encore diffusé' : on ? ', vu' : ''}`}
                     {...longPress(() => toggle(ep))}
                     onClick={() => (pressed.current ? (pressed.current = false) : (window.location.hash = href.episode(show.id, ep.id)))}
                     // Au clavier, Espace coche ou décoche (l'équivalent de
@@ -486,9 +469,6 @@ export function ShowPage({ id }: { id: number }) {
                     onContextMenu={(e) => e.preventDefault()}
                   >
                     {ep.number}
-                    {!!commentCounts.get(ep.id) && (
-                      <span className="tile__comments" aria-hidden="true">{commentCounts.get(ep.id)}</span>
-                    )}
                   </button>
                 )
               })}
