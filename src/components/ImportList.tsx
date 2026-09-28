@@ -6,13 +6,13 @@ import { formatShortDate } from '../lib/progress'
 import { href } from '../lib/route'
 import { tmdbConfigured, type Movie } from '../lib/tmdb'
 import { explainMiss, findMovie, findShow } from '../lib/lookup'
-import type { TvEpisode, TvShow } from '../lib/series'
+import type { TvEpisode, TvShow } from '../lib/tvmaze'
 import { FixMatch, type FixPick } from './FixMatch'
 import { Poster } from './Poster'
 
-// Chaque ligne coûte quelques requêtes TMDB (recherche, fiche, saisons) :
-// on espace un peu pour rester loin de sa limite de débit.
-const DELAY = 250
+// TVmaze tolère ~20 requêtes / 10 s et chaque ligne en consomme deux
+// (recherche puis fiche) : on espace pour ne pas se faire limiter.
+const DELAY = 800
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 type Match = {
@@ -48,11 +48,11 @@ async function asMovie(parsed: ParsedLine): Promise<Match> {
 }
 
 /**
- * On cherche d'abord une série. Un titre sans saison et inconnu du catalogue est
+ * On cherche d'abord une série. Un titre sans saison et inconnu de TVmaze est
  * probablement un film : on retente sur TMDB.
  *
  * Ça ne suffit pas toujours — « Flashback » est à la fois un film français et
- * une série, et la recherche de séries répond donc la série. D'où le bouton
+ * une série au catalogue TVmaze, qui répond donc la série. D'où le bouton
  * « Film ? » de l'écran de relecture, qui force la recherche dans l'autre sens
  * (`force`).
  */

@@ -1,5 +1,5 @@
 // Petit magasin clé → valeur dans IndexedDB, pour les caches volumineux (fiches
-// séries avec tous leurs épisodes). Le localStorage de Safari plafonne vers 5 Mo
+// TVmaze avec tous les épisodes). Le localStorage de Safari plafonne vers 5 Mo
 // et se partage avec la session : une centaine de séries suffisait à le
 // remplir. IndexedDB a une marge bien plus large et ne gêne pas la session.
 // Si IndexedDB est indisponible (navigation privée stricte…), tout devient

@@ -6,7 +6,7 @@
 import { epCode } from './progress'
 import type { TrackedBook } from './bookStore'
 import type { TrackedShow, WatchedMovie } from './store'
-import type { ShowWithEpisodes } from './series'
+import type { ShowWithEpisodes } from './tvmaze'
 import type { WatchedEpisodes } from './appState'
 
 export type BackupEpisode = {
@@ -31,8 +31,6 @@ export type BackupShow = {
 
 export type Backup = {
   exportedAt: string
-  /** Catalogue des identifiants de séries et d'épisodes (TVmaze avant septembre 2026). */
-  seriesIds: 'tmdb'
   shows: BackupShow[]
   movies: WatchedMovie[]
   books: TrackedBook[]
@@ -72,7 +70,7 @@ export function buildBackup(
       ...(rewatching ? { currentRewatch: toBackupEpisodes(watchedFor(t.show_id), show) } : {}),
     }
   })
-  return { exportedAt: new Date().toISOString(), seriesIds: 'tmdb', shows, movies, books }
+  return { exportedAt: new Date().toISOString(), shows, movies, books }
 }
 
 /** Déclenche le téléchargement du fichier JSON côté client, sans passer par un serveur. */

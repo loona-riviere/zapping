@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { getShowWithEpisodes, isFresh, peekShows, type ShowWithEpisodes } from './series'
+import { getShowWithEpisodes, isFresh, peekShows, type ShowWithEpisodes } from './tvmaze'
 
 /**
  * Fiches et épisodes des séries demandées. D'abord tout ce qui est en cache,
  * même périmé, d'un seul coup (`ready`) : la bibliothèque s'affiche entière
  * au lieu de se remplir série par série. Ensuite, en arrière-plan, quatre à
- * la fois pour ménager TMDB : les fiches jamais
+ * la fois pour ménager TVmaze (~20 requêtes / 10 s) : les fiches jamais
  * chargées d'abord, puis le rafraîchissement des périmées (> 12 h).
  */
 export function useShowEpisodes(ids: number[]) {

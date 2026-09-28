@@ -9,9 +9,11 @@ import { daysSince, mapLimited, rankRecommendations, seedWeight, type Ranked, ty
 import { href } from '../lib/route'
 import {
   discoverRecentMovies, discoverRecentShows, movieRecommendations, realNetflixTop10Movies,
-  realNetflixTop10Shows, tmdbConfigured, tvRecommendationsById,
+  realNetflixTop10Shows, tmdbConfigured, tvRecommendationsByImdb,
   type Movie, type RecMovie, type TvRec, type TvRecommendation,
 } from '../lib/tmdb'
+import { searchShows } from '../lib/tvmaze'
+import { useShowEpisodes } from '../lib/useShows'
 import { Poster } from './Poster'
 
 // « The Mentalist » (titre original TMDB) vs « Mentalist » (titre suivi,
@@ -22,21 +24,44 @@ const normalizeTitle = (s: string) => stripArticle(s.toLowerCase().trim())
 
 function useTrackedNames() {
   const { tracked } = useShows()
-  // Séries : même identifiant TMDB que les suggestions. Le titre reste
-  // utile pour les films et les séries ajoutées sous un autre nom.
-  return useMemo(() => new Set(tracked.flatMap((t) => [`tv:${t.show_id}`, normalizeTitle(t.name)])), [tracked])
+  return useMemo(() => new Set(tracked.map((t) => normalizeTitle(t.name))), [tracked])
 }
 
 const isTracked = (names: Set<string>, r: TvRecommendation) =>
-  names.has(`tv:${r.id}`) || names.has(normalizeTitle(r.name)) || names.has(normalizeTitle(r.originalName))
+  names.has(normalizeTitle(r.name)) || names.has(normalizeTitle(r.originalName))
 
-/** Les suggestions de séries sont des fiches TMDB : on ouvre directement la leur. */
+/**
+ * TMDB ne connaît pas les identifiants TVmaze : au clic, on cherche le titre
+ * chez TVmaze (celui dont l'année colle, sinon le meilleur résultat) et on
+ * ouvre sa fiche — sans résultat, on le dit plutôt que de deviner.
+ */
 function useOpenShow() {
-  return {
-    opening: null as number | null,
-    notFound: null as number | null,
-    open: (r: TvRecommendation) => (window.location.hash = href.show(r.id)),
+  const [opening, setOpening] = useState<number | null>(null)
+  const [notFound, setNotFound] = useState<number | null>(null)
+
+  async function open(r: TvRecommendation) {
+    setNotFound(null)
+    setOpening(r.id)
+    try {
+      // TVmaze indexe (presque) toujours sous le titre original : le titre
+      // TMDB est souvent en français et n'y donne rien.
+      let results = await searchShows(r.name)
+      if (!results.length && r.originalName !== r.name) results = await searchShows(r.originalName)
+      const match =
+        results.find((s) => r.year && s.premiered && Number(s.premiered.slice(0, 4)) === r.year) ?? results[0]
+      if (!match) {
+        setNotFound(r.id)
+        return
+      }
+      window.location.hash = href.show(match.id)
+    } catch {
+      setNotFound(r.id)
+    } finally {
+      setOpening(null)
+    }
   }
+
+  return { opening, notFound, open }
 }
 
 type Opener = ReturnType<typeof useOpenShow>
@@ -72,7 +97,7 @@ function ShowTile({ r, note, opener, onSkip }: { r: TvRecommendation; note: stri
         <Poster src={r.poster_url} alt={r.name} />
         <span className="shelf__label">{opening ? 'Ouverture…' : r.name}</span>
         <span className="shelf__because">{note}</span>
-        
+        {opener.notFound === r.id && <span className="error shelf__label">Introuvable chez TVmaze</span>}
       </button>
       <Dismiss label={r.name} onClick={onSkip} />
     </li>
@@ -312,8 +337,10 @@ export function MovieRecommendations() {
 }
 
 /**
- * Suggestions de séries, même principe que les films : jusqu'à six séries
- * aimées, et les pas aimées ou abandonnées en contre-exemples.
+ * Suggestions de séries, même principe que les films. Le pont TVmaze → TMDB
+ * passe par l'IMDb ID, d'où le chargement des fiches TVmaze des séries de
+ * base (jusqu'à six séries aimées, et les pas aimées ou abandonnées en
+ * contre-exemples).
  */
 export function ShowRecommendations() {
   const { tracked, loading } = useShows()
@@ -345,14 +372,20 @@ export function ShowRecommendations() {
   }, [tracked])
   const hasLiked = seeds.some((s) => s.weight > 0)
 
-  const fetchKey = seeds.map((s) => `${s.id}:${s.weight}`).join(',')
+  const seedIds = useMemo(() => seeds.map((s) => s.id), [seeds])
+  const { data, failed } = useShowEpisodes(seedIds)
+  // Une fiche TVmaze en échec compte comme résolue (sans IMDb ID) : sinon une
+  // seule série injoignable bloquait toutes les suggestions indéfiniment.
+  const stillResolving = seedIds.some((id) => !data[id] && !failed.has(id))
+  const imdbs = seeds.map((s) => data[s.id]?.show.externals?.imdb ?? null)
+  const fetchKey = stillResolving ? '' : seeds.map((s, i) => `${imdbs[i]}:${s.weight}`).join(',')
 
   const [lists, setLists] = useState<SeedList<TvRec>[] | null>(null)
   useEffect(() => {
     if (!tmdbConfigured || !hasLiked || !fetchKey) return
     let alive = true
     setLists(null)
-    mapLimited(seeds, (s) => tvRecommendationsById(s.id)).then((results) => {
+    mapLimited(imdbs, (imdb) => tvRecommendationsByImdb(imdb)).then((results) => {
       if (alive) setLists(seeds.map((s, i) => ({ label: s.label, weight: s.weight, items: results[i] })))
     })
     return () => {
@@ -412,7 +445,7 @@ export function ShowRecommendations() {
                   reason={reason}
                   tag={tag}
                   status={
-                    undefined
+                    opener.opening === r.id ? 'Ouverture…' : opener.notFound === r.id ? 'Introuvable chez TVmaze' : undefined
                   }
                 />
               </button>

@@ -5,12 +5,7 @@
 
 import { me } from './supabase'
 
-type Job = { op: string; args: unknown; uid: string; at: number; v?: number }
-
-// v2 : séries identifiées par TMDB. Une écriture de série gardée par une
-// version antérieure porte des numéros TVmaze : on l'abandonne.
-const V = 2
-const SHOW_OPS = new Set(['markWatched', 'markRewatched', 'markUnwatched', 'unmarkRewatched', 'touchLastWatched', 'setShowStatus', 'rateShow'])
+type Job = { op: string; args: unknown; uid: string; at: number }
 type Codec<A extends unknown[]> = { save: (args: A) => unknown; restore: (raw: unknown) => A }
 
 const KEY = 'zapping.queue'
@@ -23,7 +18,7 @@ export const isNetworkError = (e: unknown) =>
 
 function read(): Job[] {
   try {
-    return (JSON.parse(localStorage.getItem(KEY) ?? '[]') as Job[]).filter((j) => (j.v ?? 1) >= V || !SHOW_OPS.has(j.op))
+    return JSON.parse(localStorage.getItem(KEY) ?? '[]') as Job[]
   } catch {
     return []
   }
@@ -48,7 +43,7 @@ export function queueable<A extends unknown[]>(op: string, fn: (...args: A) => P
   const restore = codec?.restore ?? ((raw: unknown) => raw as A)
   registry.set(op, { run: fn as unknown as (...a: never[]) => Promise<unknown>, restore })
   return async (...args: A): Promise<void> => {
-    const enqueue = async () => write([...read(), { op, args: save(args), uid: await me(), at: Date.now(), v: V }])
+    const enqueue = async () => write([...read(), { op, args: save(args), uid: await me(), at: Date.now() }])
     // Des écritures attendent déjà : on passe derrière elles pour garder l'ordre.
     if ((typeof navigator !== 'undefined' && navigator.onLine === false) || read().length) {
       await enqueue()

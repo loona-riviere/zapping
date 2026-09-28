@@ -1,5 +1,5 @@
 import type { WatchedEpisodes } from './appState'
-import type { TvEpisode } from './series'
+import type { TvEpisode } from './tvmaze'
 
 export function isAired(ep: TvEpisode, now = Date.now()): boolean {
   if (!ep.airdate) return false
@@ -39,7 +39,7 @@ export function computeProgress(episodes: TvEpisode[], watched: WatchedEpisodes)
 const pad = (n: number) => String(n).padStart(2, '0')
 export const epCode = (ep: TvEpisode) => `S${pad(ep.season)}E${pad(ep.number)}`
 
-/** Une date pas encore annoncée arrive comme une chaîne vide :
+/** TVmaze renvoie parfois une chaîne vide pour une date pas encore annoncée :
  * sans ce garde-fou, `new Date('')` produit un Invalid Date silencieusement
  * affiché tel quel. */
 function safeDate(iso: string): Date | null {

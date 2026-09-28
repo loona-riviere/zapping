@@ -1,5 +1,6 @@
 // Où regarder : plateformes par abonnement (données JustWatch via TMDB).
 import { KEY, get } from './client'
+import { resolveTvId } from './tv'
 
 export type Provider = { id: number; name: string; logo: string | null }
 export type Availability = { providers: Provider[]; link: string | null }
@@ -10,12 +11,24 @@ const AVAIL_TTL = 7 * 24 * 60 * 60 * 1000 // 7 j : une offre change, mais pas to
 type RawProvider = { provider_id: number; provider_name: string; logo_path: string | null }
 
 /**
- * Où regarder une série, en abonnement, dans un pays donné. Les données
- * viennent de JustWatch via TMDB, à créditer comme telles.
+ * Où regarder une série, en abonnement, dans un pays donné.
+ *
+ * On ne suit les séries que par leur identifiant TVmaze : le pont vers TMDB
+ * passe par l'IMDb, que TVmaze publie dans `externals`. Sans IMDb, pas de
+ * disponibilité — on renvoie null plutôt que de deviner sur le titre, qui
+ * rapprocherait des homonymes.
+ *
+ * Les données viennent de JustWatch via TMDB, à créditer comme telles.
  */
-export async function watchProviders(tvId: number, region = 'FR'): Promise<Availability | null> {
-  if (!KEY) return null
-  return cachedProviders(`tmdb:where:${region}:tv:${tvId}`, region, async () => `/tv/${tvId}/watch/providers`)
+export async function watchProviders(
+  imdbId: string | null | undefined,
+  region = 'FR',
+): Promise<Availability | null> {
+  if (!KEY || !imdbId) return null
+  return cachedProviders(`tmdb:where:${region}:${imdbId}`, region, async () => {
+    const tvId = await resolveTvId(imdbId)
+    return tvId ? `/tv/${tvId}/watch/providers` : null
+  })
 }
 
 /** Où regarder un film, en abonnement : même source, directement par son identifiant TMDB. */

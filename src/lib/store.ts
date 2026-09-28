@@ -2,7 +2,7 @@ import { me, supabase } from './supabase'
 import { nestedMapCodec, offlineCached } from './offline'
 import { queueable } from './offlineQueue'
 import type { Movie } from './tmdb'
-import type { TvEpisode, TvShow } from './series'
+import type { TvEpisode, TvShow } from './tvmaze'
 
 /** Statut de suivi d'une série. */
 export type ShowStatus = 'watching' | 'paused' | 'later' | 'dropped'
@@ -541,6 +541,49 @@ async function markRewatchedNow(
   // touchLastWatched est appelé par l'appelant (appState), qui recalcule la
   // vraie date à partir de l'ensemble de la passe en cours plutôt que de
   // toujours poser « maintenant » — utile pour corriger une date après coup.
+}
+
+/**
+ * Un épisode ajouté depuis TMDB (identifiant négatif) a pu être coché avant
+ * que TVmaze ne le connaisse. Quand TVmaze l'ajoute, on reporte la coche (et
+ * sa date) sur le vrai épisode, à saison et numéro égaux, puis on retire
+ * l'ancienne. Renvoie le nombre d'épisodes repris.
+ */
+export async function adoptTvmazeEpisodes(showId: number, eps: TvEpisode[]): Promise<number> {
+  const userId = await me()
+  const real = new Map(eps.filter((e) => e.id > 0).map((e) => [`${e.season}:${e.number}`, e.id]))
+  const { data, error } = await supabase
+    .from('watched_episodes')
+    .select('episode_id, season, number, watched_at')
+    .eq('user_id', userId)
+    .eq('show_id', showId)
+    .lt('episode_id', 0)
+  if (error) throw error
+  const moves = new Map<number, number>()
+  const rows = []
+  for (const r of data ?? []) {
+    const to = real.get(`${r.season}:${r.number}`)
+    if (!to) continue
+    moves.set(r.episode_id, to)
+    rows.push({ user_id: userId, show_id: showId, episode_id: to, season: r.season, number: r.number, watched_at: r.watched_at })
+  }
+  if (!rows.length) return 0
+  const up = await supabase.from('watched_episodes').upsert(rows, { onConflict: 'user_id,episode_id', ignoreDuplicates: true })
+  if (up.error) throw up.error
+  const rw = await supabase
+    .from('rewatch_progress')
+    .select('episode_id, watched_at')
+    .eq('user_id', userId)
+    .in('episode_id', [...moves.keys()])
+  if (rw.error) throw rw.error
+  if (rw.data?.length) {
+    const rwRows = rw.data.map((r) => ({ user_id: userId, show_id: showId, episode_id: moves.get(r.episode_id)!, watched_at: r.watched_at }))
+    const res = await supabase.from('rewatch_progress').upsert(rwRows, { onConflict: 'user_id,episode_id', ignoreDuplicates: true })
+    if (res.error) throw res.error
+    await unmarkRewatchedNow(rw.data.map((r) => r.episode_id))
+  }
+  await markUnwatchedNow([...moves.keys()])
+  return rows.length
 }
 
 /** Fixe la date d'activité d'une série pour le tri de l'accueil ; null s'il n'en reste aucune. */

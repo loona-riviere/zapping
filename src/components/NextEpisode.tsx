@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { epCode, formatDate } from '../lib/progress'
 import { href } from '../lib/route'
-import { stripHtml, type TvEpisode } from '../lib/series'
+import { seasonOverviewsFr } from '../lib/tmdb'
+import { stripHtml, type TvEpisode } from '../lib/tvmaze'
 
 // Au-delà, le résumé est replié sur deux lignes : on voit de quoi parle
 // l'épisode sans tout lire (et sans se spoiler) par accident.
@@ -14,20 +15,35 @@ const LONG = 120
  * annonce le prochain à sortir.
  */
 export function NextEpisode({
-  showId, next, upcoming, onSeen,
+  showId, next, upcoming, imdbId, onSeen,
 }: {
   showId: number
   next: TvEpisode | null
   upcoming: TvEpisode | null
+  imdbId: string | null | undefined
   onSeen: (ep: TvEpisode) => void
 }) {
   const ep = next ?? upcoming
+  const [frSummary, setFrSummary] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
 
-  useEffect(() => setExpanded(false), [ep?.id])
+  useEffect(() => {
+    setFrSummary(null)
+    setExpanded(false)
+    if (!ep || !imdbId) return
+    let alive = true
+    seasonOverviewsFr(imdbId, ep.season)
+      .then((eps) => alive && setFrSummary(eps?.get(ep.number) ?? null))
+      .catch(() => {
+        /* pas de traduction : on garde le résumé anglais de TVmaze */
+      })
+    return () => {
+      alive = false
+    }
+  }, [ep?.id, imdbId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!ep) return null
-  const summary = ep.summary ? stripHtml(ep.summary) : ''
+  const summary = frSummary ?? (ep.summary ? stripHtml(ep.summary) : '')
   const long = summary.length > LONG
 
   return (

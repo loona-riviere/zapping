@@ -1,9 +1,11 @@
+import { completeFromTmdb } from '../lib/showCompletion'
 import { useEffect, useMemo, useState, useRef } from 'react'
-import type { ShowStatus } from '../lib/store'
+import { adoptTvmazeEpisodes, type ShowStatus } from '../lib/store'
 import { useShows } from '../lib/showsState'
 import { computeProgress, epCode, formatDate, formatShortDate, isAired } from '../lib/progress'
 import { href } from '../lib/route'
-import { getShowWithEpisodes, statusFr, stripHtml, type ShowWithEpisodes, type TvEpisode } from '../lib/series'
+import { showDetailsFr } from '../lib/tmdb'
+import { getShowWithEpisodes, statusFr, stripHtml, type ShowWithEpisodes, type TvEpisode } from '../lib/tvmaze'
 import { FriendsOn } from './FriendsOn'
 import { friendsOnShow } from '../lib/friendsOn'
 import { ActionBar, ChoiceAction, RatingAction } from './ActionBar'
@@ -23,7 +25,7 @@ const SHOW_STATUS_OPTIONS: { value: ShowStatus; icon: string; label: string; hin
 ]
 
 export function ShowPage({ id }: { id: number }) {
-  const { statusOf, setStatus, isTracked, track, untrack, watchedFor, historyFor, setWatched, isRewatching, tracked, renameShow, rateShow } = useShows()
+  const { statusOf, setStatus, isTracked, track, untrack, watchedFor, historyFor, setWatched, isRewatching, tracked, renameShow, rateShow, reloadShows } = useShows()
   const [data, setData] = useState<ShowWithEpisodes | null>(null)
   const [error, setError] = useState(false)
   const [catchUp, setCatchUp] = useState<TvEpisode[] | null>(null)
@@ -51,6 +53,11 @@ export function ShowPage({ id }: { id: number }) {
   const [gridChoice, setGridChoice] = useState<Map<number, boolean>>(new Map())
   const [menuSeason, setMenuSeason] = useState<number | null>(null)
   const [summaryOpen, setSummaryOpen] = useState(false)
+  // Titre et résumé en français, via TMDB — absents tant qu'ils n'ont pas fini
+  // de charger ou si TMDB n'a rien pour cette série ; on retombe alors sur
+  // l'anglais de TVmaze.
+  const [frName, setFrName] = useState<string | null>(null)
+  const [frOverview, setFrOverview] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -60,23 +67,59 @@ export function ShowPage({ id }: { id: number }) {
     setGridChoice(new Map())
     setMenuSeason(null)
     setSummaryOpen(false)
+    setFrName(null)
+    setFrOverview(null)
     getShowWithEpisodes(id)
-      .then((d) => alive && setData(d))
+      .then((d) => {
+        if (!alive) return
+        setData(d)
+        // Dates ou saison manquantes chez TVmaze : TMDB complète, en arrière-plan.
+        void completeFromTmdb(d).then((full) => alive && full && setData(full))
+        // Coches posées sur des épisodes TMDB que TVmaze connaît désormais :
+        // on les reporte sur les vrais épisodes pour ne rien perdre.
+        const known = new Set(d.episodes.map((e) => e.id))
+        const orphans = [...watchedFor(id).keys()].some((k) => k < 0 && !known.has(k))
+        if (orphans) {
+          void adoptTvmazeEpisodes(id, d.episodes)
+            .then((n) => { if (n > 0) void reloadShows() })
+            .catch(() => {
+              /* on réessaiera à la prochaine ouverture */
+            })
+        }
+      })
       .catch(() => alive && setError(true))
     return () => {
       alive = false
     }
   }, [id])
 
-  // Le titre français de TMDB peut changer (ou arriver après l'ajout) : on
-  // garde en base celui de la fiche, que l'accueil et la recherche affichent.
-  const tmdbName = data?.show.name
   useEffect(() => {
-    if (!tmdbName) return
+    let alive = true
+    const imdbId = data?.show.externals?.imdb
+    if (!imdbId) return
+    showDetailsFr(imdbId)
+      .then((d) => {
+        if (!alive || !d) return
+        if (d.overview) setFrOverview(d.overview)
+        if (d.name) setFrName(d.name)
+      })
+      .catch(() => {
+        /* pas de traduction dispo : on garde l'anglais de TVmaze */
+      })
+    return () => {
+      alive = false
+    }
+  }, [data?.show.externals?.imdb])
+
+  // Une fois le titre français trouvé, on le pose en base pour de bon — sans
+  // ça, la fiche l'afficherait en français mais l'accueil et la recherche
+  // resteraient sur l'anglais de TVmaze.
+  useEffect(() => {
+    if (!frName) return
     const current = tracked.find((t) => t.show_id === id)?.name
-    if (current && current !== tmdbName) renameShow(id, tmdbName)
+    if (current && current !== frName) renameShow(id, frName)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tmdbName, id])
+  }, [frName, id])
 
   const watched = watchedFor(id)
   // Pendant un revisionnage, `watched` ne montre que la passe en cours :
@@ -93,14 +136,14 @@ export function ShowPage({ id }: { id: number }) {
     return [...map.entries()]
   }, [data])
 
-  if (error) return <p className="error pad">Impossible de charger cette série. <a href={href.home}>Retour</a></p>
+  if (error) return <p className="error pad">Impossible de charger cette série depuis TVmaze. <a href={href.home}>Retour</a></p>
   if (!data) return <SkeletonPage />
 
   const { show, episodes } = data
   const followed = isTracked(show.id)
   const progress = computeProgress(episodes, watched)
   const channel = show.network?.name ?? show.webChannel?.name
-  const summary = stripHtml(show.summary)
+  const summary = frOverview ?? stripHtml(show.summary)
   const longSummary = summary.length > 220
 
   // La saison du prochain épisode (ou du prochain à sortir) : la seule
@@ -130,7 +173,7 @@ export function ShowPage({ id }: { id: number }) {
 
   /**
    * « Je les ai vus à peu près à leur sortie » : plutôt que corriger épisode
-   * par épisode, on reprend la date de diffusion connue
+   * par épisode, on reprend la date de diffusion que TVmaze connaît déjà
    * pour chacun des épisodes cochés de la saison.
    */
   function dateToAirdates(eps: TvEpisode[]) {
@@ -186,8 +229,9 @@ export function ShowPage({ id }: { id: number }) {
   }
 
   /**
-   * Une saison annoncée peut arriver chez TMDB après coup, alors que le
-   * navigateur garde la fiche 12 h. Ce bouton refait l'appel en ignorant le cache.
+   * TVmaze est alimenté par sa communauté : une saison récente peut y arriver
+   * après coup, alors que le navigateur garde la fiche 12 h. Ce bouton refait
+   * l'appel en ignorant le cache.
    */
   async function reload() {
     setRefresh('busy')
@@ -217,7 +261,7 @@ export function ShowPage({ id }: { id: number }) {
       <header className="show__head">
         <Poster src={show.image?.original ?? show.image?.medium} alt={show.name} size="lg" />
         <div className="show__meta">
-          <h1>{show.name}</h1>
+          <h1>{frName ?? show.name}</h1>
           <p className="muted">
             {[
               show.premiered?.slice(0, 4),
@@ -240,6 +284,7 @@ export function ShowPage({ id }: { id: number }) {
           showId={show.id}
           next={progress.next}
           upcoming={progress.upcoming}
+          imdbId={show.externals?.imdb}
           onSeen={toggle}
         />
       )}
@@ -286,7 +331,7 @@ export function ShowPage({ id }: { id: number }) {
         {followed && <Rewatches show={show} episodes={episodes} />}
       </div>
 
-      <WhereToWatch tvId={show.id} title={show.name} />
+      <WhereToWatch imdbId={show.externals?.imdb} title={frName ?? show.name} />
 
       {summary && (
         <>
@@ -489,16 +534,16 @@ export function ShowPage({ id }: { id: number }) {
       <p className="show__refresh muted">
         Il manque une saison ou des épisodes ?{' '}
         <button className="link-btn" disabled={refresh === 'busy'} onClick={reload}>
-          {refresh === 'busy' ? 'Mise à jour…' : 'Recharger la fiche'}
+          {refresh === 'busy' ? 'Mise à jour…' : 'Recharger depuis TVmaze'}
         </button>
         {refresh === 'done' && ' — fiche mise à jour.'}
         {refresh === 'failed' && ' — échec, réessaie plus tard.'}
         {refresh === 'nochange' && (
           <>
-            {' '}— rien de neuf pour l'instant. Les fiches viennent de TMDB :{' '}
-            <a href={`https://www.themoviedb.org/tv/${show.id}`} target="_blank" rel="noreferrer">
-              une saison manquante peut s'y ajouter
-            </a>, elle apparaîtra ici ensuite.
+            {' '}— rien de neuf chez eux. TVmaze est alimenté par sa communauté :{' '}
+            <a href={`https://www.tvmaze.com/shows/${show.id}`} target="_blank" rel="noreferrer">
+              la saison manquante s'ajoute sur leur fiche
+            </a>, et elle apparaîtra ici ensuite.
           </>
         )}
       </p>

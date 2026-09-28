@@ -1,5 +1,6 @@
 // Suggestions TMDB : proches d'un titre vu, récents dispos en France, tendances.
 import { type Movie, type RawMovie, type RecSignals, KEY, IMG, CACHE_TTL, signals, toMovie, get, readCache, writeCache } from './client'
+import { resolveTvId } from './tv'
 
 export type RecMovie = Movie & RecSignals
 
@@ -31,7 +32,7 @@ export async function movieRecommendations(movieId: number): Promise<RecMovie[]>
 export type TvRecommendation = {
   id: number
   name: string
-  /** Titre original (souvent l'anglais), à côté du titre français de TMDB. */
+  /** Titre original (souvent l'anglais) : TVmaze suit les séries sous ce nom-là, pas le titre français de TMDB. */
   originalName: string
   poster_url: string | null
   year: number | null
@@ -63,9 +64,16 @@ export const toTvRec = (r: RawTvRec): TvRecommendation => ({
 
 export type TvRec = TvRecommendation & RecSignals
 
-/** Séries recommandées par TMDB à partir d'une série suivie. */
-export async function tvRecommendationsById(tvId: number): Promise<TvRec[]> {
-  if (!KEY) return []
+/**
+ * Séries recommandées par TMDB à partir d'une série suivie (résolue via son
+ * IMDb ID, le seul pont qu'on a entre TVmaze et TMDB). Ce ne sont que des
+ * suggestions à chercher ensuite sur TVmaze : TMDB ne connaît pas
+ * l'identifiant TVmaze, donc pas de lien direct vers une fiche.
+ */
+export async function tvRecommendationsByImdb(imdbId: string | null | undefined): Promise<TvRec[]> {
+  if (!KEY || !imdbId) return []
+  const tvId = await resolveTvId(imdbId).catch(() => null)
+  if (!tvId) return []
   // Le numéro de version change avec la forme des données mises en cache
   // (leçon de movieDetails) : à rebumper si le type change encore.
   const key = `tmdb:tvrec:v5:${tvId}`

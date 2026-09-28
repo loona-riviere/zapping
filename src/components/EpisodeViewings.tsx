@@ -1,6 +1,6 @@
 import { useShows } from '../lib/showsState'
 import { formatShortDate } from '../lib/progress'
-import type { TvEpisode } from '../lib/series'
+import type { TvEpisode } from '../lib/tvmaze'
 import { History, type HistoryEntry } from './History'
 import { useWithLabel } from './WithPicker'
 

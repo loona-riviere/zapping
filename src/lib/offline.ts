@@ -13,8 +13,7 @@ export async function offlineCached<T>(
   load: () => Promise<T>,
   codec: { save: (v: T) => unknown; restore: (raw: unknown) => T } = { save: (v) => v, restore: (r) => r as T },
 ): Promise<T> {
-  // v2 : séries identifiées par TMDB.
-  const key = `zapping.offline.v2.${name}.${await me().catch(() => 'anon')}`
+  const key = `zapping.offline.${name}.${await me().catch(() => 'anon')}`
   try {
     const value = await load()
     try {

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useShows } from '../lib/showsState'
 import { epCode, formatDate, isAired } from '../lib/progress'
 import { href } from '../lib/route'
-import { getShowWithEpisodes, stripHtml, type ShowWithEpisodes } from '../lib/series'
+import { seasonEpisodesFr, type EpisodeFr } from '../lib/tmdb'
+import { getShowWithEpisodes, stripHtml, type ShowWithEpisodes } from '../lib/tvmaze'
 import { DateField } from './History'
 import { Comments } from './Comments'
 import { EpisodeViewings } from './EpisodeViewings'
@@ -10,7 +11,7 @@ import { SkeletonPage } from './Skeleton'
 
 /**
  * La page d'un épisode, en plein écran : image, titre et résumé (en français
- * quand TMDB les a, sinon en anglais), diffusion, et « Vu » avec sa date. Les flèches — ou un
+ * quand TMDB les a), diffusion, et « Vu » avec sa date. Les flèches — ou un
  * glissé horizontal sur l'image — passent au précédent / suivant, pour
  * enchaîner comme dans une appli de streaming.
  */
@@ -18,6 +19,7 @@ export function EpisodePage({ showId, episodeId }: { showId: number; episodeId: 
   const { watchedFor, historyFor, setWatched, isTracked, track, tracked } = useShows()
   const [data, setData] = useState<ShowWithEpisodes | null>(null)
   const [error, setError] = useState(false)
+  const [fr, setFr] = useState<Map<number, EpisodeFr> | null>(null)
   const swipe = useRef<number | null>(null)
 
   useEffect(() => {
@@ -31,6 +33,21 @@ export function EpisodePage({ showId, episodeId }: { showId: number; episodeId: 
   }, [showId])
 
   const ep = data?.episodes.find((e) => e.id === episodeId)
+  const imdb = data?.show.externals?.imdb
+  useEffect(() => {
+    if (!imdb || !ep) return
+    let alive = true
+    setFr(null)
+    seasonEpisodesFr(imdb, ep.season)
+      .then((m) => alive && setFr(m))
+      .catch(() => {
+        /* pas de traduction : on garde TVmaze */
+      })
+    return () => {
+      alive = false
+    }
+  }, [imdb, ep?.season])
+
   if (error) return <p className="error pad">Impossible de charger cet épisode. <a href={href.show(showId)}>Retour</a></p>
   if (!data) return <SkeletonPage />
   if (!ep) return <p className="error pad">Épisode introuvable. <a href={href.show(showId)}>Retour à la série</a></p>
@@ -44,9 +61,10 @@ export function EpisodePage({ showId, episodeId }: { showId: number; episodeId: 
   const seen = watched.has(ep.id)
   const seenAt = watched.get(ep.id) ?? null
   const aired = isAired(ep)
-  const title = ep.name
-  const summary = stripHtml(ep.summary)
-  const image = ep.image?.original ?? null
+  const t = fr?.get(ep.number)
+  const title = t?.name ?? ep.name
+  const summary = t?.overview ?? stripHtml(ep.summary)
+  const image = t?.still ?? ep.image?.original ?? null
   const showName = tracked.find((x) => x.show_id === showId)?.name ?? show.name
   const go = (id: number) => (window.location.hash = href.episode(showId, id))
 
