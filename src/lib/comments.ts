@@ -72,3 +72,18 @@ export function ago(iso: string): string {
   if (s < 172800) return 'hier'
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 }
+
+/**
+ * Nombre de commentaires par épisode d'une série (les miens et ceux de mes
+ * amis, filtrés par la base), pour les signaler sur la grille des épisodes.
+ */
+export async function episodeCommentCounts(showId: number): Promise<Map<number, number>> {
+  const { data, error } = await supabase.from('comments').select('item_id').eq('kind', 'episode').eq('show_id', showId)
+  if (error) {
+    if (isMissingSchema(error)) return new Map()
+    throw error
+  }
+  const counts = new Map<number, number>()
+  for (const c of data ?? []) counts.set(Number(c.item_id), (counts.get(Number(c.item_id)) ?? 0) + 1)
+  return counts
+}
