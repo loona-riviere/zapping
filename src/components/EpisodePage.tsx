@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useShows } from '../lib/showsState'
 import { epCode, formatDate, isAired } from '../lib/progress'
 import { href } from '../lib/route'
-import { seasonEpisodesFr, type EpisodeFr } from '../lib/tmdb'
+import { frFor, seasonEpisodesFr, type EpisodeFr } from '../lib/tmdb'
 import { getShowWithEpisodes, stripHtml, type ShowWithEpisodes } from '../lib/tvmaze'
 import { DateField } from './History'
 import { Comments } from './Comments'
@@ -61,7 +61,7 @@ export function EpisodePage({ showId, episodeId }: { showId: number; episodeId: 
   const seen = watched.has(ep.id)
   const seenAt = watched.get(ep.id) ?? null
   const aired = isAired(ep)
-  const t = fr?.get(ep.number)
+  const t = frFor(fr, ep)
   const title = t?.name ?? ep.name
   const summary = t?.overview ?? stripHtml(ep.summary)
   const image = t?.still ?? ep.image?.original ?? null

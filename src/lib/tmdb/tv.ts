@@ -135,7 +135,13 @@ export async function seasonOverviewsFr(
   return episodes
 }
 
-export type EpisodeFr = { name: string | null; overview: string | null; still: string | null }
+export type EpisodeFr = {
+  number: number
+  airdate: string | null
+  name: string | null
+  overview: string | null
+  still: string | null
+}
 
 /**
  * Titre, résumé et image de chaque épisode d'une saison, en français (TMDB),
@@ -146,18 +152,20 @@ export async function seasonEpisodesFr(
   season: number,
 ): Promise<Map<number, EpisodeFr> | null> {
   if (!KEY || !imdbId) return null
-  const key = `tmdb:season-full:${imdbId}:${season}`
+  const key = `tmdb:season-full:v2:${imdbId}:${season}`
   const cached = readCache<[number, EpisodeFr][]>(key, SUMMARY_TTL)
   if (cached) return new Map(cached)
   const tvId = await resolveTvId(imdbId)
   if (!tvId) return null
   const data = await get<{
-    episodes: { episode_number: number; name: string | null; overview: string | null; still_path: string | null }[]
+    episodes: { episode_number: number; air_date: string | null; name: string | null; overview: string | null; still_path: string | null }[]
   }>(`/tv/${tvId}/season/${season}`, {})
   const eps = new Map(
     data.episodes.map((e) => [
       e.episode_number,
       {
+        number: e.episode_number,
+        airdate: e.air_date || null,
         // TMDB met « Épisode 3 » quand il n'a pas de titre traduit : autant garder celui de TVmaze.
         name: e.name && !/^(Épisode|Episode) \d+$/.test(e.name) ? e.name : null,
         overview: e.overview || null,
@@ -167,6 +175,30 @@ export async function seasonEpisodesFr(
   )
   writeCache(key, [...eps.entries()])
   return eps
+}
+
+const DAY = 24 * 3600 * 1000
+const daysApart = (a: string, b: string) => Math.abs(Date.parse(a) - Date.parse(b)) / DAY
+
+/**
+ * La traduction TMDB d'un épisode TVmaze. Le numéro ne suffit pas : les deux
+ * catalogues ne découpent pas toujours pareil (TVmaze coupe un épisode double
+ * en deux, et tout le reste de la saison se décale d'un cran). On s'appuie
+ * donc sur la date de diffusion : l'épisode TMDB sorti le même jour, et le
+ * numéro seulement pour départager une saison sortie d'un bloc. Sans
+ * correspondance sûre, rien : mieux vaut l'anglais que le résumé d'un autre épisode.
+ */
+export function frFor(
+  season: Map<number, EpisodeFr> | null,
+  ep: { number: number; airdate: string },
+): EpisodeFr | null {
+  if (!season) return null
+  const byNumber = season.get(ep.number) ?? null
+  if (!ep.airdate) return byNumber
+  const sameDay = [...season.values()].filter((t) => t.airdate && daysApart(t.airdate, ep.airdate) < 1)
+  if (sameDay.length === 1) return sameDay[0]
+  if (sameDay.length > 1) return sameDay.find((t) => t.number === ep.number) ?? null
+  return byNumber && (!byNumber.airdate || daysApart(byNumber.airdate, ep.airdate) <= 3) ? byNumber : null
 }
 
 

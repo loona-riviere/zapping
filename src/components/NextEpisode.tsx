@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { epCode, formatDate } from '../lib/progress'
 import { href } from '../lib/route'
-import { seasonOverviewsFr } from '../lib/tmdb'
+import { frFor, seasonEpisodesFr } from '../lib/tmdb'
 import { stripHtml, type TvEpisode } from '../lib/tvmaze'
 
 // Au-delà, le résumé est replié sur deux lignes : on voit de quoi parle
@@ -32,8 +32,8 @@ export function NextEpisode({
     setExpanded(false)
     if (!ep || !imdbId) return
     let alive = true
-    seasonOverviewsFr(imdbId, ep.season)
-      .then((eps) => alive && setFrSummary(eps?.get(ep.number) ?? null))
+    seasonEpisodesFr(imdbId, ep.season)
+      .then((eps) => alive && setFrSummary(frFor(eps, ep)?.overview ?? null))
       .catch(() => {
         /* pas de traduction : on garde le résumé anglais de TVmaze */
       })
