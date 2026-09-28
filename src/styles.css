@@ -1243,3 +1243,5 @@ a.choice { text-decoration: none; }
 .offline-banner { margin: 0; padding: .5rem 1rem; font-size: .85rem; text-align: center; background: var(--amber); color: #1a1300; font-weight: 600; }
 .offline-banner--ok { background: #2e9d5b; color: #fff; }
 .hist__foot:empty { display: none; }
+.kinds--list { flex-direction: column; align-items: stretch; margin-bottom: .9rem; }
+.kinds--list .kinds__item { border-radius: var(--radius); font-weight: 500; }

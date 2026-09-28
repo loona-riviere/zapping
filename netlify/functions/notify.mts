@@ -1,4 +1,4 @@
-import { sendPush, setupPush, type SubRow } from '../lib/push'
+import { mutedFor, sendPush, setupPush, type NotifCategory, type SubRow } from '../lib/push'
 
 // Notifs entre amis : demande reçue, demande acceptée, recommandation,
 // invitation à regarder une série à deux. L'app appelle cette fonction juste
@@ -51,10 +51,12 @@ async function handle(req: Request): Promise<Response> {
   const who = sender?.display_name?.trim() || (sender ? `@${sender.username}` : 'Quelqu’un')
 
   let payload: { title: string; body: string; url: string } | null = null
+  // Type de la notif, que le destinataire peut avoir coupé (null : test, toujours envoyé).
+  let category: NotifCategory | null = null
   // Par défaut un seul destinataire ; un commentaire va à plusieurs amis.
   let recipients: string[] = [to]
   // Envois supplémentaires, avec leur propre texte (amis tagués dans un commentaire).
-  const extra: { to: string[]; payload: { title: string; body: string; url: string } }[] = []
+  const extra: { to: string[]; category: NotifCategory; payload: { title: string; body: string; url: string } }[] = []
 
   if (body.event === 'comment' && typeof body.commentId === 'number') {
     // Mon commentaire, tout juste publié : on prévient mes amis qui ont ce titre.
@@ -92,6 +94,7 @@ async function handle(req: Request): Promise<Response> {
       recipients = having.filter((u) => !tagged.includes(u))
       const url =
         c.kind === 'episode' ? `/#/show/${c.show_id}/ep/${c.item_id}` : c.kind === 'movie' ? `/#/movie/${c.item_id}` : `/#/livre/${encodeURIComponent(c.item_id)}`
+      category = 'comments'
       payload = {
         title: `${who} a commenté ${c.title}`,
         // Un épisode peut divulgâcher : on ne recopie pas le texte dans la notif.
@@ -101,6 +104,7 @@ async function handle(req: Request): Promise<Response> {
       if (tagged.length) {
         extra.push({
           to: tagged,
+          category: 'mentions',
           payload: {
             title: `${who} t’a mentionné·e`,
             body: `Dans un commentaire sur ${c.title}${c.kind === 'episode' || c.spoiler ? ' (attention aux spoilers)' : ` : ${c.body.slice(0, 120)}`}`,
@@ -119,6 +123,7 @@ async function handle(req: Request): Promise<Response> {
       .eq('addressee', to)
       .eq('status', 'pending')
       .maybeSingle()
+    category = 'friends'
     if (data) payload = { title: 'Demande d’ami', body: `${who} veut t’ajouter sur Zapping.`, url: '/#/amis' }
   } else if (body.event === 'friend_accept') {
     const { data } = await db
@@ -128,6 +133,7 @@ async function handle(req: Request): Promise<Response> {
       .eq('addressee', me)
       .eq('status', 'accepted')
       .maybeSingle()
+    category = 'friends'
     if (data) payload = { title: 'Nouvel ami', body: `${who} a accepté ta demande.`, url: '/#/amis' }
   } else if (body.event === 'rec' && body.kind && body.itemId) {
     const { data } = await db
@@ -139,6 +145,7 @@ async function handle(req: Request): Promise<Response> {
       .eq('item_id', body.itemId)
       .maybeSingle()
     if (data && Date.now() - new Date(data.created_at).getTime() < RECENT_MS) {
+      category = 'recs'
       const what = body.kind === 'book' ? 'un livre' : body.kind === 'movie' ? 'un film' : 'une série'
       payload = {
         title: `${who} te recommande ${what}`,
@@ -154,6 +161,7 @@ async function handle(req: Request): Promise<Response> {
       .eq('inviter', me)
       .eq('invitee', to)
       .maybeSingle()
+    category = 'together'
     if (data) {
       payload = { title: 'Série cochée à deux', body: `${who} coche désormais ${data.show_name} pour vous deux.`, url: `/#/show/${body.showId}` }
     }
@@ -192,7 +200,13 @@ async function handle(req: Request): Promise<Response> {
 
   if (!payload) return Response.json({ sent: 0, reason: 'Rien à notifier' })
 
-  const batches = [{ to: recipients, payload }, ...extra].filter((x) => x.to.length)
+  const all = [{ to: recipients, category, payload }, ...extra]
+  const batches: typeof all = []
+  for (const b of all) {
+    const muted = b.category ? await mutedFor(db, b.to, b.category) : new Set<string>()
+    const to = b.to.filter((u) => !muted.has(u))
+    if (to.length) batches.push({ ...b, to })
+  }
   if (!batches.length) return Response.json({ sent: 0, reason: 'Personne à prévenir' })
   let sent = 0
   let devices = 0

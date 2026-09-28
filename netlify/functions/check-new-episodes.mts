@@ -1,4 +1,4 @@
-import { sendPush, setupPush, subscriptionsByUser } from '../lib/push'
+import { mutedFor, sendPush, setupPush, subscriptionsByUser } from '../lib/push'
 
 // Tourne une fois par jour : les notifs arrivent avec jusqu'à ~24h de
 // retard sur la sortie réelle de l'épisode, pas en temps réel. Suffisant
@@ -26,11 +26,16 @@ export default async () => {
   const subsByUser = await subscriptionsByUser(db)
   if (!subsByUser.size) return // personne d'abonné : pas la peine d'interroger TVmaze
 
+  // Nouveaux épisodes coupés dans ses Paramètres : pas la peine de regarder ses séries.
+  const muted = await mutedFor(db, [...subsByUser.keys()], 'episodes')
+  const wanted = [...subsByUser.keys()].filter((u) => !muted.has(u))
+  if (!wanted.length) return
+
   const { data: tracked } = await db
     .from('tracked_shows')
     .select('user_id, show_id')
     .eq('status', 'watching')
-    .in('user_id', [...subsByUser.keys()])
+    .in('user_id', wanted)
   const trackedByShow = new Map<number, string[]>()
   for (const t of (tracked ?? []) as TrackedRow[]) {
     const list = trackedByShow.get(t.show_id) ?? []

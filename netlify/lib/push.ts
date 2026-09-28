@@ -69,3 +69,13 @@ export async function sendPush(db: SupabaseClient, subs: SubRow[], payload: Push
   }
   return { sent, errors }
 }
+
+/** Types de notifications que chacun peut couper dans Paramètres (table notif_prefs). */
+export type NotifCategory = 'episodes' | 'movies' | 'friends' | 'recs' | 'together' | 'comments' | 'mentions'
+
+/** Ceux, parmi `userIds`, qui ont coupé ce type de notification. */
+export async function mutedFor(db: SupabaseClient, userIds: string[], cat: NotifCategory): Promise<Set<string>> {
+  if (!userIds.length) return new Set()
+  const { data } = await db.from('notif_prefs').select('user_id').in('user_id', userIds).contains('off', [cat])
+  return new Set((data ?? []).map((r) => r.user_id as string))
+}

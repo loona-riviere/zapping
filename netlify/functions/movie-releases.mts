@@ -1,4 +1,4 @@
-import { sendPush, setupPush, subscriptionsByUser, type PushPayload } from '../lib/push'
+import { mutedFor, sendPush, setupPush, subscriptionsByUser, type PushPayload } from '../lib/push'
 
 // Tous les matins : pour chaque film « à voir » des utilisateurs abonnés aux
 // notifs, deux nouvelles possibles —
@@ -51,7 +51,11 @@ export default async () => {
     return res.ok ? ((await res.json()) as Movie) : null
   }
 
+  // Sorties de films coupées dans ses Paramètres.
+  const muted = await mutedFor(db, [...subsByUser.keys()], 'movies')
+
   async function push(userId: string, movieId: number, kind: string, payload: PushPayload) {
+    if (muted.has(userId)) return
     // La ligne d'abord : si elle existe déjà, cette nouvelle a été envoyée.
     const { error } = await db.from('movie_notifications').insert({ user_id: userId, movie_id: movieId, kind })
     if (error) return

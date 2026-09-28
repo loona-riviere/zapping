@@ -1,4 +1,4 @@
-import { sendPush, setupPush, type SubRow } from '../lib/push'
+import { mutedFor, sendPush, setupPush, type SubRow } from '../lib/push'
 
 // Toutes les 5 minutes : envoie en une seule notif les « vu ensemble » mis en
 // attente par notify, une fois que l'expéditeur a fini (plus rien d'ajouté
@@ -25,6 +25,11 @@ export default async () => {
     if (Date.now() - last < QUIET_MS) continue // encore en train de cocher
 
     const { recipient, sender } = rows[0]
+    // « Vu ensemble » coupé dans ses Paramètres : on jette sans envoyer.
+    if ((await mutedFor(db, [recipient], 'together')).size) {
+      await db.from('notif_queue').delete().in('id', rows.map((r) => r.id))
+      continue
+    }
     const { data: p } = await db.from('profiles').select('username, display_name').eq('user_id', sender).maybeSingle()
     const who = p?.display_name?.trim() || (p ? `@${p.username}` : 'Un ami')
     const labels = [...new Set(rows.map((r) => r.label))]

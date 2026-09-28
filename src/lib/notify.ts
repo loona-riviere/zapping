@@ -56,3 +56,32 @@ export async function testNotification(): Promise<string> {
     return `Échec : ${(e as Error).message}`
   }
 }
+
+/** Types de notifications qu'on peut couper (mêmes clés côté Netlify, netlify/lib/push.ts). */
+export const NOTIF_CATEGORIES = [
+  { id: 'episodes', label: 'Nouvel épisode d’une série suivie' },
+  { id: 'movies', label: 'Film de ma liste au cinéma ou sur une plateforme' },
+  { id: 'recs', label: 'Recommandation d’un ami' },
+  { id: 'comments', label: 'Commentaire d’un ami sur un titre que j’ai' },
+  { id: 'mentions', label: 'Quand un ami me mentionne' },
+  { id: 'together', label: 'Vu ensemble, série cochée à deux' },
+  { id: 'friends', label: 'Demande d’ami acceptée ou reçue' },
+] as const
+
+export type NotifCategory = (typeof NOTIF_CATEGORIES)[number]['id']
+
+/** Les types coupés (tout est activé par défaut). */
+export async function mutedCategories(): Promise<NotifCategory[]> {
+  const { data } = await supabase.from('notif_prefs').select('off').maybeSingle()
+  return (data?.off ?? []) as NotifCategory[]
+}
+
+export async function setMutedCategories(off: NotifCategory[]): Promise<void> {
+  const { data: auth } = await supabase.auth.getSession()
+  const uid = auth.session?.user.id
+  if (!uid) throw new Error('Pas connecté')
+  const { error } = await supabase
+    .from('notif_prefs')
+    .upsert({ user_id: uid, off, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+  if (error) throw error
+}
