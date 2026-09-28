@@ -75,9 +75,13 @@ export function Notifications() {
           {state !== 'on' && (
             <p className="muted">Une notif quand un nouvel épisode d'une série suivie sort, quand un film de ta liste « à voir » sort au cinéma ou arrive sur une plateforme, et quand un ami te recommande quelque chose ou te demande en ami.</p>
           )}
+          {state === 'on' && <p className="muted">✅ Activées sur cet appareil.</p>}
           {state === 'on' && muted && (
-            <>
-              <p className="muted">Décoche ce que tu ne veux plus recevoir, sur tous tes appareils.</p>
+            <details className="notif-prefs">
+              <summary>
+                Choisir quoi recevoir
+                <span className="muted"> · {NOTIF_CATEGORIES.length - muted.length} sur {NOTIF_CATEGORIES.length}</span>
+              </summary>
               <div className="kinds kinds--list">
                 {NOTIF_CATEGORIES.map((c) => (
                   <label key={c.id} className="kinds__item">
@@ -86,9 +90,10 @@ export function Notifications() {
                   </label>
                 ))}
               </div>
-              {saveError && <p className="error">Réglage non enregistré — vérifie ta connexion.</p>}
-            </>
+              <p className="muted notif-prefs__hint">Vaut pour tous tes appareils.</p>
+            </details>
           )}
+          {saveError && <p className="error">Réglage non enregistré — vérifie ta connexion.</p>}
           <div className="settings__actions">
           <button
             type="button"

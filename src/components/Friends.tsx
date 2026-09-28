@@ -260,19 +260,18 @@ export function Friends() {
       {(duos ?? []).some((d) => d.status === 'accepted') && (
         <section>
           <h2 className="section-title">Séries cochées à deux</h2>
-          <ul className="rows">
+          {/* Une rangée d'affiches qui défile : la section reste courte quel que soit le nombre de séries. */}
+          <ul className="shelf shelf--carousel">
             {(duos ?? [])
               .filter((d) => d.status === 'accepted')
               .map((d) => {
                 const who = profileOf(d.partnerId)
                 return (
-                  <li key={`${d.show_id}-${d.partnerId}`} className="row">
-                    <a href={href.show(d.show_id)} className="row__link">
+                  <li key={`${d.show_id}-${d.partnerId}`} className="shelf__item">
+                    <a href={href.show(d.show_id)} title={d.show_name}>
                       <Poster src={d.image_url} alt={d.show_name} />
-                      <div className="row__body">
-                        <h3>{d.show_name}</h3>
-                        <p className="muted">🔗 avec {who ? nameOf(who) : 'un ami'}</p>
-                      </div>
+                      <span className="shelf__label">{d.show_name}</span>
+                      <span className="shelf__because">avec {who ? nameOf(who) : 'un ami'}</span>
                     </a>
                   </li>
                 )

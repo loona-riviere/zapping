@@ -156,7 +156,7 @@ button { font: inherit; color: inherit; }
    avoir à en écarter pour faire de la place. */
 .shelf--carousel {
   display: flex; flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x proximity;
-  margin: 0 -1rem; padding: 0 1rem .3rem; -webkit-overflow-scrolling: touch;
+  margin: 0 -1rem; padding: 0 1rem .3rem; scroll-padding-inline: 1rem; -webkit-overflow-scrolling: touch;
 }
 .shelf--carousel .shelf__item { flex: 0 0 6rem; min-width: 0; scroll-snap-align: start; }
 .shelf--carousel .poster--sm { width: 100%; }
@@ -1245,3 +1245,13 @@ a.choice { text-decoration: none; }
 .hist__foot:empty { display: none; }
 .kinds--list { flex-direction: column; align-items: stretch; margin-bottom: .9rem; }
 .kinds--list .kinds__item { border-radius: var(--radius); font-weight: 500; }
+.notif-prefs { margin: .2rem 0 .9rem; border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.notif-prefs > summary {
+  cursor: pointer; list-style: none; padding: .75rem .9rem; font-weight: 700;
+  display: flex; align-items: center; gap: .2rem;
+}
+.notif-prefs > summary::-webkit-details-marker { display: none; }
+.notif-prefs > summary::after { content: '›'; margin-left: auto; color: var(--muted); transition: transform .15s; }
+.notif-prefs[open] > summary::after { transform: rotate(90deg); }
+.notif-prefs .kinds--list { padding: 0 .9rem; margin-bottom: .6rem; }
+.notif-prefs__hint { font-size: .8rem; padding: 0 .9rem .75rem; margin: 0; }
