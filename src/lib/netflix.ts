@@ -8,7 +8,7 @@
 //
 // Rien ici ne touche au réseau : ces fonctions sont pures et testables.
 
-import type { TvEpisode } from './tvmaze'
+import type { TvEpisode } from './series'
 
 export type NetflixEntry = {
   raw: string
@@ -248,9 +248,9 @@ function dedupe(entries: NetflixEntry[]): { title: string; date: string }[] {
 
 /**
  * Associe les lignes Netflix d'une saison aux épisodes du catalogue.
- * Netflix donne les titres traduits, TVmaze les titres d'origine : l'appariement
- * par nom ne marche que pour les séries francophones. Quand il échoue, on
- * retombe sur « N lignes vues → les N premiers épisodes de la saison ».
+ * Netflix et le catalogue (TMDB, en français) donnent en général les mêmes
+ * titres traduits. Quand l'appariement par nom échoue quand même, on retombe
+ * sur « N lignes vues → les N premiers épisodes de la saison ».
  */
 function resolveBucket(entries: NetflixEntry[], pool: TvEpisode[]): Resolution {
   const wanted = dedupe(entries)

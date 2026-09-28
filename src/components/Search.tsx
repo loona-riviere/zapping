@@ -9,7 +9,7 @@ import type { BookStatus } from '../lib/bookStore'
 import { useBooks } from '../lib/booksState'
 import { KIND_LABEL, usePrefs } from '../lib/prefs'
 import { buildEnvNames, searchMovies, tmdbConfigured, type Movie } from '../lib/tmdb'
-import type { TvShow } from '../lib/tvmaze'
+import type { TvShow } from '../lib/series'
 import { useShowEpisodes } from '../lib/useShows'
 import { Poster } from './Poster'
 import { MovieReleases } from './MovieReleases'
@@ -80,8 +80,6 @@ function ShowSearch({ query }: { query: string }) {
   const { tracked, watchedFor, isTracked, track } = useShows()
   const [results, setResults] = useState<TvShow[]>([])
   // Titre original ayant permis de trouver, quand le titre français a échoué.
-  const [via, setVia] = useState<string | null>(null)
-  const [tried, setTried] = useState<string[]>([])
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
 
   // Avant de proposer de nouvelles séries, on rappelle où on en est dans
@@ -116,8 +114,6 @@ function ShowSearch({ query }: { query: string }) {
     const q = query.trim()
     if (q.length < 2) {
       setResults([])
-      setVia(null)
-      setTried([])
       setStatus('idle')
       return
     }
@@ -128,8 +124,6 @@ function ShowSearch({ query }: { query: string }) {
         .then((r) => {
           if (!alive) return
           setResults(r.results)
-          setVia(r.via ?? null)
-          setTried(r.tried)
           setStatus('idle')
         })
         .catch(() => alive && setStatus('error'))
@@ -142,19 +136,12 @@ function ShowSearch({ query }: { query: string }) {
 
   return (
     <>
-      {status === 'error' && <p className="error">La recherche TVmaze a échoué. Vérifie ta connexion et réessaie.</p>}
+      {status === 'error' && <p className="error">La recherche a échoué. Vérifie ta connexion et réessaie.</p>}
       {status === 'idle' && query.trim().length >= 2 && !results.length && (
         <p className="muted">
           Aucune série trouvée pour « {query.trim()} ».{' '}
-          {tried.length
-            ? `TMDB propose ${tried.slice(0, 3).map((t) => `« ${t} »`).join(', ')}, que TVmaze ne connaît pas non plus.`
-            : tmdbConfigured
-              ? "TMDB ne connaît aucune série sous ce titre non plus : vérifie l'orthographe, ou cherche l'œuvre sur themoviedb.org pour relever son titre d'origine."
-              : 'Essaie le titre original.'}
+          {tmdbConfigured ? "Vérifie l'orthographe, ou essaie le titre d'origine." : "Le catalogue des séries n'est pas configuré."}
         </p>
-      )}
-      {via && (
-        <p className="muted">Rien sous « {query.trim()} » — voici les résultats pour « {via} ».</p>
       )}
       {!query.trim() && continuing.length > 0 && (
         <section>

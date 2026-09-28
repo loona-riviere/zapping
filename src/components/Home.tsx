@@ -4,7 +4,7 @@ import { useSocial } from '../lib/socialState'
 import { computeProgress, epCode, formatDate, type Progress } from '../lib/progress'
 import { href } from '../lib/route'
 import { STATUS_LABEL, byWish, type ShowStatus } from '../lib/store'
-import type { ShowWithEpisodes } from '../lib/tvmaze'
+import type { ShowWithEpisodes } from '../lib/series'
 import { useShowEpisodes } from '../lib/useShows'
 import { Poster } from './Poster'
 import { StatusPicker } from './StatusPicker'
@@ -98,9 +98,7 @@ export function Home() {
     const data = cache[t.show_id]
     return {
       id: t.show_id,
-      // Le titre suivi fait foi (il porte le français une fois posé par la
-      // fiche série) : le nom TVmaze, toujours en anglais, ne sert que tant
-      // qu'on n'a encore rien suivi.
+      // Le titre suivi fait foi : la fiche série le tient à jour avec celui de TMDB.
       name: t.name,
       image: data?.show.image?.medium ?? t.image_url,
       lastWatchedAt: t.last_watched_at,
@@ -325,7 +323,7 @@ function airOf(r: Row): string | null {
   const up = r.progress?.upcoming
   if (!up) return null
   const at = up.airstamp ?? up.airdate
-  // TVmaze annonce parfois un épisode « prochain » sans date encore connue
+  // Un épisode « prochain » peut être annoncé sans date encore connue
   // (chaîne vide) : ce n'est pas une date invalide à afficher, juste une
   // vraie date manquante — pas de « Bientôt de retour » sans date à montrer.
   return at && !Number.isNaN(new Date(at).getTime()) ? at : null

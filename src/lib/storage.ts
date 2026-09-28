@@ -1,5 +1,5 @@
 // Le localStorage de Safari plafonne vers 5 Mo par site. Les caches de l'app
-// (fiches TVmaze avec tous les épisodes, suggestions TMDB…) finissaient par
+// (fiches séries avec tous leurs épisodes, suggestions TMDB…) finissaient par
 // le remplir ; l'écriture de la session Supabase échouait alors sans bruit,
 // et chaque réouverture de l'app déconnectait. La session passe donc
 // toujours avant les caches : ceux-ci sont vidés, les plus anciens d'abord,
@@ -7,7 +7,7 @@
 
 // Préfixes de clés de cache, régénérables à volonté. Tout le reste (session,
 // réglages) n'est jamais touché.
-const CACHE_PREFIXES = ['tvmaze:', 'tmdb:', 'zapping:top10', 'zapping:ai:']
+const CACHE_PREFIXES = ['tvmaze:', 'series:', 'tmdb:', 'zapping:top10', 'zapping:ai:']
 // Taille en caractères (clés + valeurs) au-delà de laquelle on fait du ménage
 // à l'ouverture, bien avant le plafond de Safari.
 const SOFT_LIMIT = 2_000_000

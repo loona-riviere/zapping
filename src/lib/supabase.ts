@@ -20,6 +20,9 @@ export const supabase = createClient(url ?? 'http://localhost', key ?? 'missing'
     // La session passe avant les caches si le stockage est plein (lib/storage.ts).
     storage: authStorage,
   },
+  // Les séries sont identifiées par TMDB depuis la migration : la base refuse
+  // les écritures de séries sans cet en-tête (ancienne version restée ouverte).
+  global: { headers: { 'x-zapping-series': 'tmdb' } },
 })
 
 /**

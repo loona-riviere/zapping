@@ -44,12 +44,12 @@ const APP_SEARCH: Record<number, (title: string) => string> = {
  * « pas en abonnement chez les plateformes que JustWatch suit ».
  */
 export function WhereToWatch({
-  imdbId,
+  tvId,
   movieId,
   title,
 }: {
-  /** Série : son IMDb, pont vers TMDB. */
-  imdbId?: string | null
+  /** Série : son identifiant TMDB. */
+  tvId?: number
   /** Film : son identifiant TMDB. */
   movieId?: number
   title: string
@@ -59,8 +59,8 @@ export function WhereToWatch({
   useEffect(() => {
     let alive = true
     setData(null)
-    if (!tmdbConfigured || (!imdbId && !movieId)) return
-    ;(movieId ? movieWatchProviders(movieId) : watchProviders(imdbId))
+    if (!tmdbConfigured || (!tvId && !movieId)) return
+    ;(movieId ? movieWatchProviders(movieId) : watchProviders(tvId!))
       .then((d) => alive && setData(d))
       .catch(() => {
         /* la disponibilité est un bonus : son échec ne doit rien casser */
@@ -68,7 +68,7 @@ export function WhereToWatch({
     return () => {
       alive = false
     }
-  }, [imdbId, movieId])
+  }, [tvId, movieId])
 
   if (!data?.providers.length) return null
 

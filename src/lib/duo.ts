@@ -7,7 +7,7 @@
 import type { Profile } from './social'
 import { isMissingSchema } from './store'
 import { me, supabase } from './supabase'
-import type { TvEpisode } from './tvmaze'
+import type { TvEpisode } from './series'
 
 export type Duo = {
   show_id: number

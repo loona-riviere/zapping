@@ -137,7 +137,7 @@ export function Settings() {
       <section>
         <h2 className="section-title">À propos</h2>
         <ul className="about muted">
-          <li>Séries : données <a href="https://www.tvmaze.com" target="_blank" rel="noreferrer">TVmaze.com</a>, sous licence CC BY-SA.</li>
+          <li>Séries : données <a href="https://www.themoviedb.org" target="_blank" rel="noreferrer">TMDB</a>.</li>
           <li>
             Films et disponibilités : <a href="https://www.themoviedb.org" target="_blank" rel="noreferrer">TMDB</a> et JustWatch.
             Ce produit utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB.

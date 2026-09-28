@@ -9,13 +9,13 @@ import {
 } from '../lib/netflix'
 import { explainMiss, findMovie, findShow } from '../lib/lookup'
 import { tmdbConfigured, type Movie } from '../lib/tmdb'
-import type { TvEpisode, TvShow } from '../lib/tvmaze'
+import type { TvEpisode, TvShow } from '../lib/series'
 import { FixMatch, type FixPick } from './FixMatch'
 import { Poster } from './Poster'
 
-// TVmaze tolère ~20 requêtes / 10 s et chaque série en consomme deux
-// (recherche puis fiche). TMDB est bien plus souple.
-const TV_DELAY = 700
+// Chaque série coûte quelques requêtes TMDB (recherche, fiche, saisons) :
+// on espace un peu pour rester loin de sa limite de débit.
+const TV_DELAY = 250
 const MOVIE_DELAY = 120
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 

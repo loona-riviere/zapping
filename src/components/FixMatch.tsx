@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { searchShowsWide } from '../lib/lookup'
 import { searchMovies, type Movie } from '../lib/tmdb'
-import { getShowWithEpisodes, type ShowWithEpisodes, type TvShow } from '../lib/tvmaze'
+import { getShowWithEpisodes, type ShowWithEpisodes, type TvShow } from '../lib/series'
 import { Poster } from './Poster'
 
 export type FixPick = { kind: 'show'; data: ShowWithEpisodes } | { kind: 'movie'; movie: Movie }

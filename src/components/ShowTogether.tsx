@@ -5,7 +5,7 @@ import { useSocial } from '../lib/socialState'
 import { supabase } from '../lib/supabase'
 import { ActionButton } from './ActionBar'
 import { Sheet, Switch } from './Sheet'
-import type { TvEpisode } from '../lib/tvmaze'
+import type { TvEpisode } from '../lib/series'
 
 type Scope = 'all' | 'pick' | number
 

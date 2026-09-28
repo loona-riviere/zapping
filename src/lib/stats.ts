@@ -4,7 +4,7 @@
 import type { WatchedEpisodes } from './appState'
 import type { TrackedBook } from './bookStore'
 import type { ShowStatus, TrackedShow, WatchedMovie } from './store'
-import type { ShowWithEpisodes } from './tvmaze'
+import type { ShowWithEpisodes } from './series'
 
 export type ShowTotal = {
   id: number
@@ -26,7 +26,7 @@ export type Stats = {
   episodesWithRewatches: number
   /** Séries revues au moins une fois en entier. */
   rewatchedShows: number
-  /** Épisodes vus dont TVmaze ignore la durée : exclus du temps total. */
+  /** Épisodes vus dont TMDB ignore la durée : exclus du temps total. */
   undatedRuntime: number
   shows: number
   finished: number

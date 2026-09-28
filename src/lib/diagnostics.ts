@@ -6,7 +6,7 @@
 
 import { epCode } from './progress'
 import type { TrackedShow } from './store'
-import type { ShowWithEpisodes } from './tvmaze'
+import type { ShowWithEpisodes } from './series'
 import type { WatchedEpisodes } from './appState'
 
 function maxDate(m: WatchedEpisodes): string | null {

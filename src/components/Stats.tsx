@@ -301,7 +301,7 @@ export function Stats() {
 
       {(has('show') || has('movie')) && (
       <p className="muted stats__caveat">
-        Les durées viennent de TVmaze ; un épisode sans durée renseignée prend la durée médiane
+        Les durées viennent de TMDB ; un épisode sans durée renseignée prend la durée médiane
         de sa série.
         {stats.undatedRuntime > 0 &&
           ` ${formatNumber(stats.undatedRuntime)} épisode(s) sans durée connue sont comptés mais pas chronométrés.`}

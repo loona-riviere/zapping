@@ -1,7 +1,7 @@
 // Reprise en masse : on lit une liste « Série S05E08 » et on en déduit
 // les épisodes à cocher. Voir le composant Import.
 
-import type { TvEpisode } from './tvmaze'
+import type { TvEpisode } from './series'
 
 export type ParsedLine = {
   raw: string

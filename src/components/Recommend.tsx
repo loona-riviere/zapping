@@ -6,7 +6,7 @@ import { friendsWhoHave, type Rec, type RecKind, type RecMeta } from '../lib/rec
 import { href } from '../lib/route'
 import { nameOf } from '../lib/social'
 import { useSocial } from '../lib/socialState'
-import type { TvShow } from '../lib/tvmaze'
+import type { TvShow } from '../lib/series'
 import { Poster } from './Poster'
 import { ActionButton } from './ActionBar'
 import { Sheet } from './Sheet'

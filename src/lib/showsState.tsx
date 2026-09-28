@@ -3,11 +3,11 @@ import * as store from './store'
 import type { Rating, ShowStatus, TrackedShow, Viewing, WatchedMap } from './store'
 import { celebrate, checkMilestone, nightOwl } from './fun'
 import { computeProgress } from './progress'
-import { getShowWithEpisodes } from './tvmaze'
+import { getShowWithEpisodes } from './series'
 import { syncDuo } from './duo'
 import { failure, useShowNotice } from './notice'
 import { useLatest } from './useLatest'
-import type { TvEpisode, TvShow } from './tvmaze'
+import type { TvEpisode, TvShow } from './series'
 
 /**
  * Épisodes vus d'une série : identifiant → date de visionnage (ISO), ou null
