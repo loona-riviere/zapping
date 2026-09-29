@@ -2,6 +2,7 @@ import type { Rating } from '../lib/store'
 
 const OPTIONS: { value: Rating; icon: string; label: string }[] = [
   { value: 'dislike', icon: '👎', label: "Je n'aime pas" },
+  { value: 'meh', icon: '😐', label: 'Bof' },
   { value: 'like', icon: '👍', label: "J'aime" },
   { value: 'love', icon: '❤️', label: "J'adore" },
 ]

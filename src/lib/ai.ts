@@ -103,7 +103,7 @@ const SHOW_STATUS: Record<TrackedShow['status'], string> = {
   later: 'à voir, pas commencée',
   dropped: 'abandonnée',
 }
-const RATING: Record<string, string> = { love: 'adorée', like: 'aimée', dislike: 'pas aimée' }
+const RATING: Record<string, string> = { love: 'adorée', like: 'aimée', meh: 'bof', dislike: 'pas aimée' }
 
 /** Ce que Gemini sait de ses goûts : tout, séries et films, avec son avis. */
 export function libraryLines(tracked: TrackedShow[], movies: WatchedMovie[]): string[] {

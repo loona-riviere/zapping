@@ -17,11 +17,11 @@ export const STATUS_LABEL: Record<ShowStatus, string> = {
 export const STATUSES = Object.keys(STATUS_LABEL) as ShowStatus[]
 
 /** Notation façon Netflix : sert surtout à choisir de meilleures graines de recommandation. */
-export type Rating = 'dislike' | 'like' | 'love'
+export type Rating = 'dislike' | 'meh' | 'like' | 'love'
 
 /** Pour trier « ce qu'on a adoré » en premier : plus haut = à privilégier comme graine. */
 export function ratingRank(r: Rating | null | undefined): number {
-  return r === 'love' ? 2 : r === 'like' ? 1 : r === 'dislike' ? -1 : 0
+  return r === 'love' ? 2 : r === 'like' ? 1 : r === 'meh' ? -0.5 : r === 'dislike' ? -1 : 0
 }
 
 export type TrackedShow = {

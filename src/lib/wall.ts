@@ -8,24 +8,25 @@ import type { TrackedShow, WatchedMovie } from './store'
 const KEY = 'zapping:wall:v1'
 const MAX = 40
 
-const RANK = { love: 3, like: 2, dislike: -1 } as const
+const RANK = { love: 3, like: 2, meh: -1, dislike: -1 } as const
+const shown = (r: string | null) => r !== 'dislike' && r !== 'meh'
 
 /** Adorés, puis aimés, puis revus, puis les plus récents ; séries, films et livres mélangés. */
 export function favoritePosters(tracked: TrackedShow[], movies: WatchedMovie[], books: TrackedBook[] = []): string[] {
   const items = [
     ...tracked
-      .filter((t) => t.image_url && t.rating !== 'dislike' && t.last_watched_at)
+      .filter((t) => t.image_url && shown(t.rating) && t.last_watched_at)
       .map((t) => ({
         src: t.image_url!,
         score: (t.rating ? RANK[t.rating] : 0) * 10 + (t.rewatches > 0 ? 5 : 0),
         at: t.last_watched_at ?? '',
       })),
     ...movies
-      .filter((m) => m.poster_url && m.status === 'watched' && m.rating !== 'dislike')
+      .filter((m) => m.poster_url && m.status === 'watched' && shown(m.rating))
       .map((m) => ({ src: m.poster_url!, score: (m.rating ? RANK[m.rating] : 0) * 10, at: m.watched_at ?? '' })),
     // Livres lus ou en cours : une pile à lire n'est pas encore un souvenir.
     ...books
-      .filter((b) => b.cover_url && (b.status === 'read' || b.status === 'reading') && b.rating !== 'dislike')
+      .filter((b) => b.cover_url && (b.status === 'read' || b.status === 'reading') && shown(b.rating))
       .map((b) => ({
         src: b.cover_url!,
         score: (b.rating ? RANK[b.rating] : 0) * 10,

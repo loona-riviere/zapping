@@ -145,12 +145,12 @@ alter table public.watched_movies add column if not exists release_date date;
 alter table public.tracked_shows add column if not exists rating text;
 alter table public.tracked_shows drop constraint if exists tracked_shows_rating_check;
 alter table public.tracked_shows
-  add constraint tracked_shows_rating_check check (rating is null or rating in ('dislike', 'like', 'love'));
+  add constraint tracked_shows_rating_check check (rating is null or rating in ('dislike', 'meh', 'like', 'love'));
 
 alter table public.watched_movies add column if not exists rating text;
 alter table public.watched_movies drop constraint if exists watched_movies_rating_check;
 alter table public.watched_movies
-  add constraint watched_movies_rating_check check (rating is null or rating in ('dislike', 'like', 'love'));
+  add constraint watched_movies_rating_check check (rating is null or rating in ('dislike', 'meh', 'like', 'love'));
 
 alter table public.tracked_shows enable row level security;
 alter table public.watched_episodes enable row level security;
@@ -286,7 +286,7 @@ alter table public.tracked_books
 
 alter table public.tracked_books drop constraint if exists tracked_books_rating_check;
 alter table public.tracked_books
-  add constraint tracked_books_rating_check check (rating is null or rating in ('dislike', 'like', 'love'));
+  add constraint tracked_books_rating_check check (rating is null or rating in ('dislike', 'meh', 'like', 'love'));
 
 alter table public.tracked_books drop constraint if exists tracked_books_pages_check;
 alter table public.tracked_books

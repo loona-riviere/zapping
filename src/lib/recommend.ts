@@ -1,4 +1,5 @@
 import type { RecSignals } from './tmdb'
+import type { Rating } from './store'
 
 /**
  * Une liste de suggestions TMDB issue d'un titre de la bibliothèque. Poids
@@ -111,8 +112,9 @@ export function rankRecommendations<T extends RecSignals & { id: number; year: n
 }
 
 /** Poids d'un titre aimé : l'avis explicite compte plus que le simple « vu ». */
-export function seedWeight(rating: 'dislike' | 'like' | 'love' | null, recentDays: number | null): number {
-  const base = rating === 'love' ? 3 : rating === 'like' ? 2 : 1
+export function seedWeight(rating: Rating | null, recentDays: number | null): number {
+  // « Bof » : vu jusqu'au bout mais sans enthousiasme, moins qu'un simple « vu ».
+  const base = rating === 'love' ? 3 : rating === 'like' ? 2 : rating === 'meh' ? 0.5 : 1
   // Vu ces deux derniers mois : les goûts du moment, un peu plus de poids.
   return recentDays !== null && recentDays <= 60 ? base * 1.3 : base
 }

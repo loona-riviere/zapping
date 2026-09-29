@@ -79,10 +79,11 @@ export function ChoiceAction<T extends string>({
 const RATINGS: { value: Rating; icon: string; label: string }[] = [
   { value: 'love', icon: '❤️', label: "J'adore" },
   { value: 'like', icon: '👍', label: "J'aime" },
+  { value: 'meh', icon: '😐', label: 'Bof' },
   { value: 'dislike', icon: '👎', label: "Je n'aime pas" },
 ]
 
-/** « Noter » : trois choix façon Netflix ; rechoisir la note active l'efface. */
+/** « Noter » : quatre choix façon Netflix ; rechoisir la note active l'efface. */
 export function RatingAction({ rating, onChange }: { rating: Rating | null; onChange: (r: Rating | null) => void }) {
   const [open, setOpen] = useState(false)
   const current = RATINGS.find((r) => r.value === rating)

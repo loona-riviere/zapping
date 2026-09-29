@@ -5,7 +5,7 @@ import { nameOf } from '../lib/social'
 import { useSocial } from '../lib/socialState'
 import { Sheet } from './Sheet'
 
-const RATING_ICON = { love: '❤️', like: '👍', dislike: '👎' } as const
+const RATING_ICON = { love: '❤️', like: '👍', meh: '😐', dislike: '👎' } as const
 const ORDER: FriendOn['state'][] = ['done', 'doing', 'later', 'dropped']
 
 /**
