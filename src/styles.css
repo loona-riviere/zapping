@@ -1023,7 +1023,11 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 .notif-prompt p { margin: 0; font-size: .85rem; }
 
 /* Page d'un épisode */
-.episode { display: flex; flex-direction: column; gap: .6rem; max-width: 40rem; }
+.episode { display: flex; flex-direction: column; gap: .6rem; max-width: 40rem; touch-action: pan-y; }
+.episode--in-next { animation: episode-in-next .22s ease-out; }
+.episode--in-prev { animation: episode-in-prev .22s ease-out; }
+@keyframes episode-in-next { from { transform: translateX(40px); opacity: 0; } }
+@keyframes episode-in-prev { from { transform: translateX(-40px); opacity: 0; } }
 .episode__back { align-self: flex-start; font-weight: 600; color: var(--accent-text); text-decoration: none; margin-top: .3rem; }
 .episode__hero {
   margin: .2rem -1rem 0; aspect-ratio: 16 / 9; background: var(--line); overflow: hidden; touch-action: pan-y;

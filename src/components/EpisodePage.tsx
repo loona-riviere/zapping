@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { useShows } from '../lib/showsState'
 import { epCode, formatDate, isAired } from '../lib/progress'
 import { href } from '../lib/route'
@@ -20,7 +20,10 @@ export function EpisodePage({ showId, episodeId }: { showId: number; episodeId: 
   const [data, setData] = useState<ShowWithEpisodes | null>(null)
   const [error, setError] = useState(false)
   const [fr, setFr] = useState<Map<number, EpisodeFr> | null>(null)
-  const swipe = useRef<number | null>(null)
+  const swipe = useRef<{ x: number; y: number; locked: boolean } | null>(null)
+  const dir = useRef(0)
+  const [dx, setDx] = useState(0)
+  const [leaving, setLeaving] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -68,26 +71,63 @@ export function EpisodePage({ showId, episodeId }: { showId: number; episodeId: 
   const showName = tracked.find((x) => x.show_id === showId)?.name ?? show.name
   const go = (id: number) => (window.location.hash = href.episode(showId, id))
 
+  // Le contenu suit le doigt (avec de la résistance s'il n'y a rien de l'autre côté),
+  // puis glisse dehors avant de changer d'épisode : le geste est visible tout de suite.
+  const canGo = (d: number) => (d < 0 ? !!next : !!prev)
+  function onDown(e: RPointerEvent) {
+    if ((e.target as HTMLElement).closest('input, textarea, button, select, a')) return
+    swipe.current = { x: e.clientX, y: e.clientY, locked: false }
+  }
+  function onMove(e: RPointerEvent) {
+    const s = swipe.current
+    if (!s || leaving) return
+    const mx = e.clientX - s.x
+    if (!s.locked) {
+      if (Math.abs(e.clientY - s.y) > 12 && Math.abs(e.clientY - s.y) > Math.abs(mx)) return void (swipe.current = null)
+      if (Math.abs(mx) < 8) return
+      s.locked = true
+    }
+    setDx(canGo(mx) ? mx : mx * 0.25)
+  }
+  function onUp() {
+    const s = swipe.current
+    swipe.current = null
+    if (!s?.locked) return
+    const target = dx < 0 ? next : prev
+    if (Math.abs(dx) > 70 && target && canGo(dx)) {
+      dir.current = dx < 0 ? 1 : -1
+      setLeaving(true)
+      setDx(dx < 0 ? -window.innerWidth : window.innerWidth)
+      setTimeout(() => {
+        go(target.id)
+        setLeaving(false)
+        setDx(0)
+      }, 140)
+    } else setDx(0)
+  }
+
   async function markSeen() {
     if (!isTracked(showId)) await track(show)
     setWatched(show, [ep!], true)
   }
 
   return (
-    <article className="episode">
+    <article
+      key={ep.id}
+      className={`episode${dir.current ? ` episode--in${dir.current > 0 ? '-next' : '-prev'}` : ''}`}
+      style={{
+        transform: dx ? `translateX(${dx}px)` : undefined,
+        opacity: leaving ? 0 : undefined,
+        transition: swipe.current?.locked ? 'none' : 'transform .14s ease-out, opacity .14s ease-out',
+      }}
+      onPointerDown={onDown}
+      onPointerMove={onMove}
+      onPointerUp={onUp}
+      onPointerCancel={onUp}
+    >
       <a className="episode__back" href={href.show(showId)}>‹ {showName}</a>
 
-      <div
-        className={`episode__hero${image ? '' : ' episode__hero--empty'}`}
-        onPointerDown={(e) => (swipe.current = e.clientX)}
-        onPointerUp={(e) => {
-          if (swipe.current === null) return
-          const dx = e.clientX - swipe.current
-          swipe.current = null
-          if (dx < -60 && next) go(next.id)
-          else if (dx > 60 && prev) go(prev.id)
-        }}
-      >
+      <div className={`episode__hero${image ? '' : ' episode__hero--empty'}`}>
         {image ? <img src={image} alt="" /> : <span>{epCode(ep)}</span>}
       </div>
 
