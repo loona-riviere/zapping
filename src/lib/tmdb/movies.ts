@@ -1,4 +1,5 @@
 // Films chez TMDB : recherche, fiche détail, durée, sorties.
+import { fuzzySearch } from '../fuzzy'
 import { type Movie, type RawMovie, KEY, IMG, CACHE_TTL, toMovie, get, readCache, writeCache } from './client'
 
 /**
@@ -104,6 +105,14 @@ export async function searchMovies(query: string, year?: number): Promise<Movie[
     /* stockage plein : pas grave */
   }
   return movies
+}
+
+/**
+ * Comme `searchMovies`, mais tolère les fautes de frappe (TMDB ne corrige rien).
+ * Pour les saisies humaines ; les imports gardent la recherche exacte.
+ */
+export function searchMoviesFuzzy(query: string): Promise<Movie[]> {
+  return fuzzySearch(query, (q) => searchMovies(q), (m) => m.title, (m) => m.id, { maxVariants: 6 })
 }
 
 /**

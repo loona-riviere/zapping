@@ -8,6 +8,8 @@
 // « ol:OL45883W ») : la fiche détail sait ainsi où aller le chercher, et deux
 // sources ne peuvent jamais se marcher dessus en base.
 
+import { fold, fuzzySearch } from './fuzzy'
+
 export type Book = {
   id: string
   title: string
@@ -38,86 +40,13 @@ function remember(books: Book[]): Book[] {
 }
 
 export async function searchBooks(query: string): Promise<Book[]> {
-  const words = query.trim().split(/\s+/).filter(Boolean)
-  const exact = await searchOnce(query)
-  if (words.length < 2) return remember(exact)
-
-  const score = scorer(words)
-  // Mots significatifs tapés : un résultat qui les retrouve tous est le bon,
-  // inutile d'aller plus loin. Google renvoie toujours quelque chose, même
-  // pour une recherche pleine de fautes : un résultat non vide ne suffit pas.
-  const wanted = words.filter((w) => fold(w).length >= 3).length
-  if (exact.some((b) => score(b) >= wanted)) return remember(exact)
-
   // Souvent une faute sur le nom de l'auteur (« Lila » pour « Lilia »), ou
   // une dictée qui coupe un nom en deux (« has saine » pour « Hassaine ») :
-  // on retente avec des variantes — deux mots voisins recollés, un mot en
-  // moins — puis on garde en tête ce qui colle au plus de mots tapés.
-  const merged: string[][] = []
-  for (let i = 0; i < words.length - 1; i++) {
-    merged.push([...words.slice(0, i), words[i] + words[i + 1], ...words.slice(i + 2)])
-  }
-  const dropOne = (ws: string[]) =>
-    ws.map((_, i) => ws.filter((__, j) => j !== i)).filter((r) => r.join('').length >= 3)
-  // Recollés d'abord, puis recollés avec un mot en moins, puis un mot en moins.
-  const variants = new Set<string>(
-    [...merged, ...merged.flatMap(dropOne), ...dropOne(words)].map((ws) => ws.join(' ')),
+  // voir fuzzySearch pour les variantes tentées.
+  return remember(
+    await fuzzySearch(query, searchOnce, (b) => `${b.title} ${b.authors.join(' ')}`, (b) => b.id, { maxVariants: 14 }),
   )
-  // En dernier recours, chaque mot assez long seul (souvent le titre) : deux
-  // fautes dans le nom de l'auteur ne laissent que lui de fiable.
-  for (const w of words) if (w.length >= 4) variants.add(w)
-  const batches = await Promise.all(
-    [...variants].slice(0, 14).map((v) => searchOnce(v).catch(() => [] as Book[])),
-  )
-  const byId = new Map<string, Book>()
-  for (const b of [...exact, ...batches.flat()]) if (!byId.has(b.id)) byId.set(b.id, b)
-
-  const ranked = [...byId.values()]
-    .map((b, i) => ({ b, i, s: score(b) }))
-    .filter((x) => x.s > 0)
-    .sort((a, b) => b.s - a.s || a.i - b.i)
-    .slice(0, 20)
-    .map((x) => x.b)
-  // Rien ne colle à aucun mot : autant montrer ce que le catalogue proposait.
-  return remember(ranked.length ? ranked : exact)
 }
-
-/**
- * Combien de mots tapés un livre retrouve dans son titre et ses auteurs, à
- * une ou deux lettres près : « Hassaibe » retrouve « Hassaine », « Lila »
- * retrouve « Lilia », « has saine » recollé retrouve « Hassaine ».
- */
-function scorer(words: string[]): (b: Book) => number {
-  const tokens = new Set(words.map(fold))
-  for (let i = 0; i < words.length - 1; i++) tokens.add(fold(words[i] + words[i + 1]))
-  return (b: Book) => {
-    const hayWords = `${b.title} ${b.authors.join(' ')}`.split(/[\s,.'’-]+/).map(fold).filter(Boolean)
-    const hay = hayWords.join('')
-    return [...tokens].filter((t) => {
-      if (t.length < 3) return false
-      if (hay.includes(t)) return true
-      const tolerance = t.length >= 7 ? 2 : t.length >= 4 ? 1 : 0
-      return tolerance > 0 && hayWords.some((w) => Math.abs(w.length - t.length) <= tolerance && editDistance(w, t) <= tolerance)
-    }).length
-  }
-}
-
-/** Nombre de lettres à changer, ajouter ou retirer pour passer d'un mot à l'autre. */
-function editDistance(a: string, b: string): number {
-  let prev = Array.from({ length: b.length + 1 }, (_, j) => j)
-  for (let i = 1; i <= a.length; i++) {
-    const cur = [i]
-    for (let j = 1; j <= b.length; j++) {
-      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
-    }
-    prev = cur
-  }
-  return prev[b.length]
-}
-
-/** Sans accents ni casse ni espaces : « Has Saine » et « Hassaine » se retrouvent. */
-const fold = (s: string) =>
-  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
 
 /** Une recherche : Google si la clé est là et qu'il trouve, sinon Open Library. */
 async function searchOnce(query: string): Promise<Book[]> {

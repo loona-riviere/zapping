@@ -1,6 +1,7 @@
 // Client minimal pour l'API publique TVmaze (sans clé, CORS ouvert).
 // Doc : https://www.tvmaze.com/api
 
+import { fuzzySearch } from './fuzzy'
 import { idbGetMany, idbSet } from './idb'
 
 export type TvShow = {
@@ -54,6 +55,11 @@ type RawTvShow = Omit<TvShow, 'rating'> & { rating: { average: number | null } |
 export async function searchShows(query: string): Promise<TvShow[]> {
   const data = await get<{ show: RawTvShow }[]>(`/search/shows?q=${encodeURIComponent(query)}`)
   return data.map((d) => ({ ...d.show, rating: d.show.rating?.average ?? null }))
+}
+
+/** TVmaze tolère un peu les fautes, mais pas toujours : on complète (voir fuzzy.ts). */
+export function searchShowsFuzzy(query: string): Promise<TvShow[]> {
+  return fuzzySearch(query, searchShows, (s) => s.name, (s) => s.id, { maxVariants: 6 })
 }
 
 type Cached = { at: number; data: ShowWithEpisodes }

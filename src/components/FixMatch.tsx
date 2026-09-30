@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { searchShowsWide } from '../lib/lookup'
-import { searchMovies, type Movie } from '../lib/tmdb'
+import { searchMoviesFuzzy, type Movie } from '../lib/tmdb'
 import { getShowWithEpisodes, type ShowWithEpisodes, type TvShow } from '../lib/tvmaze'
 import { Poster } from './Poster'
 
@@ -33,7 +33,7 @@ export function FixMatch({
     setStatus('loading')
     try {
       if (kind === 'show') setShows((await searchShowsWide(q)).results)
-      else setMovies(await searchMovies(q))
+      else setMovies(await searchMoviesFuzzy(q))
       setSearched(true)
       setStatus('idle')
     } catch {

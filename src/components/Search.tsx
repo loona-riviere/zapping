@@ -8,7 +8,7 @@ import { googleBooksError, manualBook, searchBooks, type Book } from '../lib/boo
 import type { BookStatus } from '../lib/bookStore'
 import { useBooks } from '../lib/booksState'
 import { KIND_LABEL, usePrefs } from '../lib/prefs'
-import { buildEnvNames, searchMovies, tmdbConfigured, type Movie } from '../lib/tmdb'
+import { buildEnvNames, searchMoviesFuzzy, tmdbConfigured, type Movie } from '../lib/tmdb'
 import type { TvShow } from '../lib/tvmaze'
 import { useShowEpisodes } from '../lib/useShows'
 import { Poster } from './Poster'
@@ -222,7 +222,7 @@ function MovieSearch({ query }: { query: string }) {
     setStatus('loading')
     let alive = true
     const t = setTimeout(() => {
-      searchMovies(q)
+      searchMoviesFuzzy(q)
         .then((r) => alive && (setResults(r), setStatus('idle')))
         .catch(() => alive && setStatus('error'))
     }, 350)

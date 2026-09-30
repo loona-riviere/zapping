@@ -6,7 +6,7 @@
 // des alias. TMDB, lui, est localisé : il sert de dictionnaire.
 
 import { originalTitlesFor, searchMovies, tmdbConfigured, type Movie } from './tmdb'
-import { getShowWithEpisodes, searchShows, type ShowWithEpisodes, type TvShow } from './tvmaze'
+import { getShowWithEpisodes, searchShows, searchShowsFuzzy, type ShowWithEpisodes, type TvShow } from './tvmaze'
 
 export type FoundShow = ShowWithEpisodes & {
   /** Titre par lequel la série a été retrouvée, s'il diffère du titre demandé. */
@@ -23,7 +23,7 @@ export type WideSearch = { results: TvShow[]; via?: string; tried: string[] }
  * connaît pas, sur les titres originaux que TMDB associe à ce titre français.
  */
 export async function searchShowsWide(query: string): Promise<WideSearch> {
-  const direct = await searchShows(query)
+  const direct = await searchShowsFuzzy(query)
   if (direct.length || !tmdbConfigured) return { results: direct, tried: [] }
 
   const tried = await originalTitlesFor(query)
