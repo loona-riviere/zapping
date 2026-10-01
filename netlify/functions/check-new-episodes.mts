@@ -69,7 +69,7 @@ export default async () => {
 
         await sendPush(db, userSubs, {
           title: show.name,
-          body: `Nouvel épisode · S${String(ep.season).padStart(2, '0')}E${String(ep.number).padStart(2, '0')} — ${ep.name}`,
+          body: `Nouvel épisode · S${String(ep.season).padStart(2, '0')}E${String(ep.number).padStart(2, '0')}`,
           url: `/#/show/${showId}`,
         })
       }
