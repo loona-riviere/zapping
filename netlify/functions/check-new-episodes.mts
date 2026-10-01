@@ -9,11 +9,11 @@ export const config = { schedule: '0 8 * * *' }
 type TrackedRow = { user_id: string; show_id: number }
 type Episode = { id: number; season: number; number: number; name: string; airstamp: string | null }
 
-async function fetchEpisodes(showId: number): Promise<Episode[]> {
+async function fetchShow(showId: number): Promise<{ name: string; episodes: Episode[] } | null> {
   const res = await fetch(`https://api.tvmaze.com/shows/${showId}?embed=episodes`)
-  if (!res.ok) return []
-  const data = (await res.json()) as { _embedded?: { episodes?: Episode[] } }
-  return data._embedded?.episodes ?? []
+  if (!res.ok) return null
+  const data = (await res.json()) as { name?: string; _embedded?: { episodes?: Episode[] } }
+  return { name: data.name ?? 'Nouvel épisode', episodes: data._embedded?.episodes ?? [] }
 }
 
 export default async () => {
@@ -48,8 +48,9 @@ export default async () => {
   const now = Date.now()
 
   for (const [showId, userIds] of trackedByShow) {
-    const episodes = await fetchEpisodes(showId)
-    const justAired = episodes.filter((e) => {
+    const show = await fetchShow(showId)
+    if (!show) continue
+    const justAired = show.episodes.filter((e) => {
       if (!e.airstamp) return false
       const t = new Date(e.airstamp).getTime()
       return t >= since && t <= now
@@ -67,8 +68,8 @@ export default async () => {
         if (insertError) continue // déjà notifié (conflit sur la clé primaire) : on saute
 
         await sendPush(db, userSubs, {
-          title: 'Nouvel épisode',
-          body: `S${String(ep.season).padStart(2, '0')}E${String(ep.number).padStart(2, '0')} — ${ep.name}`,
+          title: show.name,
+          body: `Nouvel épisode · S${String(ep.season).padStart(2, '0')}E${String(ep.number).padStart(2, '0')} — ${ep.name}`,
           url: `/#/show/${showId}`,
         })
       }
