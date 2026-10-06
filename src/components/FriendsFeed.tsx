@@ -3,6 +3,7 @@ import { fetchFeed, whenLabel, type FeedItem } from '../lib/feed'
 import { href } from '../lib/route'
 import { nameOf, type Profile } from '../lib/social'
 import type { Rating } from '../lib/store'
+import { Avatar } from './Friends'
 import { Poster } from './Poster'
 import { Limited } from './ShowMore'
 import { SkeletonRows } from './Skeleton'
@@ -13,6 +14,8 @@ const RATING: Record<Rating, { icon: string; label: string }> = {
   like: { icon: '👍', label: 'a aimé' },
   love: { icon: '❤️', label: 'a adoré' },
 }
+
+const KIND_ICON: Record<FeedItem['kind'], string> = { show: '📺', movie: '🎬', book: '📖' }
 
 const linkOf = (i: FeedItem) =>
   i.kind === 'show' ? href.show(i.itemId as number) : i.kind === 'movie' ? href.movie(i.itemId as number) : href.book(i.itemId as string)
@@ -50,9 +53,12 @@ export function FriendsFeed({ friends }: { friends: Profile[] }) {
               {visible.map((i) => {
                 const who = byId.get(i.userId)
                 return (
-                  <li key={i.key} className="row">
+                  <li key={i.key} className="row feed__item">
                     <a href={linkOf(i)} className="row__link">
-                      <Poster src={i.image} alt={i.title} />
+                      <span className="feed__face">
+                        {who ? <Avatar profile={who} /> : <span className="avatar avatar--sm" aria-hidden="true">?</span>}
+                        <span className="feed__kind" aria-hidden="true">{KIND_ICON[i.kind]}</span>
+                      </span>
                       <div className="row__body">
                         <h3>
                           <span className="feed__who">{who ? nameOf(who) : 'Un ami'}</span> {i.verb} <em>{i.title}</em>
@@ -63,6 +69,9 @@ export function FriendsFeed({ friends }: { friends: Profile[] }) {
                           {whenLabel(i.at)}
                         </p>
                       </div>
+                      <span className="feed__thumb">
+                        <Poster src={i.image} alt="" />
+                      </span>
                     </a>
                   </li>
                 )

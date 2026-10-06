@@ -1279,3 +1279,14 @@ a.choice { text-decoration: none; }
 .feed .row__body h3 { font-family: var(--body); font-size: .98rem; font-weight: 400; line-height: 1.35; }
 .feed .row__body h3 em { font-style: normal; font-weight: 700; }
 .feed__when { font-size: .82rem; }
+.feed__item { padding: .6rem 0; }
+.feed__item .row__link { align-items: flex-start; gap: .75rem; }
+.feed__face { position: relative; flex: none; }
+.feed__face .avatar { width: 40px; height: 40px; font-size: 1rem; }
+.feed__kind {
+  position: absolute; right: -4px; bottom: -4px; width: 20px; height: 20px; border-radius: 50%;
+  display: grid; place-items: center; font-size: .7rem; background: var(--surface);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.feed__thumb { flex: none; }
+.feed__thumb .poster--sm { width: 34px; font-size: .9rem; border-radius: 4px; }
