@@ -41,6 +41,13 @@ Les films et les livres ont leur onglet dans la même bibliothèque.
   profil de chaque ami (ce qu'il regarde, lit, ses coups de cœur), en lecture seule. « Caché à mes
   amis » sur une fiche garde une série, un film ou un livre pour soi. Les règles d'accès Supabase
   font le travail : rien n'est visible avant l'acceptation, et un ami ne peut rien modifier
+- **Calendrier** : bouton 📅 à côté de la recherche des séries. Jour par jour, les prochains
+  épisodes des séries en cours ou en pause (une saison mise en ligne d'un coup tient sur une ligne)
+  et les films de la liste « à voir » pas encore sortis
+- **Quoi de neuf** : en haut de l'onglet Amis, ce que les amis ont regardé et lu ces 30 derniers
+  jours (épisodes regroupés par série et par jour, films vus, livres commencés ou finis, avec leur
+  note). Construit à partir de ce que les amis voient déjà : rien de caché n'y apparaît, et aucune
+  table à ajouter
 - **Où la regarder** : sur la fiche d'une série, les plateformes qui la proposent en abonnement
   en France (données JustWatch via TMDB, nécessite la clé)
 - **Import Netflix** : dépose le `NetflixViewingHistory.csv` de ton profil, l'app regroupe par

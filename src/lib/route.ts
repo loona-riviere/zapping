@@ -16,6 +16,7 @@ export type Route =
   | { name: 'book'; id: string }
   | { name: 'friends' }
   | { name: 'friend'; username: string }
+  | { name: 'calendar' }
 
 function parse(hash: string): Route {
   if (hash.startsWith('#/search')) {
@@ -34,6 +35,7 @@ function parse(hash: string): Route {
   if (/^#\/amis(?:[/?]|$)/.test(hash)) return { name: 'friends' }
   const friend = hash.match(/^#\/ami\/([^?/]+)/)
   if (friend) return { name: 'friend', username: decodeURIComponent(friend[1]) }
+  if (hash.startsWith('#/calendrier')) return { name: 'calendar' }
   if (hash.startsWith('#/stats')) return { name: 'stats' }
   if (hash.startsWith('#/parametres')) return { name: 'settings' }
   const ep = hash.match(/^#\/show\/(\d+)\/ep\/(-?\d+)/)
@@ -108,4 +110,5 @@ export const href = {
   book: (id: string) => `#/livre/${encodeURIComponent(id)}`,
   friends: '#/amis',
   friend: (username: string) => `#/ami/${encodeURIComponent(username)}`,
+  calendar: '#/calendrier',
 }

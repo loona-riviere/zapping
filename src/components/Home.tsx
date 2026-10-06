@@ -6,6 +6,7 @@ import { href } from '../lib/route'
 import { STATUS_LABEL, byWish, type ShowStatus } from '../lib/store'
 import type { ShowWithEpisodes } from '../lib/tvmaze'
 import { useShowEpisodes } from '../lib/useShows'
+import { CalendarIcon } from './Calendar'
 import { Poster } from './Poster'
 import { StatusPicker } from './StatusPicker'
 import { DragHandle, EditToggle, WishRows } from './Reorder'
@@ -146,6 +147,9 @@ export function Home() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
+        <a href={href.calendar} className="home__calendar" aria-label="Calendrier des sorties" title="Calendrier des sorties">
+          <CalendarIcon />
+        </a>
       </div>
 
       {q ? (

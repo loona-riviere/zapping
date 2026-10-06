@@ -12,6 +12,7 @@ import { Celebrations } from './components/Celebrations'
 import { Import } from './components/Import'
 import { Library, isLibrary } from './components/Library'
 import { BookPage } from './components/BookPage'
+import { Calendar } from './components/Calendar'
 import { FriendProfile } from './components/FriendProfile'
 import { Friends } from './components/Friends'
 import { MoviePage } from './components/MoviePage'
@@ -146,6 +147,7 @@ function Shell() {
         {route.name === 'search' && <Search initialQuery={route.q} initialKind={route.kind} />}
         {route.name === 'import' && <Import />}
         {route.name === 'stats' && <Stats />}
+        {route.name === 'calendar' && <Calendar />}
         {route.name === 'settings' && <Settings />}
         {route.name === 'show' && <ShowPage id={route.id} />}
         {route.name === 'episode' && <EpisodePage showId={route.showId} episodeId={route.episodeId} />}

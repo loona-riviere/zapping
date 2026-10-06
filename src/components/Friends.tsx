@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { href } from '../lib/route'
 import { inviteLink, nameOf, normalizeUsername, saveProfile, searchProfiles, USERNAME_RE, type Profile } from '../lib/social'
 import { useSocial } from '../lib/socialState'
+import { FriendsFeed } from './FriendsFeed'
 import { Poster } from './Poster'
 import { IncomingRecs } from './Recommend'
 import { SkeletonRows } from './Skeleton'
@@ -206,6 +207,8 @@ export function Friends() {
           </ul>
         </section>
       )}
+
+      <FriendsFeed friends={friends} />
 
       <section>
         <h2 className="section-title">Ajouter un ami</h2>
