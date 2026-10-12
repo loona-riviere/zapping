@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useShows } from '../lib/showsState'
 import { useSocial } from '../lib/socialState'
-import { computeProgress, epCode, formatDate, type Progress } from '../lib/progress'
+import { computeProgress, epCode, formatDate, isAired, type Progress } from '../lib/progress'
 import { href } from '../lib/route'
 import { STATUS_LABEL, byWish, type ShowStatus } from '../lib/store'
 import type { ShowWithEpisodes } from '../lib/tvmaze'
@@ -375,11 +375,7 @@ function Parked({
               <div className="row__body">
                 <h3>{r.name}</h3>
                 <p className="muted">
-                  {r.progress
-                    ? r.progress.next
-                      ? `Reprise à ${epCode(r.progress.next)} — ${r.progress.watched}/${r.progress.aired} vus`
-                      : `${r.progress.watched}/${r.progress.aired} vus`
-                    : <span className="skeleton skeleton--text" />}
+                  {r.progress ? parkedCaption(r) : <span className="skeleton skeleton--text" />}
                 </p>
               </div>
             </a>
@@ -391,6 +387,20 @@ function Parked({
       </Limited>
     </section>
   )
+}
+
+/**
+ * Pas encore commencée : la taille de la série aide à choisir, « reprise à
+ * S01E01 » ne dirait rien. Commencée : où reprendre.
+ */
+function parkedCaption(r: Row): string {
+  const p = r.progress!
+  if (p.watched === 0) {
+    const seasons = new Set(r.data!.episodes.filter((e) => isAired(e)).map((e) => e.season)).size
+    if (!p.aired) return 'Pas encore diffusée'
+    return `Pas commencée · ${seasons} saison${seasons > 1 ? 's' : ''}, ${p.aired} épisode${p.aired > 1 ? 's' : ''}`
+  }
+  return p.next ? `Reprise à ${epCode(p.next)} — ${p.watched}/${p.aired} vus` : `${p.watched}/${p.aired} vus`
 }
 
 function SkeletonRows({ count }: { count: number }) {
