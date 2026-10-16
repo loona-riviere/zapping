@@ -134,6 +134,7 @@ export function Rewatches({ show, episodes }: { show: TvShow; episodes: TvEpisod
         }
         actions={
           !running &&
+          !complete &&
           seen.size > 0 && (
             <button type="button" className="pill pill--small" onClick={() => startRewatch(show.id)}>
               🔁 Je la revois
@@ -164,6 +165,14 @@ export function Rewatches({ show, episodes }: { show: TvShow; episodes: TvEpisod
           </div>
         }
       />
+      {/* Série finie : « Je la revois » sous la carte, pas caché dans l'accordéon replié. */}
+      {!running && complete && (
+        <div className="pills">
+          <button type="button" className="btn btn--ghost" onClick={() => startRewatch(show.id)}>
+            🔁 Je la revois
+          </button>
+        </div>
+      )}
       {running && complete && (
         <div className="pills">
           <button className="btn btn--primary" onClick={() => endRewatch(show.id, true, linked)}>
