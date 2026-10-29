@@ -819,3 +819,84 @@ create table if not exists public.notif_queue (
 );
 create index if not exists notif_queue_pair_idx on public.notif_queue (recipient, sender, created_at);
 alter table public.notif_queue enable row level security;
+
+-- ================================================================== admin ==
+-- Écran d'administration (#/admin) : la liste des comptes et leur activité.
+-- Réservé aux comptes inscrits dans admins, à remplir à la main depuis
+-- l'éditeur SQL :
+--   insert into public.admins (user_id)
+--   select id from auth.users where email = 'ton@adresse.fr';
+-- Aucune règle d'accès sur la table : personne ne peut la lire ni s'y
+-- ajouter depuis l'app. Seules les fonctions ci-dessous la consultent.
+create table if not exists public.admins (
+  user_id uuid primary key references auth.users (id) on delete cascade
+);
+alter table public.admins enable row level security;
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (select 1 from public.admins where user_id = auth.uid());
+$$;
+revoke all on function public.is_admin() from public, anon;
+grant execute on function public.is_admin() to authenticated;
+
+-- Un compte par ligne, avec de quoi juger de son activité. security definer
+-- pour lire auth.users et les bibliothèques de tout le monde : d'où la
+-- vérification en tête, qui refuse tout appel d'un non-admin.
+drop function if exists public.admin_users();
+create or replace function public.admin_users()
+returns table (
+  user_id uuid,
+  email text,
+  username text,
+  display_name text,
+  created_at timestamptz,
+  last_sign_in_at timestamptz,
+  last_watched_at timestamptz,
+  shows bigint,
+  episodes bigint,
+  movies bigint,
+  books bigint,
+  friends bigint,
+  push boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Réservé à l''administration' using errcode = '42501';
+  end if;
+  return query
+  select
+    u.id,
+    u.email::text,
+    p.username,
+    p.display_name,
+    u.created_at,
+    u.last_sign_in_at,
+    greatest(
+      (select max(e.watched_at) from public.watched_episodes e where e.user_id = u.id),
+      (select max(m.watched_at) from public.watched_movies m where m.user_id = u.id)
+    ),
+    (select count(*) from public.tracked_shows s where s.user_id = u.id),
+    (select count(*) from public.watched_episodes e where e.user_id = u.id),
+    (select count(*) from public.watched_movies m where m.user_id = u.id),
+    (select count(*) from public.tracked_books b where b.user_id = u.id),
+    (select count(*) from public.friendships f
+      where f.status = 'accepted' and u.id in (f.requester, f.addressee)),
+    exists (select 1 from public.push_subscriptions ps where ps.user_id = u.id)
+  from auth.users u
+  left join public.profiles p on p.user_id = u.id
+  order by u.created_at desc;
+end;
+$$;
+revoke all on function public.admin_users() from public, anon;
+grant execute on function public.admin_users() to authenticated;
