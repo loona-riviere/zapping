@@ -1,9 +1,11 @@
+import { useEffect, useState } from 'react'
 import { Limited } from './ShowMore'
 import { useShows } from '../lib/showsState'
 import { useMovies } from '../lib/moviesState'
 import { useDismissed } from '../lib/dismissedState'
 import { useBooks } from '../lib/booksState'
 import { KINDS, KIND_LABEL, usePrefs } from '../lib/prefs'
+import { isAdmin } from '../lib/admin'
 import { href } from '../lib/route'
 import { supabase } from '../lib/supabase'
 import { Notifications } from './Notifications'
@@ -22,6 +24,10 @@ export function Settings() {
   const unratedMovies = has('movie') ? movies.filter((m) => m.status === 'watched' && !m.rating) : []
   const { books, updateBook } = useBooks()
   const unratedBooks = has('book') ? books.filter((b) => b.status === 'read' && !b.rating) : []
+  const [admin, setAdmin] = useState(false)
+  useEffect(() => {
+    isAdmin().then(setAdmin)
+  }, [])
 
   return (
     <div className="settings">
@@ -54,6 +60,15 @@ export function Settings() {
           })}
         </div>
       </section>
+
+      {admin && (
+        <section>
+          <h2 className="section-title">Administration</h2>
+          <p className="muted">
+            Les comptes de l'app et leur activité : <a href={href.admin}>ouvrir</a>.
+          </p>
+        </section>
+      )}
 
       <Notifications />
 

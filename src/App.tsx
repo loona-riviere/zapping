@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { Admin } from './components/Admin'
 import { Auth } from './components/Auth'
 import { LaunchScreen, Splash } from './components/Backdrop'
 import { BottomNav } from './components/BottomNav'
@@ -149,6 +150,7 @@ function Shell() {
         {route.name === 'stats' && <Stats />}
         {route.name === 'calendar' && <Calendar />}
         {route.name === 'settings' && <Settings />}
+        {route.name === 'admin' && <Admin />}
         {route.name === 'show' && <ShowPage id={route.id} />}
         {route.name === 'episode' && <EpisodePage showId={route.showId} episodeId={route.episodeId} />}
         {route.name === 'movie' && <MoviePage id={route.id} />}

@@ -60,6 +60,12 @@ Les films et les livres ont leur onglet dans la même bibliothèque.
 - **Corriger une ligne introuvable** : sur les deux écrans d'import, une ligne « Introuvable » a un
   bouton « Corriger » qui ouvre une recherche manuelle (le bon titre, choisi dans les résultats)
   sans quitter l'écran ni recoller la liste
+- **Administration** : un écran `#/admin`, réservé aux comptes inscrits dans la table `admins`
+  (lien dans Paramètres). Nombre de comptes, nouveaux et actifs sur 7 et 30 jours, et pour
+  chaque compte : e-mail, pseudo, date d'inscription, dernière activité, séries, épisodes, films,
+  livres, amis. Pour s'y inscrire, dans l'éditeur SQL de Supabase :
+  `insert into public.admins (user_id) select id from auth.users where email = 'ton@adresse.fr';`
+  La base refuse ces données à tout autre compte, même en appelant l'API directement
 - Thème clair et sombre automatique, pensé d'abord pour le mobile
 
 ## Mise en place

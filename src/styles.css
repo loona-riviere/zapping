@@ -1290,3 +1290,8 @@ a.choice { text-decoration: none; }
 }
 .feed__thumb { flex: none; }
 .feed__thumb .poster--sm { width: 34px; font-size: .9rem; border-radius: 4px; }
+
+/* Administration */
+.admin .search__input { margin-bottom: .5rem; }
+.admin__who { overflow-wrap: anywhere; }
+.admin__line { margin: 0; font-size: .85rem; overflow-wrap: anywhere; }
