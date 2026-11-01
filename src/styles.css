@@ -1295,3 +1295,11 @@ a.choice { text-decoration: none; }
 .admin .search__input { margin-bottom: .5rem; }
 .admin__who { overflow-wrap: anywhere; }
 .admin__line { margin: 0; font-size: .85rem; overflow-wrap: anywhere; }
+.admin-link {
+  display: flex; align-items: center; gap: .75rem; padding: .8rem .9rem; text-decoration: none;
+  border: 1.5px solid var(--accent); border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.admin-link::after { content: '›'; margin-left: auto; color: var(--muted); font-size: 1.2rem; }
+.admin-link__icon { font-size: 1.4rem; }
+.admin-link__sub { display: block; font-size: .85rem; margin-top: .1rem; }

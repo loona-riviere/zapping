@@ -64,9 +64,13 @@ export function Settings() {
       {admin && (
         <section>
           <h2 className="section-title">Administration</h2>
-          <p className="muted">
-            Les comptes de l'app et leur activité : <a href={href.admin}>ouvrir</a>.
-          </p>
+          <a href={href.admin} className="admin-link">
+            <span className="admin-link__icon" aria-hidden="true">🛡️</span>
+            <span>
+              <strong>Tableau de bord</strong>
+              <span className="muted admin-link__sub">Les comptes de l'app et leur activité</span>
+            </span>
+          </a>
         </section>
       )}
 
