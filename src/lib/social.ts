@@ -180,27 +180,9 @@ export const inviteLink = (username: string) =>
 
 /* ------------------------------------------------------- photo de profil -- */
 
-/** Recadre en carré et réduit : 256 px suffisent, et la photo d'un téléphone fait des Mo. */
-async function squareJpeg(file: File, size = 256): Promise<Blob> {
-  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
-  const side = Math.min(bitmap.width, bitmap.height)
-  const canvas = document.createElement('canvas')
-  canvas.width = canvas.height = size
-  canvas.getContext('2d')!.drawImage(
-    bitmap,
-    (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side,
-    0, 0, size, size,
-  )
-  bitmap.close()
-  return new Promise((resolve, reject) =>
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Image illisible.'))), 'image/jpeg', 0.85),
-  )
-}
-
-/** Envoie la photo (bucket public « avatars », un dossier par compte) et l'enregistre sur le profil. */
-export async function uploadAvatar(file: File): Promise<string> {
+/** Envoie la photo déjà cadrée (bucket public « avatars », un dossier par compte) et l'enregistre sur le profil. */
+export async function uploadAvatar(blob: Blob): Promise<string> {
   const uid = await me()
-  const blob = await squareJpeg(file)
   const path = `${uid}/avatar.jpg`
   const up = await supabase.storage.from('avatars').upload(path, blob, { upsert: true, contentType: 'image/jpeg' })
   if (up.error) throw new Error('Envoi impossible : relance supabase/schema.sql (partie « photos de profil »).')

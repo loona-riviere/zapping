@@ -857,8 +857,6 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
 }
 .avatar { overflow: hidden; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.avatar-picker { display: flex; align-items: center; gap: 1rem; margin: 0 0 1rem; }
-.avatar-picker > div { display: flex; flex-direction: column; align-items: flex-start; gap: .3rem; }
 .avatar--sm { width: 52px; height: 52px; }
 .avatar--lg { width: 72px; height: 72px; font-size: 1.8rem; }
 .friend__me { display: flex; align-items: center; gap: 1rem; margin: .5rem 0 1rem; }
@@ -1309,3 +1307,18 @@ a.choice { text-decoration: none; }
 .admin-link__sub { display: block; font-size: .85rem; margin-top: .1rem; }
 
 .auth__invite { margin: 0 0 1rem; padding: .7rem .9rem; border-radius: 12px; background: color-mix(in srgb, var(--amber) 14%, transparent); font-size: .92rem; text-align: center; }
+
+/* Ma photo : appareil photo posé sur la pastille, puis cadrage */
+.avatar-edit { position: relative; flex: none; padding: 0; border: 0; background: none; border-radius: 50%; cursor: pointer; }
+.avatar-edit__cam {
+  position: absolute; right: -2px; bottom: -2px; width: 28px; height: 28px; display: grid; place-items: center;
+  border-radius: 50%; background: var(--amber); color: #1a1300; border: 2.5px solid var(--bg);
+}
+.cropper { display: flex; flex-direction: column; align-items: center; gap: .8rem; padding-bottom: .5rem; }
+.cropper__frame { position: relative; max-width: 100%; touch-action: none; user-select: none; cursor: grab; border-radius: 14px; overflow: hidden; background: #000; }
+.cropper__frame:active { cursor: grabbing; }
+.cropper__frame canvas { display: block; }
+.cropper__mask { position: absolute; inset: 0; pointer-events: none; border-radius: 50%; box-shadow: 0 0 0 200px rgba(0, 0, 0, .55); outline: 2px solid rgba(255, 255, 255, .85); }
+.cropper__zoom { display: flex; align-items: center; gap: .6rem; width: min(260px, 100%); font-weight: 700; }
+.cropper__zoom input { flex: 1; accent-color: var(--amber); }
+.cropper__hint { margin: 0; font-size: .82rem; text-align: center; }

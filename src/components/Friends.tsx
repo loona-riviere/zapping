@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { href } from '../lib/route'
-import { inviteLink, nameOf, normalizeUsername, removeAvatar, saveProfile, searchProfiles, uploadAvatar, USERNAME_RE, type Profile } from '../lib/social'
+import { inviteLink, nameOf, normalizeUsername, saveProfile, searchProfiles, USERNAME_RE, type Profile } from '../lib/social'
+import { MyAvatar } from './AvatarEditor'
 import { useSocial } from '../lib/socialState'
 import { FriendsFeed } from './FriendsFeed'
 import { Poster } from './Poster'
@@ -13,53 +14,6 @@ export function Avatar({ profile, size = 'sm' }: { profile: Pick<Profile, 'usern
     <span className={`avatar avatar--${size}`} aria-hidden="true">
       {profile.avatar_url ? <img src={profile.avatar_url} alt="" loading="lazy" /> : nameOf(profile).slice(0, 1).toUpperCase()}
     </span>
-  )
-}
-
-/** Changer ou retirer sa photo (depuis « Mon profil »). */
-function AvatarPicker() {
-  const { profile, setProfile } = useSocial()
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  if (!profile) return null
-  async function run(job: () => Promise<string | null>) {
-    setBusy(true)
-    setError(null)
-    try {
-      const url = await job()
-      setProfile({ ...profile!, avatar_url: url })
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-  return (
-    <div className="avatar-picker">
-      <Avatar profile={profile} size="lg" />
-      <div>
-        <label className="btn btn--ghost">
-          {busy ? 'Envoi…' : profile.avatar_url ? 'Changer la photo' : 'Ajouter une photo'}
-          <input
-            type="file"
-            accept="image/*"
-            hidden
-            disabled={busy}
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              e.target.value = ''
-              if (f) run(() => uploadAvatar(f))
-            }}
-          />
-        </label>
-        {profile.avatar_url && !busy && (
-          <button type="button" className="link-btn muted" onClick={() => run(async () => (await removeAvatar(), null))}>
-            Retirer
-          </button>
-        )}
-        {error && <p className="error" style={{ margin: '.4rem 0 0' }}>{error}</p>}
-      </div>
-    </div>
   )
 }
 
@@ -191,7 +145,6 @@ export function Friends() {
             lit — sauf ce que tu choisis de cacher sur une fiche.
           </p>
         )}
-        {profile && <AvatarPicker />}
         <ProfileForm onDone={profile ? () => setEditing(false) : undefined} />
       </div>
     )
@@ -218,7 +171,7 @@ export function Friends() {
   return (
     <div className="friends">
       <section className="friend__me">
-        <Avatar profile={profile} size="lg" />
+        <MyAvatar profile={profile} />
         <div>
           <h2>{nameOf(profile)}</h2>
           <p className="muted">@{profile.username}</p>
