@@ -72,9 +72,10 @@ export default async () => {
       }
       if (!fresh.length) continue
 
+      // Plusieurs d'un coup : tout dans le titre. Un seul : texte inchangé pour l'instant.
       await sendPush(db, userSubs, {
-        title: name,
-        body: describe(fresh),
+        title: fresh.length > 1 ? `📺 ${name} · ${fresh.length} nouveaux épisodes` : name,
+        body: fresh.length > 1 ? '' : describe(fresh),
         url: `/#/show/${showId}`,
       })
     }

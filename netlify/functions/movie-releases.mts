@@ -71,7 +71,7 @@ export default async () => {
     const fr = m.release_dates?.results.find((r) => r.iso_3166_1 === 'FR')
     const cinema = fr?.release_dates.filter((d) => d.type === 2 || d.type === 3).map((d) => d.release_date.slice(0, 10)).sort()[0]
     if (cinema === today()) {
-      for (const u of userIds) await push(u, movieId, 'cinema', { title: 'Au cinéma aujourd’hui', body: `🎬 ${m.title} sort en salle aujourd’hui.`, url })
+      for (const u of userIds) await push(u, movieId, 'cinema', { title: `🎬 ${m.title} au cinéma`, body: '', url })
     }
 
     // Plateformes en abonnement en France.
@@ -79,7 +79,7 @@ export default async () => {
     const prev = before.get(movieId)
     if (prev) {
       for (const p of now.filter((x) => !prev.includes(x))) {
-        for (const u of userIds) await push(u, movieId, `stream:${p}`, { title: `Sur ${p}`, body: `🍿 ${m.title} est arrivé sur ${p}.`, url })
+        for (const u of userIds) await push(u, movieId, `stream:${p}`, { title: `▶️ ${m.title} sur ${p}`, body: '', url })
       }
     }
     await db.from('movie_availability').upsert({ movie_id: movieId, providers: now, checked_at: new Date().toISOString() })

@@ -96,9 +96,9 @@ async function handle(req: Request): Promise<Response> {
         c.kind === 'episode' ? `/#/show/${c.show_id}/ep/${c.item_id}` : c.kind === 'movie' ? `/#/movie/${c.item_id}` : `/#/livre/${encodeURIComponent(c.item_id)}`
       category = 'comments'
       payload = {
-        title: `${who} a commenté ${c.title}`,
+        title: `💬 ${who} sur ${c.title}`,
         // Un épisode peut divulgâcher : on ne recopie pas le texte dans la notif.
-        body: c.kind === 'episode' || c.spoiler ? 'Ouvre pour lire (attention aux spoilers).' : c.body.slice(0, 140),
+        body: c.kind === 'episode' || c.spoiler ? '' : c.body.slice(0, 140),
         url,
       }
       if (tagged.length) {
@@ -106,15 +106,15 @@ async function handle(req: Request): Promise<Response> {
           to: tagged,
           category: 'mentions',
           payload: {
-            title: `${who} t’a mentionné·e`,
-            body: `Dans un commentaire sur ${c.title}${c.kind === 'episode' || c.spoiler ? ' (attention aux spoilers)' : ` : ${c.body.slice(0, 120)}`}`,
+            title: `📣 ${who} parle de toi sur ${c.title}`,
+            body: c.kind === 'episode' || c.spoiler ? '' : c.body.slice(0, 140),
             url,
           },
         })
       }
     }
   } else if (isTest) {
-    if (to === me) payload = { title: 'Zapping', body: 'Les notifications marchent 🎉', url: '/#/parametres' }
+    if (to === me) payload = { title: '✅ Les notifs marchent', body: '', url: '/#/parametres' }
   } else if (body.event === 'friend_request') {
     const { data } = await db
       .from('friendships')
@@ -124,7 +124,7 @@ async function handle(req: Request): Promise<Response> {
       .eq('status', 'pending')
       .maybeSingle()
     category = 'friends'
-    if (data) payload = { title: 'Demande d’ami', body: `${who} veut t’ajouter sur Zapping.`, url: '/#/amis' }
+    if (data) payload = { title: `👋 ${who} veut t’ajouter`, body: '', url: '/#/amis' }
   } else if (body.event === 'friend_accept') {
     const { data } = await db
       .from('friendships')
@@ -134,7 +134,7 @@ async function handle(req: Request): Promise<Response> {
       .eq('status', 'accepted')
       .maybeSingle()
     category = 'friends'
-    if (data) payload = { title: 'Nouvel ami', body: `${who} a accepté ta demande.`, url: '/#/amis' }
+    if (data) payload = { title: `🤝 ${who} a accepté ta demande`, body: '', url: '/#/amis' }
   } else if (body.event === 'rec' && body.kind && body.itemId) {
     const { data } = await db
       .from('recommendations')
@@ -146,10 +146,9 @@ async function handle(req: Request): Promise<Response> {
       .maybeSingle()
     if (data && Date.now() - new Date(data.created_at).getTime() < RECENT_MS) {
       category = 'recs'
-      const what = body.kind === 'book' ? 'un livre' : body.kind === 'movie' ? 'un film' : 'une série'
       payload = {
-        title: `${who} te recommande ${what}`,
-        body: data.note ? `${data.title} — « ${data.note} »` : data.title,
+        title: `🎁 ${who} te recommande ${data.title}`,
+        body: data.note ? `« ${data.note} »` : '',
         url: '/#/amis',
       }
     }
@@ -163,7 +162,7 @@ async function handle(req: Request): Promise<Response> {
       .maybeSingle()
     category = 'together'
     if (data) {
-      payload = { title: 'Série cochée à deux', body: `${who} coche désormais ${data.show_name} pour vous deux.`, url: `/#/show/${body.showId}` }
+      payload = { title: `👫 ${data.show_name} à deux avec ${who}`, body: '', url: `/#/show/${body.showId}` }
     }
   } else if (body.event === 'movie_together' && typeof body.movieId === 'number') {
     // Le film doit être vu des deux côtés, le même jour.
