@@ -10,6 +10,7 @@ import type { TvShow } from '../lib/tvmaze'
 import { Poster } from './Poster'
 import { ActionButton } from './ActionBar'
 import { Sheet } from './Sheet'
+import { Avatar } from './Friends'
 
 type Item = { kind: RecKind; itemId: string; title: string; image: string | null; meta: RecMeta }
 
@@ -74,6 +75,7 @@ export function RecommendButton({ item }: { item: Item }) {
                           onClick={() => toggle(f.user_id)}
                           title={already ? 'Déjà dans sa liste' : undefined}
                         >
+                          <Avatar profile={f} className="pill__face" />
                           {nameOf(f)}
                           {already && <span className="muted rec__has"> · l'a déjà</span>}
                         </button>
@@ -150,7 +152,8 @@ export function IncomingRecs() {
                 <Poster src={r.image_url} alt={r.title} />
                 <div className="row__body">
                   <h3>{r.title}</h3>
-                  <p className="muted">
+                  <p className="muted rec__from">
+                    <Avatar profile={who} className="inline-face" />
                     {who ? nameOf(who) : 'Un ami'} te recommande {KIND_WORD[r.kind]}
                   </p>
                   {r.note && <p className="rec__quote">« {r.note} »</p>}

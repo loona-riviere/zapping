@@ -7,6 +7,7 @@ import { useMovies } from '../lib/moviesState'
 import { shareMovieViewing, type WatchedMovie } from '../lib/store'
 import { ActionButton } from './ActionBar'
 import { Sheet } from './Sheet'
+import { Avatar } from './Friends'
 
 /**
  * « 👫 À deux » sur un film vu : le marque vu chez un ami aussi, à la même
@@ -52,6 +53,7 @@ export function WatchedTogether({ movie }: { movie: WatchedMovie }) {
                         className={`pill${friend?.user_id === f.user_id ? ' pill--on' : ''}`}
                         onClick={() => setFriendId(f.user_id)}
                       >
+                        <Avatar profile={f} className="pill__face" />
                         {nameOf(f)}
                       </button>
                     ))}

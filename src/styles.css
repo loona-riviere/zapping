@@ -1322,3 +1322,10 @@ a.choice { text-decoration: none; }
 .cropper__zoom { display: flex; align-items: center; gap: .6rem; width: min(260px, 100%); font-weight: 700; }
 .cropper__zoom input { flex: 1; accent-color: var(--amber); }
 .cropper__hint { margin: 0; font-size: .82rem; text-align: center; }
+
+/* Mini photos dans les puces d'amis et en début de ligne */
+.pill:has(.pill__face) { display: inline-flex; align-items: center; padding-left: .3rem; }
+.pill__face { width: 22px; height: 22px; font-size: .62rem; margin-right: .4rem; }
+.pill--small .pill__face { width: 18px; height: 18px; font-size: .55rem; margin-right: .3rem; }
+.inline-face { display: inline-grid; width: 20px; height: 20px; font-size: .58rem; margin-right: .35rem; vertical-align: -5px; }
+.together-card__label .inline-face { vertical-align: -6px; }

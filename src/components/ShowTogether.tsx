@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { ActionButton } from './ActionBar'
 import { Sheet, Switch } from './Sheet'
 import type { TvEpisode } from '../lib/tvmaze'
+import { Avatar } from './Friends'
 
 type Scope = 'all' | 'pick' | number
 
@@ -116,6 +117,7 @@ export function ShowTogether({
                     setDone(null)
                   }}
                 >
+                  <Avatar profile={f} className="pill__face" />
                   {nameOf(f)}
                 </button>
               ))}

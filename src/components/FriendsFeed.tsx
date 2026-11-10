@@ -56,7 +56,7 @@ export function FriendsFeed({ friends }: { friends: Profile[] }) {
                   <li key={i.key} className="row feed__item">
                     <a href={linkOf(i)} className="row__link">
                       <span className="feed__face">
-                        {who ? <Avatar profile={who} /> : <span className="avatar avatar--sm" aria-hidden="true">?</span>}
+                        <Avatar profile={who} />
                         <span className="feed__kind" aria-hidden="true">{KIND_ICON[i.kind]}</span>
                       </span>
                       <div className="row__body">

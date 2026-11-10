@@ -16,6 +16,7 @@ import { useShowEpisodes } from '../lib/useShows'
 import { nameOf } from '../lib/social'
 import { useSocial } from '../lib/socialState'
 import { SkeletonRows } from './Skeleton'
+import { Avatar } from './Friends'
 
 export function Stats() {
   const shows = useShows()
@@ -140,7 +141,7 @@ export function Stats() {
         const h = totalHours(t.minutes)
         return (
           <section key={t.friendId} className="together-card">
-            <p className="together-card__label">👫 À deux avec {nameOf(p)}</p>
+            <p className="together-card__label"><Avatar profile={p} className="inline-face" />À deux avec {nameOf(p)}</p>
             <p className="together-card__value">{h.value} <small>{h.unit}</small></p>
             <p className="muted together-card__detail">
               {[

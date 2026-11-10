@@ -1,5 +1,6 @@
 import { nameOf } from '../lib/social'
 import { useSocial } from '../lib/socialState'
+import { Avatar } from './Friends'
 
 /** « Juju et Maman » à partir d'identifiants ; vide si personne. */
 export function useWithLabel() {
@@ -39,6 +40,7 @@ export function WithPicker({ value, onChange }: { value: string[] | undefined; o
             onChange([...next])
           }}
         >
+          <Avatar profile={f} className="pill__face" />
           {nameOf(f)}
         </button>
       ))}
