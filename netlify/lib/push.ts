@@ -15,7 +15,8 @@ const SERVER_OPTIONS = {
 }
 
 export type SubRow = { user_id?: string; endpoint: string; p256dh: string; auth_key: string }
-export type PushPayload = { title: string; body: string; url: string }
+/** icon : photo de l'ami à l'origine de la notif (Android, ordinateur ; iPhone affiche toujours l'icône de l'appli). */
+export type PushPayload = { title: string; body: string; url: string; icon?: string }
 
 /**
  * Prépare l'envoi : vérifie les variables Netlify, configure VAPID et crée

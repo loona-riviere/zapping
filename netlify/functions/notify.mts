@@ -1,4 +1,4 @@
-import { mutedFor, sendPush, setupPush, type NotifCategory, type SubRow } from '../lib/push'
+import { mutedFor, sendPush, setupPush, type NotifCategory, type PushPayload, type SubRow } from '../lib/push'
 
 // Notifs entre amis : demande reçue, demande acceptée, recommandation,
 // invitation à regarder une série à deux. L'app appelle cette fonction juste
@@ -47,16 +47,16 @@ async function handle(req: Request): Promise<Response> {
   const toSelfOk = isTest || body.event === 'comment'
   if (!to || (to === me && !toSelfOk) || !/^[0-9a-f-]{36}$/i.test(to)) return new Response(null, { status: 400 })
 
-  const { data: sender } = await db.from('profiles').select('username, display_name').eq('user_id', me).maybeSingle()
+  const { data: sender } = await db.from('profiles').select('*').eq('user_id', me).maybeSingle()
   const who = sender?.display_name?.trim() || (sender ? `@${sender.username}` : 'Quelqu’un')
 
-  let payload: { title: string; body: string; url: string } | null = null
+  let payload: PushPayload | null = null
   // Type de la notif, que le destinataire peut avoir coupé (null : test, toujours envoyé).
   let category: NotifCategory | null = null
   // Par défaut un seul destinataire ; un commentaire va à plusieurs amis.
   let recipients: string[] = [to]
   // Envois supplémentaires, avec leur propre texte (amis tagués dans un commentaire).
-  const extra: { to: string[]; category: NotifCategory; payload: { title: string; body: string; url: string } }[] = []
+  const extra: { to: string[]; category: NotifCategory; payload: PushPayload }[] = []
 
   if (body.event === 'comment' && typeof body.commentId === 'number') {
     // Mon commentaire, tout juste publié : on prévient mes amis qui ont ce titre.
@@ -199,6 +199,13 @@ async function handle(req: Request): Promise<Response> {
   }
 
   if (!payload) return Response.json({ sent: 0, reason: 'Rien à notifier' })
+
+  // La photo de l'expéditeur en icône (sauf la notif de test, qui vient de l'appli).
+  const icon = !isTest && typeof sender?.avatar_url === 'string' ? sender.avatar_url : undefined
+  if (icon) {
+    payload = { ...payload, icon }
+    for (const e of extra) e.payload = { ...e.payload, icon }
+  }
 
   const all = [{ to: recipients, category, payload }, ...extra]
   const batches: typeof all = []

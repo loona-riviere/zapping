@@ -80,7 +80,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(payload.title, {
       body: payload.body,
-      icon: '/icon-192.png',
+      // Photo de l'ami quand il y en a une (ignorée par iPhone, qui met l'icône de l'appli).
+      icon: payload.icon || '/icon-192.png',
       badge: '/icon-192.png',
       data: { url },
     }),

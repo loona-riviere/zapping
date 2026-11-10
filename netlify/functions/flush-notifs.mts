@@ -1,4 +1,4 @@
-import { mutedFor, sendPush, setupPush, type SubRow } from '../lib/push'
+import { mutedFor, sendPush, setupPush, type PushPayload, type SubRow } from '../lib/push'
 
 // Toutes les 5 minutes : envoie en une seule notif les « vu ensemble » mis en
 // attente par notify, une fois que l'expéditeur a fini (plus rien d'ajouté
@@ -30,16 +30,18 @@ export default async () => {
       await db.from('notif_queue').delete().in('id', rows.map((r) => r.id))
       continue
     }
-    const { data: p } = await db.from('profiles').select('username, display_name').eq('user_id', sender).maybeSingle()
+    const { data: p } = await db.from('profiles').select('*').eq('user_id', sender).maybeSingle()
     const who = p?.display_name?.trim() || (p ? `@${p.username}` : 'Un ami')
     const labels = [...new Set(rows.map((r) => r.label))]
-    const payload =
+    const icon = typeof p?.avatar_url === 'string' ? p.avatar_url : undefined
+    const payload: PushPayload =
       labels.length === 1
-        ? { title: 'Vu ensemble', body: `${who} a noté que vous avez vu ${labels[0]} ensemble.`, url: rows[0].url }
+        ? { title: 'Vu ensemble', body: `${who} a noté que vous avez vu ${labels[0]} ensemble.`, url: rows[0].url, icon }
         : {
             title: 'Vu ensemble',
             body: `${who} a noté ${labels.length} titres vus ensemble : ${labels.slice(0, 3).join(', ')}${labels.length > 3 ? '…' : ''}`,
             url: '/#/',
+            icon,
           }
 
     const { data: subs } = await db.from('push_subscriptions').select('endpoint, p256dh, auth_key').eq('user_id', recipient)
