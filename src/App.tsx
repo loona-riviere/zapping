@@ -33,6 +33,8 @@ import { href, useRoute } from './lib/route'
 import { favoritePosters, saveWallPosters } from './lib/wall'
 import { supabase, supabaseConfigured } from './lib/supabase'
 
+const PENDING_INVITE = 'zapping.pendingInvite'
+
 export default function App() {
   return (
     <>
@@ -76,6 +78,23 @@ function AppContent() {
       </main>
     )
   }
+  // Un lien d'ami ouvert sans compte : on s'en souvient le temps de l'inscription
+  // (la connexion Google recharge la page sans le #…).
+  useEffect(() => {
+    if (session === undefined) return
+    try {
+      if (!session && /^#\/ami\/[^?/]+/.test(window.location.hash)) {
+        localStorage.setItem(PENDING_INVITE, window.location.hash)
+      } else if (session) {
+        const pending = localStorage.getItem(PENDING_INVITE)
+        localStorage.removeItem(PENDING_INVITE)
+        if (pending && !/^#\/ami\//.test(window.location.hash)) window.location.hash = pending
+      }
+    } catch {
+      /* stockage indisponible : le lien reste dans l'URL de toute façon */
+    }
+  }, [session])
+
   if (session === undefined) return <Splash />
   if (!session)
     return (

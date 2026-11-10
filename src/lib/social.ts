@@ -8,7 +8,7 @@ import type { TrackedShow, WatchedMovie } from './store'
 import { isMissingSchema } from './store'
 import { me, supabase } from './supabase'
 
-export type Profile = { user_id: string; username: string; display_name: string | null }
+export type Profile = { user_id: string; username: string; display_name: string | null; avatar_url?: string | null }
 
 export type Friendship = {
   other: Profile
@@ -37,7 +37,7 @@ export function normalizeUsername(raw: string): string {
 export async function fetchMyProfile(): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('user_id, username, display_name')
+    .select('*')
     .eq('user_id', await me())
     .maybeSingle()
   if (error) throw error
@@ -46,6 +46,7 @@ export async function fetchMyProfile(): Promise<Profile | null> {
 
 export async function saveProfile(username: string, displayName: string): Promise<Profile> {
   const row = { user_id: await me(), username, display_name: displayName.trim() || null }
+  // Ne touche pas à avatar_url : l'upsert ne met à jour que les colonnes envoyées.
   const { error } = await supabase.from('profiles').upsert(row, { onConflict: 'user_id' })
   if (error) {
     if (error.code === '23505') throw new Error('Ce pseudo est déjà pris.')
@@ -57,7 +58,7 @@ export async function saveProfile(username: string, displayName: string): Promis
 export async function findProfile(username: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('user_id, username, display_name')
+    .select('*')
     .eq('username', normalizeUsername(username))
     .maybeSingle()
   if (error) throw error
@@ -70,7 +71,7 @@ export async function searchProfiles(prefix: string): Promise<Profile[]> {
   if (q.length < 2) return []
   const { data, error } = await supabase
     .from('profiles')
-    .select('user_id, username, display_name')
+    .select('*')
     .like('username', `${q.replace(/[%_]/g, (c) => `\\${c}`)}%`)
     .neq('user_id', await me())
     .order('username')
@@ -88,7 +89,7 @@ export async function fetchFriendships(): Promise<Friendship[]> {
   const rows = (data ?? []) as { requester: string; addressee: string; status: 'pending' | 'accepted'; created_at: string }[]
   const otherIds = rows.map((r) => (r.requester === uid ? r.addressee : r.requester))
   if (!otherIds.length) return []
-  const profiles = await supabase.from('profiles').select('user_id, username, display_name').in('user_id', otherIds)
+  const profiles = await supabase.from('profiles').select('*').in('user_id', otherIds)
   if (profiles.error) throw profiles.error
   const byId = new Map((profiles.data ?? []).map((p) => [p.user_id, p as Profile]))
   return rows
@@ -176,3 +177,43 @@ export async function setHidden(
 /** Lien d'invitation : ouvre le profil, avec le bouton pour demander en ami. */
 export const inviteLink = (username: string) =>
   `${window.location.origin}${window.location.pathname}#/ami/${encodeURIComponent(username)}`
+
+/* ------------------------------------------------------- photo de profil -- */
+
+/** Recadre en carré et réduit : 256 px suffisent, et la photo d'un téléphone fait des Mo. */
+async function squareJpeg(file: File, size = 256): Promise<Blob> {
+  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+  const side = Math.min(bitmap.width, bitmap.height)
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = size
+  canvas.getContext('2d')!.drawImage(
+    bitmap,
+    (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side,
+    0, 0, size, size,
+  )
+  bitmap.close()
+  return new Promise((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Image illisible.'))), 'image/jpeg', 0.85),
+  )
+}
+
+/** Envoie la photo (bucket public « avatars », un dossier par compte) et l'enregistre sur le profil. */
+export async function uploadAvatar(file: File): Promise<string> {
+  const uid = await me()
+  const blob = await squareJpeg(file)
+  const path = `${uid}/avatar.jpg`
+  const up = await supabase.storage.from('avatars').upload(path, blob, { upsert: true, contentType: 'image/jpeg' })
+  if (up.error) throw new Error('Envoi impossible : relance supabase/schema.sql (partie « photos de profil »).')
+  // Le fichier garde le même nom : on change l'URL pour contourner les caches.
+  const url = `${supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl}?v=${Date.now()}`
+  const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('user_id', uid)
+  if (error) throw new Error('Photo envoyée mais pas enregistrée : relance supabase/schema.sql.')
+  return url
+}
+
+export async function removeAvatar(): Promise<void> {
+  const uid = await me()
+  await supabase.storage.from('avatars').remove([`${uid}/avatar.jpg`])
+  const { error } = await supabase.from('profiles').update({ avatar_url: null }).eq('user_id', uid)
+  if (error) throw error
+}

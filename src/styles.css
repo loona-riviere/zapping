@@ -855,6 +855,10 @@ p .skeleton--text { display: inline-block; width: 9rem; vertical-align: middle; 
   flex: none; display: grid; place-items: center; border-radius: 50%;
   background: linear-gradient(135deg, #ff8a4c, #ff3d6e); color: #fff; font: 800 1.1rem var(--display);
 }
+.avatar { overflow: hidden; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.avatar-picker { display: flex; align-items: center; gap: 1rem; margin: 0 0 1rem; }
+.avatar-picker > div { display: flex; flex-direction: column; align-items: flex-start; gap: .3rem; }
 .avatar--sm { width: 52px; height: 52px; }
 .avatar--lg { width: 72px; height: 72px; font-size: 1.8rem; }
 .friend__me { display: flex; align-items: center; gap: 1rem; margin: .5rem 0 1rem; }
@@ -1303,3 +1307,5 @@ a.choice { text-decoration: none; }
 .admin-link::after { content: '›'; margin-left: auto; color: var(--muted); font-size: 1.2rem; }
 .admin-link__icon { font-size: 1.4rem; }
 .admin-link__sub { display: block; font-size: .85rem; margin-top: .1rem; }
+
+.auth__invite { margin: 0 0 1rem; padding: .7rem .9rem; border-radius: 12px; background: color-mix(in srgb, var(--amber) 14%, transparent); font-size: .92rem; text-align: center; }

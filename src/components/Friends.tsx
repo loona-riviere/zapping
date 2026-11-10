@@ -1,18 +1,65 @@
 import { useEffect, useState } from 'react'
 import { href } from '../lib/route'
-import { inviteLink, nameOf, normalizeUsername, saveProfile, searchProfiles, USERNAME_RE, type Profile } from '../lib/social'
+import { inviteLink, nameOf, normalizeUsername, removeAvatar, saveProfile, searchProfiles, uploadAvatar, USERNAME_RE, type Profile } from '../lib/social'
 import { useSocial } from '../lib/socialState'
 import { FriendsFeed } from './FriendsFeed'
 import { Poster } from './Poster'
 import { IncomingRecs } from './Recommend'
 import { SkeletonRows } from './Skeleton'
 
-/** Pastille avec l'initiale : pas de photo pour l'instant, une lettre suffit à se repérer. */
-export function Avatar({ profile, size = 'sm' }: { profile: Pick<Profile, 'username' | 'display_name'>; size?: 'sm' | 'lg' }) {
+/** La photo de profil, sinon une pastille avec l'initiale. */
+export function Avatar({ profile, size = 'sm' }: { profile: Pick<Profile, 'username' | 'display_name' | 'avatar_url'>; size?: 'sm' | 'lg' }) {
   return (
     <span className={`avatar avatar--${size}`} aria-hidden="true">
-      {nameOf(profile).slice(0, 1).toUpperCase()}
+      {profile.avatar_url ? <img src={profile.avatar_url} alt="" loading="lazy" /> : nameOf(profile).slice(0, 1).toUpperCase()}
     </span>
+  )
+}
+
+/** Changer ou retirer sa photo (depuis « Mon profil »). */
+function AvatarPicker() {
+  const { profile, setProfile } = useSocial()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  if (!profile) return null
+  async function run(job: () => Promise<string | null>) {
+    setBusy(true)
+    setError(null)
+    try {
+      const url = await job()
+      setProfile({ ...profile!, avatar_url: url })
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="avatar-picker">
+      <Avatar profile={profile} size="lg" />
+      <div>
+        <label className="btn btn--ghost">
+          {busy ? 'Envoi…' : profile.avatar_url ? 'Changer la photo' : 'Ajouter une photo'}
+          <input
+            type="file"
+            accept="image/*"
+            hidden
+            disabled={busy}
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              e.target.value = ''
+              if (f) run(() => uploadAvatar(f))
+            }}
+          />
+        </label>
+        {profile.avatar_url && !busy && (
+          <button type="button" className="link-btn muted" onClick={() => run(async () => (await removeAvatar(), null))}>
+            Retirer
+          </button>
+        )}
+        {error && <p className="error" style={{ margin: '.4rem 0 0' }}>{error}</p>}
+      </div>
+    </div>
   )
 }
 
@@ -34,7 +81,7 @@ export function ProfileForm({ onDone }: { onDone?: () => void }) {
         setSaving(true)
         setError(null)
         try {
-          setProfile(await saveProfile(username, displayName))
+          setProfile({ ...profile, ...(await saveProfile(username, displayName)) })
           onDone?.()
         } catch (err) {
           setError((err as Error).message)
@@ -77,7 +124,7 @@ export function ProfileForm({ onDone }: { onDone?: () => void }) {
   )
 }
 
-function RelationButton({ other }: { other: Profile }) {
+export function RelationButton({ other }: { other: Profile }) {
   const { relationWith, ask, accept } = useSocial()
   const rel = relationWith(other.user_id)
   if (rel === 'friends') return <span className="muted friend__tag">Ami·e</span>
@@ -144,6 +191,7 @@ export function Friends() {
             lit — sauf ce que tu choisis de cacher sur une fiche.
           </p>
         )}
+        {profile && <AvatarPicker />}
         <ProfileForm onDone={profile ? () => setEditing(false) : undefined} />
       </div>
     )
@@ -306,4 +354,3 @@ export function Friends() {
   )
 }
 
-export { RelationButton }

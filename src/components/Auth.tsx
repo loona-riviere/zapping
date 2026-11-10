@@ -14,6 +14,14 @@ export function Auth() {
   const [code, setCode] = useState('')
   const [step, setStep] = useState<Step>('form')
   const [error, setError] = useState('')
+  const inviter = (() => {
+    try {
+      const m = window.location.hash.match(/^#\/ami\/([^?/]+)/)
+      return m ? decodeURIComponent(m[1]) : null
+    } catch {
+      return null
+    }
+  })()
 
   useEffect(() => {
     // Quand l'échange OAuth échoue côté serveur (ex. state Safari perdu en
@@ -119,6 +127,12 @@ export function Auth() {
         <h1 className="wordmark wordmark--big">Zapping</h1>
         <Mire />
         <p className="auth__lede">Séries, films, livres : retrouve toujours où tu en es.</p>
+        {inviter && (
+          <p className="auth__invite">
+            <strong>@{inviter}</strong> t'attend sur Zapping. Connecte-toi — ou crée ton compte en
+            une minute — et tu pourras l'ajouter.
+          </p>
+        )}
 
         {mode === 'code' && (
           <>

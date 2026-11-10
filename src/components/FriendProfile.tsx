@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { href } from '../lib/route'
 import { fetchFriendLibrary, findProfile, nameOf, type FriendLibrary, type Profile } from '../lib/social'
 import { useSocial } from '../lib/socialState'
-import { Avatar, RelationButton } from './Friends'
+import { Avatar, ProfileForm, RelationButton } from './Friends'
 import { Poster } from './Poster'
 import { SkeletonPage } from './Skeleton'
 
@@ -32,10 +32,22 @@ function Shelf({ title, items }: { title: string; items: Tile[] }) {
 const recent = (a: string | null | undefined, b: string | null | undefined) => (b ?? '').localeCompare(a ?? '')
 
 export function FriendProfile({ username }: { username: string }) {
-  const { profile: me, relationWith, remove, socialReady } = useSocial()
+  const { profile: me, relationWith, remove, ask, socialReady, loading } = useSocial()
   const [other, setOther] = useState<Profile | null | undefined>(undefined)
   const [library, setLibrary] = useState<FriendLibrary | null>(null)
   const relation = other ? relationWith(other.user_id) : 'none'
+  // Arrivé par un lien sans pseudo : on le fait choisir ici, puis la demande part d'elle-même.
+  const [signingUp, setSigningUp] = useState(false)
+  const needsPseudo = !loading && !me
+  useEffect(() => {
+    if (needsPseudo) setSigningUp(true)
+  }, [needsPseudo])
+  useEffect(() => {
+    if (signingUp && me && other && other.user_id !== me.user_id && relation === 'none') {
+      setSigningUp(false)
+      ask(other)
+    }
+  }, [signingUp, me, other, relation, ask])
 
   useEffect(() => {
     let alive = true
@@ -65,7 +77,25 @@ export function FriendProfile({ username }: { username: string }) {
   if (!socialReady) return <p className="muted pad">Les amis ne sont pas encore installés : relance schema.sql.</p>
   if (other === undefined) return <SkeletonPage />
   if (!other) return <p className="muted pad">Personne avec le pseudo « {username} ». <a href={href.friends}>Retour</a></p>
-  if (me && other.user_id === me.user_id) {
+  if (!me) {
+    return (
+      <article className="friend">
+        <header className="friend__me">
+          <Avatar profile={other} size="lg" />
+          <div>
+            <h1>{nameOf(other)}</h1>
+            <p className="muted">@{other.username}</p>
+          </div>
+        </header>
+        <h2 className="section-title">Dernière étape : choisis ton pseudo</h2>
+        <p className="muted">
+          Dès que c'est fait, ta demande part vers {nameOf(other)}.
+        </p>
+        <ProfileForm />
+      </article>
+    )
+  }
+  if (other.user_id === me.user_id) {
     return (
       <p className="muted pad">
         C'est ton propre profil 🙂 Partage ce lien à tes amis pour qu'ils t'ajoutent. <a href={href.friends}>Mes amis</a>
@@ -84,18 +114,12 @@ export function FriendProfile({ username }: { username: string }) {
           <h1>{name}</h1>
           <p className="muted">@{other.username}</p>
         </div>
-        {relation !== 'friends' && (me ? <RelationButton other={other} /> : null)}
+        {relation !== 'friends' && <RelationButton other={other} />}
       </header>
 
-      {!me && (
-        <p className="muted">
-          Choisis d'abord ton pseudo dans <a href={href.friends}>Amis</a>, puis reviens sur ce lien pour
-          ajouter {name}.
-        </p>
-      )}
       {relation === 'sent' && <p className="muted">Demande envoyée : {name} doit l'accepter.</p>}
       {relation === 'received' && <p className="muted">{name} t'a demandé en ami.</p>}
-      {relation === 'none' && me && (
+      {relation === 'none' && (
         <p className="muted">Une fois amis, vous verrez chacun ce que l'autre regarde et lit.</p>
       )}
 
