@@ -156,7 +156,7 @@ export function Friends() {
     try {
       // Le lien passe par `url` seulement : iPhone et Android l'ajoutent
       // d'eux-mêmes après le texte, il apparaissait sinon deux fois.
-      if (navigator.share) await navigator.share({ title: 'Zapping', text: 'Ajoute-moi sur Zapping :', url: link })
+      if (navigator.share) await navigator.share({ title: 'Zapping', text: `Ajoute-moi sur Zapping (@${profile!.username}) : ouvre mon profil et appuie sur « Ajouter ».`, url: link })
       else {
         await navigator.clipboard.writeText(link)
         setShared(true)
@@ -180,7 +180,7 @@ export function Friends() {
         </button>
       </section>
       <button className="btn btn--primary" onClick={share}>
-        {shared ? 'Lien copié ✓' : 'Inviter un ami (partager mon lien)'}
+        {shared ? 'Lien copié ✓' : 'Envoyer mon profil pour qu’on m’ajoute'}
       </button>
 
       <IncomingRecs />
@@ -224,7 +224,7 @@ export function Friends() {
           autoCorrect="off"
         />
         {query.trim().length >= 2 && !results.length && (
-          <p className="muted">Personne avec ce pseudo. Envoie-lui plutôt ton lien d'invitation.</p>
+          <p className="muted">Personne avec ce pseudo. Envoie-lui plutôt ton profil avec le bouton ci-dessus.</p>
         )}
         <ul className="rows">
           {results.map((p) => (
