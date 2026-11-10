@@ -59,8 +59,8 @@ export type SeasonIssue = {
   showName: string
   season: number
   /** Un épisode vu après un épisode qui le suit à l'écran — signe d'un mauvais import. */
-  before: { code: string; date: string }
-  after: { code: string; date: string }
+  before: { id: number; code: string; date: string }
+  after: { id: number; code: string; date: string }
 }
 
 /**
@@ -102,8 +102,8 @@ export function findSeasonIssues(
             showId: t.show_id,
             showName: show.show.name,
             season,
-            before: { code: epCode(prev), date: prevDate },
-            after: { code: epCode(cur), date: curDate },
+            before: { id: prev.id, code: epCode(prev), date: prevDate },
+            after: { id: cur.id, code: epCode(cur), date: curDate },
           })
         }
       }

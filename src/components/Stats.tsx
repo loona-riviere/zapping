@@ -260,16 +260,19 @@ export function Stats() {
                 {report.season.length > 0 && (
                   <div className="diag__group">
                     <p>
-                      {report.season.length} saison{report.season.length > 1 ? 's' : ''} où les dates
-                      ne progressent pas dans l'ordre de diffusion — signe possible d'un import mal
-                      associé. À revoir au cas par cas, rien n'est corrigé automatiquement.
+                      {report.season.length} saison{report.season.length > 1 ? 's' : ''} où un épisode
+                      est daté plus tard que le suivant — souvent une date mal importée. Touche
+                      l'épisode dont la date est fausse et change-la à côté de « ✓ Vu ». Si tu les as
+                      vraiment vus dans cet ordre, rien à faire.
                     </p>
                     <ul className="diag__list">
                       {report.season.map((issue, i) => (
                         <li key={i}>
-                          <a href={href.show(issue.showId)}>{issue.showName}</a>, saison {issue.season} —{' '}
-                          {issue.before.code} vu le {formatShortDate(issue.before.date)}, après{' '}
-                          {issue.after.code} vu le {formatShortDate(issue.after.date)}.
+                          <a href={href.show(issue.showId)}>{issue.showName}</a>, saison {issue.season} :{' '}
+                          <a href={href.episode(issue.showId, issue.before.id)}>{issue.before.code}</a> vu le{' '}
+                          {formatShortDate(issue.before.date)}, mais{' '}
+                          <a href={href.episode(issue.showId, issue.after.id)}>{issue.after.code}</a> vu dès le{' '}
+                          {formatShortDate(issue.after.date)}.
                         </li>
                       ))}
                     </ul>
