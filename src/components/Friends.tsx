@@ -9,10 +9,21 @@ import { IncomingRecs } from './Recommend'
 import { SkeletonRows } from './Skeleton'
 
 /** La photo de profil, sinon une pastille avec l'initiale. */
-export function Avatar({ profile, size = 'sm' }: { profile: Pick<Profile, 'username' | 'display_name' | 'avatar_url'>; size?: 'sm' | 'lg' }) {
+export function Avatar({
+  profile,
+  size = 'sm',
+  className = '',
+}: {
+  profile: Pick<Profile, 'username' | 'display_name' | 'avatar_url'> | null | undefined
+  size?: 'sm' | 'lg'
+  /** Classe de taille propre à l'endroit (commentaires, mentions…). */
+  className?: string
+}) {
   return (
-    <span className={`avatar avatar--${size}`} aria-hidden="true">
-      {profile.avatar_url ? <img src={profile.avatar_url} alt="" loading="lazy" /> : nameOf(profile).slice(0, 1).toUpperCase()}
+    <span className={`avatar avatar--${size} ${className}`.trim()} aria-hidden="true">
+      {!profile ? '?'
+        : profile.avatar_url ? <img src={profile.avatar_url} alt="" loading="lazy" />
+        : nameOf(profile).slice(0, 1).toUpperCase()}
     </span>
   )
 }

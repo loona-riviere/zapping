@@ -3,6 +3,7 @@ import type { FriendOn } from '../lib/friendsOn'
 import { href } from '../lib/route'
 import { nameOf } from '../lib/social'
 import { useSocial } from '../lib/socialState'
+import { Avatar } from './Friends'
 import { Sheet } from './Sheet'
 
 const RATING_ICON = { love: '❤️', like: '👍', meh: '😐', dislike: '👎' } as const
@@ -56,11 +57,7 @@ export function FriendsOn({
         <span className="friends-on__faces" aria-hidden="true">
           {sorted.slice(0, 4).map((r) => {
             const p = profileOf(r.userId)
-            return (
-              <span key={r.userId} className="avatar friends-on__face">
-                {(p ? nameOf(p) : '?').slice(0, 1).toUpperCase()}
-              </span>
-            )
+            return <Avatar key={r.userId} profile={p} className="friends-on__face" />
           })}
         </span>
         <span className="friends-on__text">{line}</span>
@@ -74,7 +71,7 @@ export function FriendsOn({
               return (
                 <li key={r.userId}>
                   <a className="choice" href={p ? href.friend(p.username) : undefined}>
-                    <span className="avatar friends-on__face" aria-hidden="true">{(p ? nameOf(p) : '?').slice(0, 1).toUpperCase()}</span>
+                    <Avatar profile={p} className="friends-on__face" />
                     <span className="choice__text">
                       {p ? nameOf(p) : 'Un ami'}
                       <span className="choice__hint">{r.detail}</span>

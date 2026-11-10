@@ -3,6 +3,7 @@ import { addComment, ago, deleteComment, editComment, fetchComments, type Commen
 import { notify } from '../lib/notify'
 import { nameOf, type Profile } from '../lib/social'
 import { useSocial } from '../lib/socialState'
+import { Avatar } from './Friends'
 
 /**
  * Les commentaires d'un épisode, d'un film ou d'un livre, entre amis.
@@ -94,7 +95,7 @@ export function Comments({
           const mine = c.user_id === profile.user_id
           return (
             <li key={c.id} className={`comment${mine ? ' comment--mine' : ''}`}>
-              <span className="avatar comment__avatar" aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>
+              <Avatar profile={p} className="comment__avatar" />
               <div className="comment__bubble">
                 <p className="comment__meta">
                   <strong>{mine ? 'Toi' : name}</strong> · <span className="muted">{ago(c.created_at)}{c.edited_at ? ' · modifié' : ''}</span>
@@ -233,7 +234,7 @@ function MentionPicker({ friends, query, onPick }: { friends: Profile[]; query: 
             onPick(f)
           }}
         >
-          <span className="avatar mentions__avatar" aria-hidden="true">{nameOf(f).slice(0, 1).toUpperCase()}</span>
+          <Avatar profile={f} className="mentions__avatar" />
           <span>
             <strong>{nameOf(f)}</strong> <span className="muted">@{f.username}</span>
           </span>
