@@ -13,6 +13,7 @@ export function PageInput({ book, compact = false }: { book: TrackedBook; compac
   const { updateBook } = useBooks()
   const [page, setPage] = useState(book.current_page)
   const [typed, setTyped] = useState(String(book.current_page || ''))
+  const [editTotal, setEditTotal] = useState(false)
 
   useEffect(() => {
     setPage(book.current_page)
@@ -54,7 +55,40 @@ export function PageInput({ book, compact = false }: { book: TrackedBook; compac
           onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
           onClick={(e) => e.stopPropagation()}
         />
-        {book.page_count ? <span className="muted">/ {book.page_count}</span> : null}
+        {book.page_count ? (
+          editTotal ? (
+            <span className="pages__total">
+              /
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                autoFocus
+                defaultValue={book.page_count}
+                aria-label="Nombre de pages du livre"
+                onBlur={(e) => {
+                  const n = Math.round(Number(e.target.value))
+                  setEditTotal(false)
+                  if (n > 0 && n !== book.page_count) updateBook(book.book_id, { page_count: n })
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
+              />
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="pages__total pages__total--btn"
+              title="Ton édition n'a pas le même nombre de pages ? Touche pour le changer"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setEditTotal(true)
+              }}
+            >
+              / {book.page_count} ✎
+            </button>
+          )
+        ) : null}
         {pct !== null && <span className="pages__pct">{pct} %</span>}
       </label>
       {book.page_count ? (
