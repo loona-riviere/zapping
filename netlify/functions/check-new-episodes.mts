@@ -72,10 +72,10 @@ export default async () => {
       }
       if (!fresh.length) continue
 
-      // Plusieurs d'un coup : tout dans le titre. Un seul : texte inchangé pour l'instant.
+      // Plusieurs d'un coup : tout dans le titre. Un seul : le code et le nom en dessous.
       await sendPush(db, userSubs, {
-        title: fresh.length > 1 ? `📺 ${name} · ${fresh.length} nouveaux épisodes` : name,
-        body: fresh.length > 1 ? '' : describe(fresh),
+        title: fresh.length > 1 ? `📺 ${name} · ${fresh.length} nouveaux épisodes` : `📺 ${name} : nouvel épisode`,
+        body: fresh.length > 1 ? '' : describe(fresh[0]),
         url: `/#/show/${showId}`,
       })
     }
@@ -85,11 +85,7 @@ export default async () => {
 const code = (e: Episode) => `S${String(e.season).padStart(2, '0')}E${String(e.number).padStart(2, '0')}`
 
 /** « Nouvel épisode : S04E10 — Being Alive », ou « 10 nouveaux épisodes : S04E01 → E10 ». */
-function describe(eps: Episode[]): string {
-  if (eps.length === 1) return `Nouvel épisode : ${code(eps[0])}${eps[0].name ? ` — ${eps[0].name}` : ''}`
-  const sorted = [...eps].sort((a, b) => a.season - b.season || a.number - b.number)
-  const first = sorted[0]
-  const last = sorted[sorted.length - 1]
-  const range = first.season === last.season ? `${code(first)} → E${String(last.number).padStart(2, '0')}` : `${code(first)} → ${code(last)}`
-  return `${eps.length} nouveaux épisodes : ${range}`
+/** « S04E01 · Tomorrow », ou juste le code quand l'épisode n'a pas de nom. */
+function describe(ep: Episode): string {
+  return `${code(ep)}${ep.name ? ` · ${ep.name}` : ''}`
 }

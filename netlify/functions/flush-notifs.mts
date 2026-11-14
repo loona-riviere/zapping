@@ -34,15 +34,15 @@ export default async () => {
     const who = p?.display_name?.trim() || (p ? `@${p.username}` : 'Un ami')
     const labels = [...new Set(rows.map((r) => r.label))]
     const icon = typeof p?.avatar_url === 'string' ? p.avatar_url : undefined
+    // « Dune, Severance et The Bear » ; au-delà de 3 : « …, The Bear et 2 autres ».
+    const list =
+      labels.length <= 3
+        ? labels.slice(0, -1).join(', ') + ' et ' + labels[labels.length - 1]
+        : `${labels.slice(0, 3).join(', ')} et ${labels.length - 3} autre${labels.length > 4 ? 's' : ''}`
     const payload: PushPayload =
       labels.length === 1
-        ? { title: 'Vu ensemble', body: `${who} a noté que vous avez vu ${labels[0]} ensemble.`, url: rows[0].url, icon }
-        : {
-            title: 'Vu ensemble',
-            body: `${who} a noté ${labels.length} titres vus ensemble : ${labels.slice(0, 3).join(', ')}${labels.length > 3 ? '…' : ''}`,
-            url: '/#/',
-            icon,
-          }
+        ? { title: `🍿 ${who} a vu ${labels[0]} avec toi`, body: '', url: rows[0].url, icon }
+        : { title: `🍿 Vu ensemble avec ${who}`, body: list, url: '/#/', icon }
 
     const { data: subs } = await db.from('push_subscriptions').select('endpoint, p256dh, auth_key').eq('user_id', recipient)
     await sendPush(db, (subs ?? []) as SubRow[], payload)
